@@ -1,0 +1,103 @@
+module main
+
+import libc
+import gl
+
+struct Terrain {
+    height_map_texture i32,
+    shader i32,
+    vao i32,
+    ebo i32,
+    height_map @mut f32,
+}
+
+const terrain_grid_size = 1536 as i32
+const grid_factor = 16 as i32
+const small_grid_size = (terrain_grid_size / grid_factor) as i16
+const small_grid_rows = small_grid_size + 1
+const index_count = small_grid_size as i32 * small_grid_size as i32 * 4
+
+function create_height_map_texture(seed i32) -> i32 {
+    mut texture = 0 as i32
+    gl.glad_glGenTextures(1, &texture)
+	gl.glad_glBindTexture(gl.TEXTURE_2D, texture)
+	gl.glad_glTexStorage2D(gl.TEXTURE_2D, 1, gl.R16F, terrain_grid_size + 1, terrain_grid_size + 1)
+	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.glad_glBindImageTexture(0, texture, 0, false, 0, gl.WRITE_ONLY, gl.R16F)
+
+    let central_island_min = 46.0 as f32  # ceil(64 * sqrt(0.5))
+    let central_island_max = central_island_min + 128.0
+    let program = compile_shader_program(&[
+        compile_shader(gl.COMPUTE_SHADER, &"shaders/terrain/height_gen.comp"[0]),
+    ])
+    gl.glad_glUseProgram(program)
+    gl.glad_glUniform1ui(gl.glad_glGetUniformLocation(program, &"seed"[0]), seed)
+    gl.glad_glUniform2f(gl.glad_glGetUniformLocation(program, &"central_island"[0]), central_island_min, central_island_max)
+    gl.glad_glDispatchCompute(terrain_grid_size + 1, terrain_grid_size + 1, 1)
+    gl.glad_glUseProgram(0)
+    gl.glad_glDeleteProgram(program)
+
+    texture
+}
+
+function create_ebo() -> i32 {
+    mut indices = alloc(index_count as isize, `size_of[i16])
+    mut i = 0 as isize
+    for z = 0 as i16; z < small_grid_size; z += 1 {
+        for x = 0 as i16; x < small_grid_size; x += 1 {
+            indices[i] = (z + 1) * small_grid_rows + x
+            indices[i + 1] = z * small_grid_rows + x
+            indices[i + 2] = z * small_grid_rows + x + 1
+            indices[i + 3] = (z + 1) * small_grid_rows + x + 1
+            i += 4
+        }
+    }
+    mut buffer = 0 as i32
+    gl.glad_glGenBuffers(1, &buffer)
+    gl.glad_glBindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
+    gl.glad_glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * index_count as isize, indices.data, 0)
+    free(indices)
+    buffer
+}
+
+public function init_terrain(seed i32) -> Terrain {
+    let height_map_texture = create_height_map_texture(seed)
+
+    let shader = compile_shader_program(&[
+        compile_shader(gl.VERTEX_SHADER, &"shaders/terrain/terrain.vert"[0]),
+        compile_shader(gl.TESS_CONTROL_SHADER, &"shaders/terrain/terrain.tesc"[0]),
+        compile_shader(gl.TESS_EVALUATION_SHADER, &"shaders/terrain/terrain.tese"[0]),
+        compile_shader(gl.FRAGMENT_SHADER, &"shaders/terrain/terrain.frag"[0]),
+    ])
+    gl.glad_glUseProgram(shader)
+    gl.glad_glUniform1f(gl.glad_glGetUniformLocation(shader, &"tile_size"[0]), 1.0 / terrain_grid_size as f32)
+    mut vao = 0 as i32
+    gl.glad_glGenVertexArrays(1, &vao)
+    gl.glad_glBindVertexArray(vao)
+    let ebo = create_ebo()
+    gl.glad_glBindVertexArray(0)
+	gl.glad_glPatchParameteri(gl.PATCH_VERTICES, 4)
+
+    gl.glad_glBindTexture(gl.TEXTURE_2D, height_map_texture)
+    let height_map = alloc(((terrain_grid_size + 1) * (terrain_grid_size + 1)) as isize, `size_of[f32])
+    gl.glad_glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
+    Terrain(
+        height_map_texture,
+        shader,
+        vao,
+        ebo,
+        height_map,
+    )
+}
+
+public function draw_terrain(terrain Terrain) {
+    gl.glad_glActiveTexture(gl.TEXTURE3)
+    gl.glad_glBindTexture(gl.TEXTURE_2D, terrain.height_map_texture)
+    gl.glad_glUseProgram(terrain.shader)
+    gl.glad_glBindVertexArray(terrain.vao)
+    gl.glad_glDrawElements(gl.PATCHES, index_count, gl.UNSIGNED_SHORT, null)
+    gl.glad_glBindVertexArray(0)
+}

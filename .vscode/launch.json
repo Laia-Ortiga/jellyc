@@ -1,0 +1,124 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch hello world",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/hello_world.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch fibonacci",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/fibonacci.jel",
+                "lib/std.jel",
+                "lib/libc.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch basic lexer",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/basic_lexer.jel",
+                "lib/std.jel",
+                "lib/libc.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch test1",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/test1.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch errors1",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "-print-debug",
+                "test/errors1.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch errors_role",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/errors_role.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch errors affine",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/errors_affine.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch generic function",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/generic_function.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch opengl",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/opengl/gl.jel",
+                "test/opengl/glfw.jel",
+                "test/opengl/main.jel",
+                "test/opengl/sky.jel",
+                "test/opengl/terrain.jel",
+                "test/opengl/util.jel",
+                "lib/libc.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,0 +1,337 @@
+module main
+
+import std
+import libc
+
+enum TokenKind i8 {
+    sentinel,
+    invalid,
+    lround,
+    rround,
+    lsquare,
+    rsquare,
+    lcurly,
+    rcurly,
+    comma,
+    dot,
+    semicolon,
+    arrow,
+    plus,
+    minus,
+    star,
+    div,
+    mod,
+    assign,
+    eq,
+    ne,
+    lt,
+    gt,
+    le,
+    ge,
+    not,
+
+    kw_function,
+    kw_let,
+    kw_return,
+
+    character,
+    string,
+    int,
+    id,
+}
+
+struct Token {
+    tag TokenKind,
+    start isize,
+    length isize,
+}
+
+struct Lexer {
+    path @char,
+    source @char,
+    cursor isize,
+}
+
+function init_lexer(path @char, source @char) -> Lexer {
+    Lexer(path, source, 0)
+}
+
+function next(lexer *mut Lexer) -> Token {
+    let start = lexer.cursor
+    let c = consume(lexer)
+    switch c {
+        '\0' -> Token(.sentinel, start, 0),
+        ' ' -> next(lexer),
+        '\t' -> next(lexer),
+        '\n' -> next(lexer),
+        '#' -> comment(lexer),
+        '(' -> Token(.lround, start, 1),
+        ')' -> Token(.rround, start, 1),
+        '[' -> Token(.lsquare, start, 1),
+        ']' -> Token(.rsquare, start, 1),
+        '{' -> Token(.lcurly, start, 1),
+        '}' -> Token(.rcurly, start, 1),
+        ',' -> Token(.comma, start, 1),
+        '.' -> Token(.dot, start, 1),
+        ';' -> Token(.semicolon, start, 1),
+        '+' -> Token(.plus, start, 1),
+        '-' ->
+            switch {
+                accept(lexer, '>') -> Token(.arrow, start, 2),
+                else -> Token(.minus, start, 1),
+            },
+        '*' -> Token(.star, start, 1),
+        '/' -> Token(.div, start, 1),
+        '%' -> Token(.mod, start, 1),
+        '=' ->
+            switch {
+                accept(lexer, '=') -> Token(.eq, start, 2),
+                else -> Token(.assign, start, 1),
+            },
+        '!' ->
+            switch {
+                accept(lexer, '=') -> Token(.ne, start, 2),
+                else -> Token(.not, start, 1),
+            },
+        '<' ->
+            switch {
+                accept(lexer, '=') -> Token(.le, start, 2),
+                else -> Token(.lt, start, 1),
+            },
+        '>' ->
+            switch {
+                accept(lexer, '=') -> Token(.ge, start, 2),
+                else -> Token(.gt, start, 1),
+            },
+        '\'' -> character(lexer),
+        '"' -> string(lexer),
+        else ->
+            switch {
+                is_alpha(c) or c == '_' -> id(lexer),
+                is_digit(c) -> num(lexer, c),
+                else -> Token(.invalid, start, 1),
+            },
+    }
+}
+
+function print(lexer *mut Lexer) {
+    std.print_str(&"Tokens[\n")
+
+    while true {
+        let token = next(lexer)
+
+        if token.tag == TokenKind.sentinel {
+            break
+        }
+
+        std.print_str(&"  ")
+        print_token(token, *lexer)
+    }
+
+    std.print_str(&"]\n")
+}
+
+function print_token(token Token, lexer Lexer) {
+    std.print_str(&"`")
+    std.print_str(&lexer.source[token.start:token.start + token.length])
+    std.print_str(&"`: ")
+    std.print_str(tag_to_str(token.tag))
+    std.print_str(&"\n")
+}
+
+function tag_to_str(tag TokenKind) -> @char {
+    switch tag {
+        .sentinel -> &"sentinel",
+        .invalid -> &"invalid",
+        .lround -> &"(",
+        .rround -> &")",
+        .lsquare -> &"[",
+        .rsquare -> &"]",
+        .lcurly -> &"{",
+        .rcurly -> &"}",
+        .comma -> &",",
+        .dot -> &".",
+        .semicolon -> &";",
+        .arrow -> &"->",
+
+        .plus -> &"+",
+        .minus -> &"-",
+        .star -> &"*",
+        .div -> &"/",
+        .mod -> &"%",
+
+        .eq -> &"==",
+        .ne -> &"!=",
+        .lt -> &"<",
+        .gt -> &">",
+        .le -> &"<=",
+        .ge -> &">=",
+        .not -> &"!",
+
+        .assign -> &"=",
+
+        .kw_function -> &"function",
+        .kw_let -> &"let",
+        .kw_return -> &"return",
+
+        .character -> &"char",
+        .string -> &"string",
+        .int -> &"int",
+        .id -> &"id",
+    }
+}
+
+function peek(lexer *Lexer) -> char {
+    lexer.source[lexer.cursor]
+}
+
+function consume(lexer *mut Lexer) -> char {
+    let c = peek(lexer)
+
+    if c != 0 {
+        lexer.cursor += 1
+    }
+
+    c
+}
+
+function accept(lexer *mut Lexer, c char) -> bool {
+    let accepted = peek(lexer) == c
+
+    if accepted {
+        consume(lexer)
+    }
+
+    accepted
+}
+
+function is_alpha(c char) -> bool {
+    (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z')
+}
+
+function is_digit(c char) -> bool {
+    c >= '0' and c <= '9'
+}
+
+function is_hex_digit(c char) -> bool {
+    is_digit(c) or (c >= 'a' and c <= 'f') or (c >= 'A' and c <= 'F')
+}
+
+function is_id_char(c char) -> bool {
+    is_alpha(c) or c == '_' or is_digit(c)
+}
+
+function mem_eq(a @char, b @char) -> bool {
+    if a.length != b.length {
+        return false
+    }
+    for i = 0 as isize; i < a.length; i += 1 {
+        if a[i] != b[i] {
+            return false
+        }
+    }
+    true
+}
+
+function comment(lexer *mut Lexer) -> Token {
+    consume(lexer)
+    while peek(lexer) != 0 and peek(lexer) != '\n' {
+        consume(lexer)
+    }
+    next(lexer)
+}
+
+function character(lexer *mut Lexer) -> Token {
+    let start = lexer.cursor - 1
+    mut escape = false
+    while true {
+        let c = peek(lexer)
+        if !escape and c == '\'' {
+            consume(lexer)
+            break
+        }
+        if c == 0 or c == '\n' {
+            break
+        }
+        escape = !escape and c == '\\'
+        consume(lexer)
+    }
+    Token(.character, start, lexer.cursor - start)
+}
+
+function string(lexer *mut Lexer) -> Token {
+    let start = lexer.cursor - 1
+    mut escape = false
+    while true {
+        let c = peek(lexer)
+        if !escape and c == '"' {
+            consume(lexer)
+            break
+        }
+        if c == 0 or c == '\n' {
+            break
+        }
+        escape = !escape and c == '\\'
+        consume(lexer)
+    }
+    Token(.string, start, lexer.cursor - start)
+}
+
+function id(lexer *mut Lexer) -> Token {
+    let start = lexer.cursor - 1
+    while is_id_char(peek(lexer)) {
+        consume(lexer)
+    }
+    let str = &lexer.source[start:lexer.cursor]
+    let kind = switch {
+        mem_eq(str, &"function") -> .kw_function,
+        mem_eq(str, &"let") -> .kw_let,
+        mem_eq(str, &"return") -> .kw_return,
+        else -> .id,
+    } as TokenKind
+    Token(kind, start, lexer.cursor - start)
+}
+
+function num(lexer *mut Lexer, c char) -> Token {
+    let start = lexer.cursor - 1
+    while is_digit(peek(lexer)) {
+        consume(lexer)
+    }
+    Token(.int, start, lexer.cursor - start)
+}
+
+function read_file(path *char) -> @mut char {
+    let file = libc.fopen(path, &"r"[0])
+
+    if file == null {
+        return `slice[0, null]
+    }
+
+    libc.fseek(file, 0, 2)
+    let length = libc.ftell(file)
+    libc.fseek(file, 0, 0)
+    let buffer = libc.malloc(length + 1) as *mut char
+
+    if buffer == null {
+        return `slice[0, null]
+    }
+
+    let n = libc.fread(buffer, 1, length, file)
+    libc.fclose(file)
+    mut slice = `slice[n + 1, buffer]
+    slice[n] = 0
+    slice
+}
+
+function main() {
+    let path = &"test/fibonacci.jel"
+    let source = read_file(&path[0])
+
+    if source.length == 0 {
+        std.print_str(&"No such file\n")
+        return
+    }
+
+    mut lexer = init_lexer(path, source)
+    print(&lexer)
+}

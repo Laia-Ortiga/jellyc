@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cmake",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=1",
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build",
+            ],
+            "problemMatcher": []
+        },
+        {
+            "dependsOn": [ "cmake" ],
+            "label": "make",
+            "type": "shell",
+            "command": "cmake --build build -j12 --config Debug",
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+TYPE(i8)
+TYPE(i16)
+TYPE(i32)
+TYPE(i64)
+TYPE(char)
+TYPE(isize)
+TYPE(f32)
+TYPE(f64)
+TYPE(bool)
+TYPE(byte)
+
+#undef TYPE

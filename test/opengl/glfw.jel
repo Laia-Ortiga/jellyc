@@ -1,0 +1,39 @@
+module main
+
+const GLFWcursorposfun = function(window *mut byte, xpos f64, ypos f64)
+const GLFWkeyfun = function(window *mut byte, key i32, scancode i32, action i32, mods i32)
+const GLFWmousebuttonfun = function(window *mut byte, button i32, action i32, mods i32)
+
+public extern function glfwInit() -> i32
+public extern function glfwCreateWindow(width i32, height i32, title *char, v *i8, a *i8) -> *mut byte
+public extern function glfwMakeContextCurrent(window *mut byte)
+public extern function glfwGetCursorPos(window *mut byte, xpos *f64, ypos *f64)
+public extern function glfwGetWindowUserPointer(window *mut byte) -> *mut byte
+public extern function glfwSetWindowUserPointer(window *mut byte, pointer_ *mut byte)
+public extern function glfwSetCursorPosCallback(window *mut byte, callback GLFWcursorposfun) -> GLFWcursorposfun
+public extern function glfwSetMouseButtonCallback(window *mut byte, callback GLFWmousebuttonfun) -> GLFWmousebuttonfun
+public extern function glfwSetKeyCallback(window *mut byte, callback GLFWkeyfun) -> GLFWkeyfun
+public extern function glfwWindowShouldClose(window *mut byte) -> i32
+public extern function glfwGetProcAddress(procname *char) -> function()
+public extern function glfwTerminate()
+public extern function glfwSwapBuffers(window *mut byte)
+public extern function glfwPollEvents()
+
+const GLFW_MOUSE_BUTTON_1 = 0 as i32
+const GLFW_MOUSE_BUTTON_2 = 1 as i32
+const GLFW_MOUSE_BUTTON_3 = 2 as i32
+const GLFW_MOUSE_BUTTON_4 = 3 as i32
+const GLFW_MOUSE_BUTTON_5 = 4 as i32
+const GLFW_MOUSE_BUTTON_6 = 5 as i32
+const GLFW_MOUSE_BUTTON_7 = 6 as i32
+const GLFW_MOUSE_BUTTON_8 = 7 as i32
+const GLFW_MOUSE_BUTTON_LAST = GLFW_MOUSE_BUTTON_8
+const GLFW_MOUSE_BUTTON_LEFT = GLFW_MOUSE_BUTTON_1
+const GLFW_MOUSE_BUTTON_RIGHT = GLFW_MOUSE_BUTTON_2
+const GLFW_MOUSE_BUTTON_MIDDLE = GLFW_MOUSE_BUTTON_3
+
+const GLFW_RELEASE = 0 as i32
+const GLFW_PRESS = 1 as i32
+const GLFW_REPEAT = 2 as i32
+
+const GLFW_KEY_LEFT_SHIFT = 340 as i32

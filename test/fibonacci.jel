@@ -1,0 +1,20 @@
+module main
+
+import std
+
+function fibonacci(n i64) -> i64 {
+    if n < 0 {
+        return 0
+    }
+
+    switch n {
+        0 -> 0,
+        1 -> 1,
+        else -> fibonacci(n - 1) + fibonacci(n - 2),
+    }
+}
+
+function main() {
+    let f17 = fibonacci(17)
+    std.print_int(f17)
+}

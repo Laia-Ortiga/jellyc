@@ -1,0 +1,29 @@
+module libc
+
+# math.h
+
+public extern function sinf(x f32) -> f32
+public extern function cosf(x f32) -> f32
+public extern function fminf(x f32, y f32) -> f32
+public extern function fmaxf(x f32, y f32) -> f32
+
+# stdio.h
+
+public extern function fclose(file *mut byte) -> i32
+public extern function fopen(filename *char, mode *char) -> *mut byte
+public extern function fread(buffer *mut byte, size isize, length isize, file *mut byte) -> isize
+public extern function fwrite(buffer *byte, size isize, length isize, file *mut byte) -> isize
+public extern function fseek(file *mut byte, offset isize, whence i32) -> i32
+public extern function ftell(file *mut byte) -> isize
+public extern function putchar(ch i32) -> i32
+public extern function puts(str *char) -> i32
+
+# stdlib.h
+
+public extern function exit(code i32)
+public extern function free(ptr *byte)
+public extern function malloc(size isize) -> *mut byte
+
+# string.h
+
+public extern function memcpy(dst *mut byte, src *byte, size isize) -> *mut byte

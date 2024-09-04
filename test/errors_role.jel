@@ -1,0 +1,24 @@
+module main
+
+import does_not_exist
+
+enum X 3 {
+    first
+}
+
+function f(x 4) -> true {
+
+}
+
+function f2() -> i32 {
+
+}
+
+function main() {
+    let a = [3 -> i32]
+    let a = b
+    &i32
+    *`slice
+    `slice.a
+    `slice()
+}

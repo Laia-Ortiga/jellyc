@@ -1,0 +1,124 @@
+module main
+
+import gl
+import libc
+
+function alloc[T](count isize, size `Size[T]) -> @mut T {
+    let p = libc.malloc(count * size) as *mut T
+    if p == null {
+        libc.exit(-1)
+    }
+    `slice[count, p]
+}
+
+function free[T](slice @mut T) {
+    libc.free(slice.data as *mut byte)
+}
+
+function read_file(file_name *char) -> @mut char {
+    let file = libc.fopen(file_name, &"r"[0])
+    if file == null {
+        return `slice[0, null]
+    }
+    libc.fseek(file, 0, 2)
+    let length = libc.ftell(file)
+    libc.fseek(file, 0, 0)
+    mut buffer = alloc((length + 1) as isize, `size_of[char])
+    let n = libc.fread(&buffer[0], 1, length, file)
+    libc.fclose(file)
+    buffer[n] = 0
+    buffer
+}
+
+function assert_program_status(program i32, pname i32) {
+    mut status = 0 as i32
+    gl.glad_glGetProgramiv(program, pname, &status)
+
+    if status == gl.FALSE {
+        mut log_length = 0 as i32
+        gl.glad_glGetProgramiv(program, gl.INFO_LOG_LENGTH, &log_length)
+        mut log = alloc(log_length as isize, `size_of[char])
+        gl.glad_glGetProgramInfoLog(program, log_length, null, &log[0])
+        libc.puts(&"Couldn't link shader program"[0])
+        libc.puts(&log[0])
+        libc.exit(-1)
+    }
+}
+
+function compile_shader(type i32, file_name *char) -> i32 {
+    let code = read_file(file_name)
+
+    if code.length == 0 {
+        libc.puts(&"Couldn't load shader"[0])
+        libc.exit(-1)
+    }
+
+    let shader = gl.glad_glCreateShader(type)
+    gl.glad_glShaderSource(shader, 1, &code.data as **char, null)
+    free(code)
+    gl.glad_glCompileShader(shader)
+
+    mut compile_status = 0 as i32
+    gl.glad_glGetShaderiv(shader, gl.COMPILE_STATUS, &compile_status)
+
+    if compile_status == gl.FALSE {
+        mut log_length = 0 as i32
+        gl.glad_glGetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_length)
+        mut log = alloc(log_length as isize, `size_of[char])
+        gl.glad_glGetShaderInfoLog(shader, log_length, null, &log[0])
+        libc.puts(&"Error in shader"[0])
+        libc.puts(&log[0])
+        libc.exit(-1)
+    }
+
+    shader
+}
+
+function compile_shader_program(shaders @i32) -> i32 {
+    let program = gl.glad_glCreateProgram()
+
+    for i = 0 as isize; i < shaders.length; i += 1 {
+        gl.glad_glAttachShader(program, shaders[i])
+    }
+
+    gl.glad_glLinkProgram(program)
+    assert_program_status(program, gl.LINK_STATUS)
+
+    for i = 0 as isize; i < shaders.length; i += 1 {
+        gl.glad_glDetachShader(program, shaders[i])
+        gl.glad_glDeleteShader(shaders[i])
+    }
+
+    gl.glad_glValidateProgram(program)
+    assert_program_status(program, gl.VALIDATE_STATUS)
+    program
+}
+
+function create_ubo(size isize) -> i32 {
+    mut ubo = 0 as i32
+    gl.glad_glGenBuffers(1, &ubo)
+    gl.glad_glBindBuffer(gl.UNIFORM_BUFFER, ubo)
+    gl.glad_glBufferStorage(gl.UNIFORM_BUFFER, size, null, gl.MAP_WRITE_BIT)
+    gl.glad_glBindBufferRange(gl.UNIFORM_BUFFER, 0, ubo, 0, size)
+    ubo
+}
+
+function write_ubo[T](ubo i32, offset isize, size `Size[T], data *T) {
+    gl.glad_glBindBuffer(gl.UNIFORM_BUFFER, ubo)
+    let ptr = gl.glad_glMapBufferRange(
+        gl.UNIFORM_BUFFER,
+        offset,
+        size,
+        gl.MAP_WRITE_BIT | gl.MAP_INVALIDATE_BUFFER_BIT | gl.MAP_UNSYNCHRONIZED_BIT,
+    )
+
+    if ptr == null {
+        libc.exit(-1)
+    }
+
+    libc.memcpy(ptr, data, size)
+
+    if !gl.glad_glUnmapBuffer(gl.UNIFORM_BUFFER) {
+        libc.exit(-1)
+    }
+}

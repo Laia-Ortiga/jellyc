@@ -1,0 +1,13 @@
+module main
+
+extern function putchar(ch i32) -> i32
+
+function print_str(s @char) {
+    for i = 0 as isize; i < s.length; i += 1 {
+        putchar(`zero_extend[s[i]])
+    }
+}
+
+function main() {
+    print_str(&"Hello, World!\n")
+}

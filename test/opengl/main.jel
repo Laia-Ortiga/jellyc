@@ -1,0 +1,227 @@
+module main
+
+import gl
+import libc
+
+struct Vec3 {
+    x f32,
+    y f32,
+    z f32,
+}
+
+struct Camera {
+    pos Vec3,
+    pitch f32,
+    yaw f32,
+}
+
+struct CameraState {
+    target Camera,
+    speed Vec3,
+    rotating bool,
+    last_x f64,
+    last_y f64,
+}
+
+struct Scene {
+    cam_state CameraState,
+    cam Camera,
+}
+
+struct UniformBlock {
+    view_matrix [:16]f32,
+    proj_matrix [:16]f32,
+    ambient [:4]f32,
+    diffuse [:4]f32,
+    light_dir [:4]f32,
+    eye_pos [:4]f32,
+}
+
+function init_view_matrix(cam Camera) -> [:16]f32 {
+    let sin_x = libc.sinf(cam.pitch)
+    let cos_x = libc.cosf(cam.pitch)
+    let sin_y = libc.sinf(cam.yaw)
+    let cos_y = libc.cosf(cam.yaw)
+    let right = [cos_y, 0.0, -sin_y]
+    let up = [sin_x * sin_y, cos_x, sin_x * cos_y]
+    let forward = [cos_x * sin_y, -sin_x, cos_x * cos_y]
+    [
+        right[0],
+        up[0],
+        forward[0],
+        0.0,
+
+        right[1],
+        up[1],
+        forward[1],
+        0.0,
+
+        right[2],
+        up[2],
+        forward[2],
+        0.0,
+
+        -cam.pos.x * right[0] - cam.pos.y * right[1] - cam.pos.z * right[2],
+        -cam.pos.x * up[0] - cam.pos.y * up[1] - cam.pos.z * up[2],
+        -cam.pos.x * forward[0] - cam.pos.y * forward[1] - cam.pos.z * forward[2],
+        1.0,
+    ]
+}
+
+function init_proj_matrix(aspect f32) -> [:16]f32 {
+    let tan_fov2 = 1.0 as f32
+    let near = 0.125 as f32
+    let far = 1024.0 as f32
+    [
+        1.0 / (aspect * tan_fov2),
+        0.0,
+        0.0,
+        0.0,
+
+        0.0,
+        1.0 / tan_fov2,
+        0.0,
+        0.0,
+
+        0.0,
+        0.0,
+        -(far + near) / (far - near),
+        -1.0,
+
+        0.0,
+        0.0,
+        -2.0 * far * near / (far - near),
+        0.0,
+    ]
+}
+
+function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
+    let ambient = 0.25 as f32
+    let diffuse = 0.75 as f32
+    UniformBlock(
+        init_view_matrix(cam),
+        init_proj_matrix(aspect),
+        [ambient, ambient, ambient, 1.0],
+        [diffuse, diffuse, diffuse, 1.0],
+        [0.445435, 0.890871, 0.0890871, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+    )
+}
+
+function key_callback(window *mut byte, key i32, scancode i32, action i32, mods i32) {
+    let magnitude = 0.15 as f32
+    let speed = switch action {
+        GLFW_RELEASE -> -magnitude,
+        GLFW_PRESS -> magnitude,
+        else -> 0.0,
+    } as f32
+    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    let state = &scene.cam_state
+    switch key {
+        'A' as i32          -> state.speed.x = state.speed.x - speed,
+        'D' as i32          -> state.speed.x = state.speed.x + speed,
+        'W' as i32          -> state.speed.z = state.speed.z - speed,
+        'S' as i32          -> state.speed.z = state.speed.z + speed,
+        GLFW_KEY_LEFT_SHIFT -> state.speed.y = state.speed.y - speed,
+        ' ' as i32          -> state.speed.y = state.speed.y + speed,
+    }
+}
+
+function mouse_button_callback(window *mut byte, button i32, action i32, mods i32) {
+    if button != GLFW_MOUSE_BUTTON_RIGHT {
+        return
+    }
+
+    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    if action == GLFW_PRESS {
+        glfwGetCursorPos(window, &scene.cam_state.last_x, &scene.cam_state.last_y)
+    }
+    scene.cam_state.rotating = action == GLFW_PRESS
+}
+
+function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
+    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    if !scene.cam_state.rotating {
+        return
+    }
+
+    let factor = 0.005 as f32
+    scene.cam_state.target.pitch = scene.cam_state.target.pitch - (y - scene.cam_state.last_y) as f32 * factor
+    scene.cam_state.target.yaw = scene.cam_state.target.yaw - (x - scene.cam_state.last_x) as f32 * factor
+    scene.cam_state.last_x = x
+    scene.cam_state.last_y = y
+    let limit = (3.14 / 3.0) as f32
+    scene.cam_state.target.pitch = libc.fminf(libc.fmaxf(scene.cam_state.target.pitch, -limit), limit)
+}
+
+function update_cam(cam *mut Camera, cam_state *mut CameraState) {
+    let sin_y = libc.sinf(cam.yaw)
+    let cos_y = libc.cosf(cam.yaw)
+
+    cam_state.target.pos.x += cam_state.speed.x * cos_y + cam_state.speed.z * sin_y
+    cam_state.target.pos.y += cam_state.speed.y
+    cam_state.target.pos.z += cam_state.speed.z * cos_y - cam_state.speed.x * sin_y
+
+    cam.pos.x = 0.75 * cam.pos.x + 0.25 * cam_state.target.pos.x
+    cam.pos.y = 0.75 * cam.pos.y + 0.25 * cam_state.target.pos.y
+    cam.pos.z = 0.75 * cam.pos.z + 0.25 * cam_state.target.pos.z
+    cam.pitch = 0.75 * cam.pitch + 0.25 * cam_state.target.pitch
+    cam.yaw = 0.75 * cam.yaw + 0.25 * cam_state.target.yaw
+}
+
+function main() {
+    if glfwInit() == 0 {
+        return
+    }
+
+    let width = 1280 as i32
+    let height = 720 as i32
+
+    let window = glfwCreateWindow(width, height, &"Test"[0], null, null)
+    if window == null {
+        glfwTerminate()
+        return
+    }
+    glfwMakeContextCurrent(window)
+
+    mut cam = Camera(Vec3(0.0, 1.0, 0.0), -0.4, 0.0)
+    mut scene = Scene(CameraState(cam, Vec3(0.0, 0.0, 0.0), false, 0.0, 0.0), cam)
+    glfwSetWindowUserPointer(window, &scene)
+    glfwSetKeyCallback(window, key_callback)
+    glfwSetMouseButtonCallback(window, mouse_button_callback)
+    glfwSetCursorPosCallback(window, mouse_cursor_pos_callback)
+
+    if gl.gladLoadGL(glfwGetProcAddress) == 0 {
+        libc.puts(&"Couldn't initialize GLAD"[0])
+        return
+    }
+
+    gl.glad_glEnable(gl.CULL_FACE)
+    gl.glad_glEnable(gl.DEPTH_TEST)
+    gl.glad_glCullFace(gl.BACK)
+    gl.glad_glDepthFunc(gl.LEQUAL)
+    let ubo = create_ubo(`size_of[UniformBlock])
+    let sky = init_sky()
+    let terrain = init_terrain(13337)
+    let colors = [
+        0.2 as f32, 0.6, 0.8,
+        0.9, 0.8, 0.3,
+        0.2, 0.5, 0.65,
+    ]
+
+    while glfwWindowShouldClose(window) == 0 {
+        glfwPollEvents()
+
+        update_cam(&scene.cam, &scene.cam_state)
+
+        let uniform_block = init_uniform_block(16.0 / 9.0, scene.cam)
+        write_ubo(ubo, 0, `size_of[UniformBlock], &uniform_block)
+
+        gl.glad_glClear(gl.DEPTH_BUFFER_BIT)
+        draw_sky(sky, colors)
+        draw_terrain(terrain)
+        glfwSwapBuffers(window)
+    }
+
+    glfwTerminate()
+}

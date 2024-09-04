@@ -1,0 +1,47 @@
+module main
+
+enum X f32 {
+    first
+}
+
+function f(x i32) {
+
+}
+
+function main(should_not_be_here i32) {
+    let a = !4
+    let b = 3 + true
+    let c = 7
+    c = 6
+    [i32 -> i32]
+    *3
+    3 as bool
+    `slice[3, 9]
+    i32.a
+    X.second
+    (3).a
+    i32(3)
+    3(3)
+    3[false]
+    f()
+    3 = 3
+    const not_so_const = a
+    9223372036854775807 + 1
+    444 >> -1
+    444 << -1
+    `zero_extend[0]
+    []
+    break
+    continue
+
+    switch 3 {
+        0 -> false,
+        else -> 9,
+    }
+
+    return 1
+}
+
+struct EmptyStruct {
+
+}

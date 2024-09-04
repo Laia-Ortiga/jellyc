@@ -1,0 +1,5 @@
+.cache
+*.out
+a.c
+a.ll
+build

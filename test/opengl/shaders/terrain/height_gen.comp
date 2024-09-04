@@ -1,0 +1,64 @@
+#version 430
+
+layout (local_size_x = 1, local_size_y = 1) in;
+layout (r32f, binding = 0) uniform image2D img_output;
+
+uniform uint seed;
+uniform vec2 central_island;
+
+float xorshift(uvec2 n)
+{
+	uint x = n.x + imageSize(img_output).x * n.y;
+	x += seed * 3266489917u;
+	x = x * 2386451719u + 374761393u;
+	x = (x << 17) | (x >> 15);
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	return int(x >> 41) / 8388608.0;
+}
+
+float cubic(float x)
+{
+    return x * x * (3.0 - 2.0 * x);
+}
+
+float get_linear_noise(vec2 n)
+{
+    uvec2 min = uvec2(floor(n));
+
+    return 2.0 * mix(
+	mix(xorshift(min + uvec2(0, 0)), xorshift(min + uvec2(1, 0)), cubic(n.x - min.x)),
+	mix(xorshift(min + uvec2(0, 1)), xorshift(min + uvec2(1, 1)), cubic(n.x - min.x)), cubic(n.y - min.y)) - 1.0;
+}
+
+float gen_height(ivec2 pos)
+{
+    float total = 0.0;
+    total += get_linear_noise(pos * 0.00390625) * 0.5;
+    total += get_linear_noise(pos * 0.0078125) * 0.25;
+    total += get_linear_noise(pos * 0.015625) * 0.125;
+    total += get_linear_noise(pos * 0.03125) * 0.0625;
+    return total;
+}
+
+void main()
+{
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 img_size = imageSize(img_output);
+
+    float height = 64.0 * gen_height(pixel_coords);
+    vec2 to_center = pixel_coords - (img_size.x - 1) * 0.5;
+    float dist = length(to_center);
+
+    float min_height = -32.0;
+    float max_dist = 0.5 * (img_size.x - 1);
+    height = mix(height, min_height, smoothstep(0.75 * max_dist, max_dist, dist));
+
+    if (dist < central_island.y)
+    {
+        height = mix(max(height * 0.25, 0.0), height, smoothstep(central_island.x, central_island.y, dist));
+    }
+
+    imageStore(img_output, pixel_coords, vec4(height, 0.0, 0.0, 0.0));
+}

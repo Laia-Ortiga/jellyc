@@ -1,0 +1,22 @@
+module main
+
+const X = `Affine[i32]
+
+struct W {
+    a X,
+    b f64,
+}
+
+function f(hi X) {
+
+}
+
+function main() {
+    mut a = W(X(19), 340.01)
+    while true {
+        let p = a.a
+    }
+    let b = X(19)
+    mut c = b
+    c = b
+}

@@ -1,0 +1,581 @@
+#pragma once
+
+typedef enum {
+    BACKEND_C,
+    BACKEND_LLVM,
+} Backend;
+
+typedef enum {
+    TARGET_ISIZE_64,
+    TARGET_ISIZE_32,
+} Target;
+
+typedef enum {
+    // Parsing
+    ERROR_INVALID_TOKEN,
+    ERROR_EXPECTED_TOKEN,
+    ERROR_EXPECTED_EXPRESSION,
+    ERROR_EXPECTED_DEFINITION,
+    ERROR_INVALID_TOKEN_AFTER_EXTERN,
+    ERROR_EMPTY_CHAR,
+    ERROR_MULTIPLE_CHAR,
+    ERROR_ESCAPE_SEQUENCE,
+    ERROR_UNTERMINATED_STRING,
+
+    // Role analysis
+    ERROR_RECURSIVE_DEPENDENCY,
+    ERROR_EXPECTED_VALUE,
+    ERROR_EXPECTED_TYPE,
+    ERROR_MULTIPLE_DEFINITION,
+    ERROR_MULTIPLE_EXTERN_DEFINITION,
+    ERROR_UNDEFINED_MODULE,
+    ERROR_UNDEFINED_NAME,
+    ERROR_UNDEFINED_NAME_FROM_MODULE,
+    ERROR_DEREF_OPERAND_ROLE,
+    ERROR_ACCESS_OPERAND_ROLE,
+    ERROR_CALL_OPERAND_ROLE,
+    ERROR_INDEX_OPERAND_ROLE,
+
+    // Type analysis
+    ERROR_ENUM_EXPECTS_INT_TYPE,
+    ERROR_ARRAY_TYPE_EXPECTS_LENGTH_TYPE,
+    ERROR_UNARY_UNEXPECTED_OPERAND,
+    ERROR_BINARY_UNEXPECTED_OPERANDS,
+    ERROR_DEREF_UNEXPECTED_OPERAND,
+    ERROR_CAST,
+    ERROR_SLICE_CTOR_EXPECTS_POINTER,
+    ERROR_TYPE_CONSTRUCTOR_TYPE,
+    ERROR_CALLEE,
+    ERROR_ARGUMENT_COUNT,
+    ERROR_FIELD_COUNT,
+    ERROR_LINEAR_CTOR_COUNT,
+    ERROR_INDEX_COUNT,
+    ERROR_INDEX_OPERAND,
+    ERROR_UNDEFINED_TYPE_SCOPE,
+    ERROR_UNDEFINED_TYPE_FIELD,
+    ERROR_EXPECTED_VALUE_TYPE,
+    ERROR_EXPECTED_MUTABLE_PLACE,
+    ERROR_CONST_INIT,
+    ERROR_CONST_INT_OVERFLOW,
+    ERROR_CONST_NEGATIVE_SHIFT,
+    ERROR_TYPE_INFERENCE,
+    ERROR_EMPTY_ARRAY,
+    ERROR_EMPTY_STRUCT,
+    ERROR_SWITCH_INCOMPATIBLE_CASES,
+    ERROR_MISPLACED_BREAK,
+    ERROR_MISPLACED_CONTINUE,
+    ERROR_RETURN_MISSING_VALUE,
+    ERROR_RETURN_EXPECTED_VALUE,
+    ERROR_MISSING_RETURN,
+    ERROR_MAIN_SIGNATURE,
+    ERROR_TYPE_ARGUMENT_INFERENCE,
+    ERROR_TYPE_UNKNOWN_TYPE_SIZE,
+    ERROR_TYPE_UNKNOWN_TYPE_ALIGNMENT,
+    ERROR_INDEX_UNKNOWN_TYPE_SIZE,
+    ERROR_TAGGED_TYPE_WRONG_COUNT,
+    ERROR_WRONG_COUNT,
+    ERROR_DUPLICATE_SWITCH_CASE,
+    ERROR_ELSE_CASE_UNREACHABLE,
+    ERROR_SWITCH_NOT_EXHAUSTIVE,
+
+    // Linear analysis
+    ERROR_LINEAR_ASSIGNMENT,
+    ERROR_CONSUMED_VALUE_USED,
+    ERROR_CONSUMED_IN_LOOP,
+    ERROR_MOVE_BORROWED,
+    ERROR_BORROWED_MUTABLE_SHARED,
+    ERROR_MULTIBLE_MUTABLE_BORROWS,
+
+    ERROR_END,
+
+    // Notes
+    NOTE_REPLACE_LET_WITH_MUT,
+    NOTE_PREVIOUS_DEFINITION,
+    NOTE_PREVIOUS_BUILTIN_DEFINITION,
+    NOTE_PRIVATE_DEFINITION,
+    NOTE_FORGOT_IMPORT,
+    NOTE_RECURSION,
+
+    NOTE_END,
+} ErrorKind;
+
+typedef enum {
+    #define KEYWORD(keyword) TOK_KW_##keyword,
+    #include "keyword-defs"
+
+    #define TOKEN(token, s) TOK_##token,
+    #include "token-defs"
+} TokenTag;
+
+typedef enum {
+    AST_ROOT,
+
+    // Global definitions
+
+    AST_IMPORT,
+    AST_PUBLIC,
+    AST_FUNCTION,
+    AST_ENUM,
+    AST_STRUCT,
+    AST_NEWTYPE,
+    AST_CONST,
+    AST_EXTERN_FUNCTION,
+    AST_EXTERN_MUT,
+
+    // Local definitions
+
+    AST_PARAM,
+    AST_LET,
+    AST_MUT,
+
+    // Statements
+
+    AST_EXPRESSION_STATEMENT,
+    AST_IF,
+    AST_WHILE,
+    AST_FOR,
+    AST_FOR_HELPER,
+    AST_SWITCH,
+    AST_SWITCH_CASE,
+    AST_BREAK,
+    AST_CONTINUE,
+    AST_RETURN,
+
+    // Types
+
+    AST_ARRAY_TYPE,
+    AST_ARRAY_TYPE_SUGAR,
+    AST_POINTER_MUT_TYPE,
+    AST_SLICE_TYPE,
+    AST_SLICE_MUT_TYPE,
+    AST_FUNCTION_TYPE,
+
+    // Unary operators
+
+    AST_PLUS,
+    AST_MINUS,
+    AST_NOT,
+    AST_ADDRESS,
+    AST_DEREF,
+
+    // Binary operators
+
+    AST_ADD,
+    AST_SUB,
+    AST_MUL,
+    AST_DIV,
+    AST_MOD,
+
+    AST_AND,
+    AST_OR,
+    AST_XOR,
+    AST_SHL,
+    AST_SHR,
+
+    AST_LOGIC_AND,
+    AST_LOGIC_OR,
+
+    AST_EQ,
+    AST_NE,
+    AST_LT,
+    AST_GT,
+    AST_LE,
+    AST_GE,
+
+    AST_ASSIGN,
+    AST_ASSIGN_ADD,
+    AST_ASSIGN_SUB,
+    AST_ASSIGN_MUL,
+    AST_ASSIGN_DIV,
+    AST_ASSIGN_MOD,
+    AST_ASSIGN_AND,
+    AST_ASSIGN_OR,
+    AST_ASSIGN_XOR,
+
+    AST_CAST,
+
+    // Miscellaneous
+
+    AST_CALL,
+    AST_INDEX,
+    AST_SLICE,
+    AST_ACCESS,
+    AST_INFERRED_ACCESS,
+    AST_LIST,
+    AST_BLOCK,
+
+    // Tree leaves
+
+    AST_ID,
+    AST_INT,
+    AST_FLOAT,
+    AST_CHAR,
+    AST_STRING,
+    AST_BOOL,
+    AST_NULL,
+} AstTag;
+
+typedef enum {
+    #define TYPE(type) BUILTIN_##type,
+    #include "simple-types"
+
+    BUILTIN_SIZE_TAG,
+    BUILTIN_ALIGNMENT_TAG,
+    BUILTIN_ALIGNOF,
+    BUILTIN_SIZEOF,
+    BUILTIN_ZERO_EXTEND,
+    BUILTIN_SLICE,
+    BUILTIN_AFFINE,
+    BUILTIN_ARRAY_LENGTH_TYPE,
+} BuiltinId;
+
+typedef enum {
+    SYM_UNDEFINED,
+    SYM_BUILTIN,
+    SYM_GLOBAL,
+    SYM_LOCAL,
+} SymbolKind;
+
+typedef enum {
+    ROLE_NOT_VISITED,
+    ROLE_VISITING,
+    ROLE_INVALID,
+    ROLE_MODULE,
+    ROLE_BUILTIN_MACRO,
+    ROLE_MACRO,
+    ROLE_TYPE,
+    ROLE_TAG_TYPE,
+    ROLE_VALUE,
+    ROLE_MULTIVALUE,
+} Role;
+
+typedef enum {
+    RIR_ROOT,
+
+    // Global definitions
+
+    RIR_FUNCTION,
+    RIR_STRUCT,
+    RIR_ENUM,
+    RIR_NEWTYPE,
+    RIR_EXTERN_FUNCTION,
+    RIR_EXTERN_MUT,
+    RIR_CONST,
+
+    // Local definitions
+
+    RIR_PARAM,
+    RIR_LET,
+    RIR_MUT,
+
+    // Statements
+
+    RIR_VALUE_STATEMENT,
+    RIR_TYPE_STATEMENT,
+    RIR_IF,
+    RIR_WHILE,
+    RIR_FOR_HELPER,
+    RIR_FOR,
+    RIR_SWITCH,
+    RIR_SWITCH_CASE,
+    RIR_BREAK,
+    RIR_CONTINUE,
+    RIR_RETURN,
+
+    // Types
+
+    RIR_TYPE_ALIAS,
+    RIR_ARRAY_TYPE,
+    RIR_ARRAY_TYPE_SUGAR,
+    RIR_POINTER_TYPE,
+    RIR_MUTABLE_POINTER_TYPE,
+    RIR_SLICE_TYPE,
+    RIR_MUTABLE_SLICE_TYPE,
+    RIR_FUNCTION_TYPE,
+    RIR_TAG_TYPE,
+
+    // Unary operators
+
+    RIR_PLUS,
+    RIR_MINUS,
+    RIR_NOT,
+    RIR_ADDRESS,
+    RIR_MULTIADDRESS,
+    RIR_DEREF,
+
+    // Binary operators
+
+    RIR_ADD,
+    RIR_SUB,
+    RIR_MUL,
+    RIR_DIV,
+    RIR_MOD,
+
+    RIR_AND,
+    RIR_OR,
+    RIR_XOR,
+    RIR_SHL,
+    RIR_SHR,
+
+    RIR_LOGIC_AND,
+    RIR_LOGIC_OR,
+
+    RIR_EQ,
+    RIR_NE,
+    RIR_LT,
+    RIR_GT,
+    RIR_LE,
+    RIR_GE,
+
+    RIR_ASSIGN,
+    RIR_ASSIGN_ADD,
+    RIR_ASSIGN_SUB,
+    RIR_ASSIGN_MUL,
+    RIR_ASSIGN_DIV,
+    RIR_ASSIGN_MOD,
+    RIR_ASSIGN_AND,
+    RIR_ASSIGN_OR,
+    RIR_ASSIGN_XOR,
+
+    RIR_CAST,
+
+    // Miscellaneous
+
+    RIR_CALL,
+    RIR_CALL_BUILTIN,
+
+    RIR_CONSTRUCT,
+    RIR_LIST,
+
+    RIR_INDEX,
+    RIR_SLICE,
+    RIR_SCOPE_ACCESS,
+    RIR_INFERRED_SCOPE_ACCESS,
+    RIR_TYPE_ACCESS,
+
+    // Tree leaves
+
+    RIR_BUILTIN_ID,
+    RIR_GLOBAL_ID,
+    RIR_LOCAL_ID,
+
+    RIR_INT,
+    RIR_FLOAT,
+    RIR_CHAR,
+    RIR_STRING,
+    RIR_BOOL,
+    RIR_NULL,
+} RirTag;
+
+typedef enum {
+    TYPE_INVALID,
+    TYPE_VOID,
+    TYPE_SIZE_TAG,
+    TYPE_ALIGNMENT_TAG,
+
+    #define TYPE(type) TYPE_##type,
+    #include "simple-types"
+
+    TYPE_COUNT,
+} PrimitiveType;
+
+typedef enum {
+    TYPE_PRIMITIVE,
+    TYPE_ARRAY,
+    TYPE_ARRAY_LENGTH,
+    TYPE_PTR,
+    TYPE_PTR_MUT,
+    TYPE_MULTIPTR,
+    TYPE_MULTIPTR_MUT,
+    TYPE_FUNCTION,
+    TYPE_TAGGED,
+    TYPE_NEWTYPE,
+    TYPE_STRUCT,
+    TYPE_ENUM,
+    TYPE_LINEAR,
+    TYPE_TYPE_PARAMETER,
+} TypeTag;
+
+typedef enum {
+    VALUE_INVALID,
+    VALUE_TEMPORARY,
+    VALUE_PLACE,
+    VALUE_MUTABLE_PLACE,
+} ValueCategory;
+
+typedef enum {
+    // index is unused
+    VAL_ERROR,
+
+    // index is unused
+    VAL_FUNCTION,
+
+    // index points to the name of the function
+    VAL_EXTERN_FUNCTION,
+
+    // index points to the name of the var
+    VAL_EXTERN_VAR,
+
+    // index points to the 64-bit value in extra
+    VAL_CONST_INT,
+
+    // index points to the 64-bit value in extra
+    VAL_CONST_FLOAT,
+
+    // index is unused
+    VAL_CONST_NULL,
+
+    // index points to the string
+    VAL_STRING,
+
+    // index is the variable index
+    VAL_VARIABLE,
+    VAL_MUTABLE_VARIABLE,
+
+    // index is the instruction index
+    VAL_TEMPORARY,
+} ValueTag;
+
+typedef enum {
+    TIR_FUNCTION,
+    TIR_LET,
+    TIR_MUT,
+    TIR_VALUE,
+
+    TIR_PLUS,
+    TIR_MINUS,
+    TIR_NOT,
+    TIR_DEREF,
+    TIR_ADDRESS,
+    TIR_ADDRESS_OF_TEMPORARY,
+
+    TIR_ADD,
+    TIR_SUB,
+    TIR_MUL,
+    TIR_DIV,
+    TIR_MOD,
+
+    TIR_AND,
+    TIR_OR,
+    TIR_XOR,
+    TIR_SHL,
+    TIR_SHR,
+
+    TIR_EQ,
+    TIR_NE,
+    TIR_LT,
+    TIR_GT,
+    TIR_LE,
+    TIR_GE,
+
+    TIR_ASSIGN,
+    TIR_ASSIGN_ADD,
+    TIR_ASSIGN_SUB,
+    TIR_ASSIGN_MUL,
+    TIR_ASSIGN_DIV,
+    TIR_ASSIGN_MOD,
+    TIR_ASSIGN_AND,
+    TIR_ASSIGN_OR,
+    TIR_ASSIGN_XOR,
+
+    TIR_ITOF,
+    TIR_ITRUNC,
+    TIR_SEXT,
+    TIR_ZEXT,
+    TIR_FTOI,
+    TIR_FTRUNC,
+    TIR_FEXT,
+    TIR_PTR_CAST,
+    TIR_NOP,
+    TIR_ARRAY_TO_SLICE,
+
+    TIR_CALL,
+    TIR_INDEX,
+    TIR_SLICE,
+    TIR_ACCESS,
+    TIR_NEW_STRUCT,
+    TIR_NEW_ARRAY,
+
+    TIR_IF,
+    TIR_SWITCH,
+    TIR_LOOP,
+    TIR_BREAK,
+    TIR_CONTINUE,
+    TIR_RETURN,
+} TirTag;
+
+typedef enum {
+    // Statement
+
+    MIR_PARAM,
+    MIR_ALLOC,
+    MIR_ASSIGN,
+
+    // Value
+
+    MIR_INT,
+    MIR_FLOAT,
+    MIR_STRING,
+    MIR_NULL,
+    MIR_TIR_VALUE,
+
+    // Pointer operator
+
+    MIR_ADDRESS,
+    MIR_DEREF,
+
+    // Arithmetic operator
+
+    MIR_MINUS,
+    MIR_ADD,
+    MIR_SUB,
+    MIR_MUL,
+    MIR_DIV,
+    MIR_MOD,
+
+    // Bitwise operator
+
+    MIR_NOT,
+    MIR_AND,
+    MIR_OR,
+    MIR_XOR,
+    MIR_SHL,
+    MIR_SHR,
+
+    // Comparator
+
+    MIR_EQ,
+    MIR_NE,
+    MIR_LT,
+    MIR_GT,
+    MIR_LE,
+    MIR_GE,
+
+    // Cast
+
+    MIR_ITOF,
+    MIR_ITRUNC,
+    MIR_SEXT,
+    MIR_ZEXT,
+    MIR_FTOI,
+    MIR_FTRUNC,
+    MIR_FEXT,
+    MIR_PTR_CAST,
+    MIR_NEW_SLICE,
+
+    // Access
+
+    MIR_INDEX,
+    MIR_CONST_INDEX,
+    MIR_SLICE_INDEX,
+    MIR_ACCESS,
+
+    // Control flow
+
+    MIR_CALL,
+    MIR_BR,
+    MIR_BR_IF,
+    MIR_BR_IF_NOT,
+    MIR_RET_VOID,
+    MIR_RET,
+} MirTag;

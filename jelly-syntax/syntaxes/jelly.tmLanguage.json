@@ -1,0 +1,114 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Jelly",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#types"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#chars"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.jelly",
+					"match": "\\b(break|continue|else|for|if|return|switch|while)\\b"
+				},
+				{
+					"name": "keyword.other.jelly",
+					"match": "\\b(extern|function|import|module|public)\\b"
+				},
+				{
+					"name": "keyword.operator.jelly",
+					"match": "\\b(and|as|or)\\b"
+				},
+				{
+					"name": "keyword.operator.jelly",
+					"match": "(`zero_extend|`size_of|`align_of)\\b"
+				},
+				{
+					"name": "constant.language.jelly",
+					"match": "\\b(false|null|true)\\b"
+				},
+				{
+					"name": "storage.type.jelly",
+					"match": "\\b(enum|newtype|struct)\\b"
+				},
+				{
+					"name": "storage.modifier.jelly",
+					"match": "\\b(const|let|mut)\\b"
+				}
+			]
+		},
+		"chars": {
+			"name": "string.quoted.single.jelly",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "constant.character.escape.jelly",
+					"match": "\\\\."
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.jelly",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.jelly",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"name": "comment.line.jelly",
+			"begin": "#",
+			"end": "$"
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.jelly",
+					"match": "\\b(\\d+(\\.\\d*(e-?\\d+))?)\\b"
+				},
+				{
+					"name": "constant.numeric.hex.jelly",
+					"match": "\\b(0x[\\da-fA-F]+)\\b"
+				}
+			]
+		},
+		"types": {
+			"patterns": [
+				{
+					"name": "entity.name.type.numeric.jelly",
+					"match": "\\b(i8|i16|i32|i64|isize|f32|f64)\\b"
+				},
+				{
+					"name": "entity.name.type.primitive.jelly",
+					"match": "\\b(bool|char|byte)\\b"
+				},
+				{
+					"name": "entity.name.type.primitive.jelly",
+					"match": "(`Size|`Alignment|`Affine)\\b"
+				}
+			]
+		}
+	},
+	"scopeName": "source.jel"
+}

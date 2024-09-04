@@ -1,0 +1,27 @@
+module main
+
+import gl
+
+struct Sky {
+    shader i32,
+    loc_colors i32,
+}
+
+public function init_sky() -> Sky {
+    let shader = compile_shader_program(&[
+        compile_shader(gl.VERTEX_SHADER, &"shaders/sky.vert"[0]),
+        compile_shader(gl.FRAGMENT_SHADER, &"shaders/sky.frag"[0]),
+    ])
+    Sky(
+        shader,
+        gl.glad_glGetUniformLocation(shader, &"colors"[0]),
+    )
+}
+
+public function draw_sky(sky Sky, colors [:9]f32) {
+    gl.glad_glUseProgram(sky.shader)
+    gl.glad_glUniformMatrix3fv(sky.loc_colors, 1, false, &colors[0])
+    gl.glad_glDepthMask(false)
+    gl.glad_glDrawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    gl.glad_glDepthMask(true)
+}

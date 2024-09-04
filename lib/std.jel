@@ -1,0 +1,32 @@
+module std
+
+import libc
+
+public function print_char(c char) {
+    libc.putchar(`zero_extend[c])
+}
+
+public function print_str(s @char) {
+    for i = 0 as isize; i < s.length; i += 1 {
+        print_char(s[i])
+    }
+}
+
+function print_int_rec(x i64) {
+    if x / 10 != 0 {
+        print_int_rec(x / 10)
+    }
+    print_char((x % 10) as char + '0')
+}
+
+public function print_int(x i64) {
+    if x < 0 {
+        print_char('-')
+        if x / -10 != 0 {
+            print_int_rec(x / -10)
+        }
+        print_char(-(x % 10) as char + '0')
+    } else {
+        print_int_rec(x)
+    }
+}
