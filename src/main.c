@@ -427,6 +427,8 @@ int main(int argc, char **argv) {
             .ast_refs = ast_refs.ptr,
             .global_deps = &tir_output.global_deps,
             .insts = tir_output.insts,
+            .functions = functions.ptr,
+            .function_count = functions.len,
         },
         scratch_arena
     );
