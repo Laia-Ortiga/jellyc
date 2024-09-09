@@ -1080,10 +1080,10 @@ static ValueId analyze_bin_arithmetic(TypeContext *c, AstId node, TypeId hint, T
     AstBinary bin = get_ast_binary(node, c->ast);
     ValueId left_value = analyze_value(c, bin.left, hint);
     TypeId left_type = get_value_type(c->tir, left_value);
-    left_type = remove_templ(c->tir, left_type);
+    left_type = remove_tags(c->tir, left_type);
     ValueId right_value = analyze_value(c, bin.right, left_type);
     TypeId right_type = get_value_type(c->tir, right_value);
-    right_type = remove_templ(c->tir, right_type);
+    right_type = remove_tags(c->tir, right_type);
 
     if (left_type.id != right_type.id || !type_is_arithmetic(left_type)) {
         double_type_error(c, node, left_type, right_type, ERROR_BINARY_UNEXPECTED_OPERANDS);
@@ -1136,10 +1136,10 @@ static ValueId analyze_bin_bit(TypeContext *c, AstId node, TypeId hint, TirTag t
     AstBinary bin = get_ast_binary(node, c->ast);
     ValueId left_value = analyze_value(c, bin.left, hint);
     TypeId left_type = get_value_type(c->tir, left_value);
-    left_type = remove_templ(c->tir, left_type);
+    left_type = remove_tags(c->tir, left_type);
     ValueId right_value = analyze_value(c, bin.right, left_type);
     TypeId right_type = get_value_type(c->tir, right_value);
-    right_type = remove_templ(c->tir, right_type);
+    right_type = remove_tags(c->tir, right_type);
 
     if (left_type.id != right_type.id || !type_is_int(left_type)) {
         double_type_error(c, node, left_type, right_type, ERROR_BINARY_UNEXPECTED_OPERANDS);
@@ -1434,7 +1434,7 @@ static ValueId analyze_struct_access(TypeContext *c, AstId node) {
     ValueId operand_value = analyze_value(c, operand, null_type);
     operand_value = implicit_pointer_deref(c, node, operand_value);
     TypeId operand_type = get_value_type(c->tir, operand_value);
-    TypeId type = remove_templ(c->tir, operand_type);
+    TypeId type = remove_tags(c->tir, operand_type);
     TypeId slice_elem_type = remove_slice(c->tir, type);
 
     if (slice_elem_type.id) {

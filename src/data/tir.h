@@ -96,7 +96,7 @@ TypeId replace_slice_with_pointer(TirContext ctx, TypeId type);
 TypeId replace_pointer_with_slice(TirContext ctx, TypeId type);
 TypeId remove_c_pointer_like(TirContext ctx, TypeId type);
 TypeId remove_array_like(TirContext ctx, TypeId type);
-TypeId remove_templ(TirContext ctx, TypeId type);
+TypeId remove_tags(TirContext ctx, TypeId type);
 bool is_aggregate_type(TirContext ctx, TypeId type);
 bool type_is_linear(TirContext ctx, TypeId type);
 bool type_is_unknown_size(TirContext ctx, TypeId type);

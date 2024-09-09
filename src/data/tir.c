@@ -456,7 +456,7 @@ TypeId remove_array_like(TirContext ctx, TypeId type) {
     }
 }
 
-TypeId remove_templ(TirContext ctx, TypeId type) {
+TypeId remove_tags(TirContext ctx, TypeId type) {
     if (get_type_tag(ctx, type) != TYPE_TAGGED) {
         return type;
     }
@@ -1121,7 +1121,7 @@ static int match_types_single(TirContext ctx, TypeId *results, TypeId type, Type
         }
         case TYPE_MATCH_TAGGED: {
             if (get_type_tag(ctx, type) == TYPE_TAGGED) {
-                TypeId inner = remove_templ(ctx, type);
+                TypeId inner = remove_tags(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
