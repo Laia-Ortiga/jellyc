@@ -485,8 +485,14 @@ static AstId parse_function(Parser *parser) {
 static AstId parse_struct(Parser *parser) {
     expect(parser, TOK_KW_struct);
     SourceIndex token = expect(parser, TOK_ID);
+    ArenaLinkedList type_parameters = parse_type_parameters(parser);
     ArenaLinkedList fields = parse_fields(parser);
-    int32_t index = push_extra(&parser->ast, fields);
+    int32_t extra[] = {
+        type_parameters.count,
+        push_extra(&parser->ast, type_parameters),
+        push_extra(&parser->ast, fields),
+    };
+    int32_t index = push_extra_array(&parser->ast, ArrayLength(extra), extra);
     return add_node(AST_STRUCT, (AstData) {token, fields.count, index}, &parser->ast);
 }
 

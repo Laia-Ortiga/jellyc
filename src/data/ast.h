@@ -47,6 +47,8 @@ typedef struct {
 } AstFunction;
 
 typedef struct {
+    int32_t type_param_count;
+    AstId const *type_params;
     int32_t field_count;
     AstId const *fields;
 } AstStruct;
@@ -136,8 +138,10 @@ static inline AstFunction get_ast_extern_function(AstId node, Ast const *ast) {
 static inline AstStruct get_ast_struct(AstId node, Ast const *ast) {
     int32_t extra = ast->nodes.datas[node.private_field_id].right;
     return (AstStruct) {
+        .type_param_count = ast->extra.ptr[extra],
+        .type_params = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 1]],
         .field_count = ast->nodes.datas[node.private_field_id].left,
-        .fields = (AstId const *) &ast->extra.ptr[extra],
+        .fields = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 2]],
     };
 }
 
