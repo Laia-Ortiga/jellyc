@@ -127,7 +127,7 @@ static TokenTag number(Lexer *lexer, int c) {
         return TOK_HEX_INT;
     }
 
-    while (is_digit(peek(lexer))) {
+    while (is_digit(peek(lexer)) || peek(lexer) == '_') {
         consume(lexer);
     }
 
@@ -135,7 +135,7 @@ static TokenTag number(Lexer *lexer, int c) {
         if (!is_digit(consume(lexer))) {
             return TOK_INVALID;
         }
-        while (is_digit(peek(lexer))) {
+        while (is_digit(peek(lexer)) || peek(lexer) == '_') {
             consume(lexer);
         }
         if (accept(lexer, 'e')) {
@@ -143,7 +143,7 @@ static TokenTag number(Lexer *lexer, int c) {
             if (!is_digit(consume(lexer))) {
                 return TOK_INVALID;
             }
-            while (is_digit(peek(lexer))) {
+            while (is_digit(peek(lexer)) || peek(lexer) == '_') {
                 consume(lexer);
             }
         }

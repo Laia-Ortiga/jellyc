@@ -526,6 +526,10 @@ static int parse_int(Parser *parser, Token token, int64_t *out) {
     int64_t result = 0;
 
     for (int32_t i = token.start.index; i < token.end.index; i++) {
+        if (parser->lexer.source.ptr[i] == '_') {
+            continue;
+        }
+
         if (result > INT64_MAX / 10) {
             return 1;
         }
@@ -549,17 +553,20 @@ static int parse_hex_int(Parser *parser, Token token, int64_t *out) {
         int64_t value;
         uint64_t bits;
     } result;
-
-    if (token.end.index - token.start.index > 18) {
-        return 1;
-    }
-
     result.value = 0;
+    int digits = 0;
 
     for (int32_t i = token.start.index + 2; i < token.end.index; i++) {
+        if (parser->lexer.source.ptr[i] == '_') {
+            continue;
+        }
+
+        if (digits >= 16) {
+            return 1;
+        }
+
         char c = parser->lexer.source.ptr[i];
         uint64_t digit = 0;
-
         if (c >= '0' && c <= '9') {
             digit = c - '0';
         } else if (c >= 'A' && c <= 'F') {
@@ -570,6 +577,7 @@ static int parse_hex_int(Parser *parser, Token token, int64_t *out) {
 
         result.bits <<= 4;
         result.bits |= digit & 0xF;
+        digits++;
     }
 
     *out = result.value;
