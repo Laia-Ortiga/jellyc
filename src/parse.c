@@ -594,38 +594,16 @@ static int64_t parse_char(Parser *parser, Token const *token) {
 
     int64_t value;
     int len;
-
     if (c == '\\') {
         len = 3;
-
         switch (parser->lexer.source.ptr[token->start.index + 2]) {
-            case '\\':
-                value = '\\';
-                break;
-
-            case '\'':
-                value = '\'';
-                break;
-
-            case '"':
-                value = '"';
-                break;
-
-            case 'n':
-                value = '\n';
-                break;
-
-            case 't':
-                value = '\t';
-                break;
-
-            case '0':
-                value = '\0';
-                break;
-
-            default:
-                error(parser, token, &(Diagnostic) {.kind = ERROR_ESCAPE_SEQUENCE});
-                return 0;
+            case '\\': value = '\\'; break;
+            case '\'': value = '\''; break;
+            case '"': value = '"'; break;
+            case 'n': value = '\n'; break;
+            case 't': value = '\t'; break;
+            case '0': value = '\0'; break;
+            default: error(parser, token, &(Diagnostic) {.kind = ERROR_ESCAPE_SEQUENCE}); return 0;
         }
     } else {
         len = 2;
