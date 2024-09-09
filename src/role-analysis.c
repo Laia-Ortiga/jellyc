@@ -237,6 +237,9 @@ static Result analyze_function_decl(Context *c, AstRef ref) {
 
 static Result analyze_struct(Context *c, AstRef ref) {
     AstStruct s = get_ast_struct(ref.node, &c->asts[ref.file]);
+    for (int32_t i = 0; i < s.type_param_count; i++) {
+        add_local(c, subvertex(ref, s.type_params[i]), ROLE_TYPE);
+    }
     for (int32_t i = 0; i < s.field_count; i++) {
         analyze_param(c, subvertex(ref, s.fields[i]));
     }

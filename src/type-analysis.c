@@ -544,6 +544,13 @@ static TirRef analyze_enum(TypeContext *c, AstId node) {
 static TirRef analyze_struct(TypeContext *c, AstId node) {
     AstStruct s = get_ast_struct(node, c->ast);
 
+    for (int32_t i = 0; i < s.type_param_count; i++) {
+        int32_t sym = get_rir_data(s.type_params[i], c->rir);
+        SourceIndex token = get_rir_token(c, s.type_params[i]);
+        String name = id_token_to_string(ctx_source(c), token);
+        c->local->tir_refs[sym] = (TirRef) {.type = new_type_parameter(c->tir, i, ctx_push_str(c, name))};
+    }
+
     TypeId *field_types = arena_alloc(c->scratch, TypeId, s.field_count);
     for (int32_t i = 0; i < s.field_count; i++) {
         AstId param_type = get_ast_unary(s.fields[i], c->ast);
