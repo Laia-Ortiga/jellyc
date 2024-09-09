@@ -38,7 +38,7 @@
 				},
 				{
 					"name": "keyword.operator.jelly",
-					"match": "(`zero_extend|`size_of|`align_of)\\b"
+					"match": "(`align_of|`size_of|`slice|`zero_extend)\\b"
 				},
 				{
 					"name": "constant.language.jelly",
