@@ -518,6 +518,14 @@ static double parse_long_mantissa(String s) {
     return result.value;
 }
 
-double parse_float(String s) {
-    return parse_long_mantissa(s);
+double parse_float(String s, Arena scratch) {
+    char *raw_string = arena_alloc(&scratch, char, s.len);
+    ptrdiff_t length = 0;
+    for (ptrdiff_t i = 0; i < s.len; i++) {
+        if (s.ptr[i] == '_') {
+            continue;
+        }
+        raw_string[length++] = s.ptr[i];
+    }
+    return parse_long_mantissa((String) {length, raw_string});
 }

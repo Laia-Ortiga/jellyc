@@ -741,7 +741,7 @@ static AstId parse_prefix(Parser *parser) {
             return add_ast_int(AST_INT, token.start, value, &parser->ast);
         }
         case TOK_FLOAT: {
-            double value = parse_float(substring(parser->lexer.source, token.start.index, token.end.index));
+            double value = parse_float(substring(parser->lexer.source, token.start.index, token.end.index), parser->scratch);
             return add_ast_float(AST_FLOAT, token.start, value, &parser->ast);
         }
         case TOK_CHAR: {
