@@ -11,6 +11,7 @@
 #include "lex.h"
 #include "role-analysis.h"
 #include "util.h"
+#include "wrappers.h"
 
 #include <math.h>
 #include <omp.h>
@@ -591,7 +592,7 @@ static TirRef analyze_struct(TypeContext *c, AstId node) {
         error(c, node, &(Diagnostic) {.kind = ERROR_EMPTY_STRUCT});
     }
 
-    TypeId type = new_struct_type(c->tir, scope, ctx_push_str(c, name), s.field_count, field_types, c->options->target);
+    TypeId type = new_struct_type(c->tir, scope, ctx_push_str(c, name), s.type_param_count, s.field_count, field_types, c->options->target);
     vec_push(&c->global->declarations.structs, type);
     return (TirRef) {.type = type};
 }

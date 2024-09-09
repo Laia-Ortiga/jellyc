@@ -248,6 +248,7 @@ typedef struct {
     int32_t alignment;
     int32_t size;
     int32_t is_linear;
+    int32_t type_param_count;
 } StructTypeLayout;
 
 typedef struct {
@@ -270,7 +271,7 @@ static void init_struct_layout(StructTypeLayout *layout, TirContext ctx, int32_t
     layout->size = size;
 }
 
-TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t field_count, TypeId const *fields, Target target) {
+TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TypeId const *fields, Target target) {
     TypeList *types = ctx_types(ctx);
     int32_t index = types->extra.len;
     int32_t *ptr = vec_grow(&types->extra, field_count + sizeof(StructTypeLayout) / sizeof(int32_t));
@@ -279,6 +280,7 @@ TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t fiel
     layout->name = name;
     init_struct_layout(layout, ctx, field_count, fields, target);
     layout->is_linear = false;
+    layout->type_param_count = type_param_count;
     for (int32_t i = 0; i < field_count; i++) {
         ptr[i + sizeof(StructTypeLayout) / sizeof(int32_t)] = fields[i].id;
         if (!layout->is_linear && type_is_linear(ctx, fields[i])) {
@@ -742,6 +744,7 @@ StructType get_struct_type(TirContext ctx, TypeId type) {
         .name = layout->name,
         .alignment = layout->alignment,
         .size = layout->size,
+        .type_param_count = layout->type_param_count,
         .field_count = data->extra,
         .is_linear = layout->is_linear,
     };
@@ -757,7 +760,7 @@ TypeId get_struct_type_field(TirContext ctx, TypeId type, int32_t index) {
     if (index >= data->extra) {
         return null_type;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + 5]};
+    return (TypeId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
 }
 
 TypeId get_any_struct_type_field(TirContext ctx, TypeId type, int32_t index) {
@@ -777,7 +780,7 @@ TypeId get_any_struct_type_field(TirContext ctx, TypeId type, int32_t index) {
     if (index >= data->extra) {
         return null_type;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + 5]};
+    return (TypeId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
 }
 
 EnumType get_enum_type(TirContext ctx, TypeId type) {

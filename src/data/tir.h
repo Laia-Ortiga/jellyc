@@ -81,7 +81,7 @@ TypeId new_array_length_type(TirContext ctx, int64_t length);
 TypeId new_ptr_type(TirContext ctx, TypeTag tag, TypeId elem);
 TypeId new_multiptr_type(TirContext ctx, TypeTag tag, TypeId elem);
 TypeId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TypeId const *params, TypeId ret);
-TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t field_count, TypeId const *fields, Target target);
+TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TypeId const *fields, Target target);
 TypeId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TypeId repr);
 TypeId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TypeId type);
 TypeId new_tagged_type(TirContext ctx, TypeId newtype, TypeId inner, int32_t arg_count, TypeId const *args);
@@ -122,6 +122,7 @@ typedef struct {
     int32_t name;
     int32_t alignment;
     int64_t size;
+    int32_t type_param_count;
     int32_t field_count;
     bool is_linear;
 } StructType;
