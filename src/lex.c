@@ -259,7 +259,7 @@ char const *token_tag_to_string(TokenTag tag) {
 
 static int32_t find_id_length(String source, SourceIndex where) {
     int32_t end = where.index + 1;
-    while (end < source.len && is_id_char(source.ptr[end])) {
+    while (end < source.len && is_id_char((unsigned char) source.ptr[end])) {
         end++;
     }
     return end - where.index;
