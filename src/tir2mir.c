@@ -5,6 +5,7 @@
 #include "data/tir.h"
 #include "fwd.h"
 #include "util.h"
+#include "wrappers.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -289,12 +290,13 @@ static MirId transform_new_struct(Context *c, TirId tir_id, TypeId type) {
     int32_t args = data.left;
     int32_t arg_count = data.right;
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
+    TypeId s = remove_templ(c->tir.ctx, type);
 
     for (int32_t i = 0; i < arg_count; i++) {
         ValueId arg = {get_tir_extra(&c->tir.insts, args + i)};
         TypeId field_type = get_value_type(c->tir.ctx, arg);
         MirId arg_mir = transform_value(c, arg);
-        MirId field_address = add_mir_const_instruction(c, MIR_ACCESS, type, alloc_mir, i);
+        MirId field_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, i);
         add_binary_instruction(c, MIR_ASSIGN, field_type, field_address, arg_mir);
     }
 

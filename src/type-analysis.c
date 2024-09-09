@@ -1568,13 +1568,31 @@ static ValueId analyze_cast(TypeContext *c, AstId node) {
 
 static ValueId analyze_struct_ctor(TypeContext *c, AstId node, TypeId struct_type) {
     AstCall call = get_ast_call(node, c->ast);
-    int32_t index = 0;
-    int32_t *args_tir = arena_alloc(c->scratch, int32_t, call.arg_count);
+    StructType s = get_struct_type(c->tir, struct_type);
+    ValueId *args_tir = arena_alloc(c->scratch, ValueId, call.arg_count);
+    TypeId *type_args = arena_alloc(c->scratch, TypeId, s.type_param_count);
+    bool type_args_inferred = true;
 
     for (int32_t i = 0; i < call.arg_count; i++) {
-        TypeId field_type = get_struct_type_field(c->tir, struct_type, index);
-        ValueId arg_result = expect_value_type(c, call.args[i], field_type);
-        args_tir[index++] = arg_result.id;
+        TypeId field_type = get_struct_type_field(c->tir, struct_type, i);
+        if (s.type_param_count) {
+            ValueId arg_result = analyze_value(c, call.args[i], field_type);
+            TypeId arg_type = get_value_type(c->tir, arg_result);
+            if (!match_type_parameters(c->tir, type_args, field_type, arg_type)) {
+                type_args_inferred = false;
+            }
+            args_tir[i] = arg_result;
+        } else {
+            args_tir[i] = expect_value_type(c, call.args[i], field_type);
+        }
+    }
+
+    if (type_args_inferred && s.type_param_count) {
+        for (int32_t i = 0; i < call.arg_count; i++) {
+            TypeId field_type = get_struct_type_field(c->tir, struct_type, i);
+            field_type = replace_type_parameters(c->tir, type_args, field_type, *c->scratch);
+            args_tir[i] = apply_implicit_conversion(c, call.args[i], args_tir[i], field_type);
+        }
     }
 
     int32_t field_count = get_struct_type(c->tir, struct_type).field_count;
@@ -1582,7 +1600,16 @@ static ValueId analyze_struct_ctor(TypeContext *c, AstId node, TypeId struct_typ
         type_error(c, call.operand, struct_type, call.arg_count, ERROR_FIELD_COUNT);
     }
 
-    return new_binary_inst(c, TIR_NEW_STRUCT, node, struct_type, push_extra(c, args_tir, call.arg_count), call.arg_count);
+    if (!type_args_inferred) {
+        type_error(c, call.operand, struct_type, call.arg_count, ERROR_TYPE_ARGUMENT_INFERENCE);
+        return null_value;
+    }
+
+    TypeId type = struct_type;
+    if (s.type_param_count) {
+        type = new_tagged_type(c->tir, struct_type, struct_type, s.type_param_count, type_args);
+    }
+    return new_binary_inst(c, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
 }
 
 static ValueId analyze_linear_ctor(TypeContext *c, AstId node, TypeId linear_type) {
