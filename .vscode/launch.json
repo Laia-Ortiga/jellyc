@@ -96,17 +96,6 @@
             "preLaunchTask": "make",
             "type": "lldb",
             "request": "launch",
-            "name": "Launch generic function",
-            "program": "${workspaceFolder}/build/jellyc",
-            "args": [
-                "test/generic_function.jel",
-            ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "preLaunchTask": "make",
-            "type": "lldb",
-            "request": "launch",
             "name": "Launch opengl",
             "program": "${workspaceFolder}/build/jellyc",
             "args": [
