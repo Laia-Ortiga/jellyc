@@ -26,11 +26,6 @@ typedef struct {
 } TypeList;
 
 typedef struct {
-    TypeList const *global;
-    TypeList thread;
-} TypeSlice;
-
-typedef struct {
     TypeId type;
     int32_t index;
 } ValueData;
@@ -100,7 +95,6 @@ TypeId remove_tags(TirContext ctx, TypeId type);
 bool is_aggregate_type(TirContext ctx, TypeId type);
 bool type_is_linear(TirContext ctx, TypeId type);
 bool type_is_unknown_size(TirContext ctx, TypeId type);
-bool type_eq(TirContext ctx, TypeId a, TypeId b);
 bool is_equality_type(TirContext ctx, TypeId a);
 bool is_relative_type(TirContext ctx, TypeId a);
 bool int_fits_in_type(int64_t i, TypeId type, Target target);
@@ -114,6 +108,7 @@ typedef struct {
 typedef struct {
     int32_t type_param_count;
     int32_t param_count;
+    TypeId *params;
     TypeId ret;
 } FunctionType;
 
@@ -143,6 +138,7 @@ typedef struct {
     TypeId newtype;
     TypeId inner;
     int32_t arg_count;
+    TypeId *args;
 } TaggedType;
 
 ArrayType get_array_type(TirContext ctx, TypeId type);

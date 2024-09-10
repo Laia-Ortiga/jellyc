@@ -1,117 +1,208 @@
 #include "data/tir.h"
 
+#include "adt.h"
 #include "arena.h"
 #include "enums.h"
-#include "fwd.h"
 #include "util.h"
+#include "wrappers.h"
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-// Type set
+// Types
 
-static size_t hash_type(TirContext ctx, TypeId type) {
-    size_t result = 17;
+typedef struct {
+    TypeTag tag;
+    union {
+        TypeId unary;
+        int64_t array_length;
+        struct {
+            TypeId first;
+            TypeId second;
+        } binary;
+        struct {
+            int32_t type_param_count;
+            int32_t param_count;
+            TypeId const *params;
+            TypeId ret;
+        } function;
+        struct {
+            TypeId newtype;
+            TypeId inner;
+            int32_t arg_count;
+            TypeId const *args;
+        } tagged;
+    };
+} StructuralType;
+
+static StructuralType get_type_from_id(TirContext ctx, TypeId type) {
     TypeTag tag = get_type_tag(ctx, type);
-    result = 31 * result + tag;
     switch (tag) {
+        case TYPE_PRIMITIVE:
+        case TYPE_NEWTYPE:
+        case TYPE_STRUCT:
+        case TYPE_ENUM:
+        case TYPE_TYPE_PARAMETER: {
+            return (StructuralType) {.tag = tag, .unary = type};
+        }
         case TYPE_ARRAY: {
             ArrayType array = get_array_type(ctx, type);
-            result = 31 * result + hash_type(ctx, array.index);
-            result = 31 * result + hash_type(ctx, array.elem);
-            break;
+            return (StructuralType) {.tag = tag, .binary = {array.index, array.elem}};
         }
         case TYPE_ARRAY_LENGTH: {
             int64_t length = get_array_length_type(ctx, type);
-            result = 31 * result + length;
-            break;
+            return (StructuralType) {.tag = tag, .array_length = length};
         }
         case TYPE_PTR:
         case TYPE_PTR_MUT:
         case TYPE_MULTIPTR:
         case TYPE_MULTIPTR_MUT: {
-            result = 31 * result + hash_type(ctx, remove_any_pointer(ctx, type));
-            break;
+            return (StructuralType) {.tag = tag, .unary = remove_any_pointer(ctx, type)};
         }
         case TYPE_FUNCTION: {
-            FunctionType f = get_function_type(ctx, type);
-            result = 31 * result + f.type_param_count;
-            result = 31 * result + f.param_count;
-            for (int64_t i = 0; i < f.param_count; i++) {
-                result = 31 * result + hash_type(ctx, get_function_type_param(ctx, type, i));
-            }
-            if (f.ret.id != -1) {
-                result = 31 * result + hash_type(ctx, f.ret);
-            }
-            break;
+            FunctionType t = get_function_type(ctx, type);
+            return (StructuralType) {.tag = tag, .function = {
+                .type_param_count = t.type_param_count,
+                .param_count = t.param_count,
+                .params = t.params,
+                .ret = t.ret,
+            }};
         }
         case TYPE_TAGGED: {
             TaggedType t = get_tagged_type(ctx, type);
-            result = 31 * result + t.newtype.id;
-            result = 31 * result + t.arg_count;
-            for (int64_t i = 0; i < t.arg_count; i++) {
-                result = 31 * result + hash_type(ctx, get_tagged_type_arg(ctx, type, i));
-            }
-            break;
-        }
-        case TYPE_PRIMITIVE:
-        case TYPE_STRUCT:
-        case TYPE_ENUM:
-        case TYPE_NEWTYPE: {
-            result = 31 * result + type.id;
-            break;
+            return (StructuralType) {.tag = tag, .tagged = {
+                .newtype = t.newtype,
+                .inner = t.inner,
+                .arg_count = t.arg_count,
+                .args = t.args,
+            }};
         }
         case TYPE_LINEAR: {
-            result = 31 * result + hash_type(ctx, get_linear_elem_type(ctx, type));
+            return (StructuralType) {.tag = tag, .unary = get_linear_elem_type(ctx, type)};
+        }
+    }
+    abort();
+}
+
+static bool type_eq(StructuralType a, StructuralType b) {
+    if (a.tag != b.tag) {
+        return false;
+    }
+    switch (a.tag) {
+        case TYPE_PRIMITIVE:
+        case TYPE_NEWTYPE:
+        case TYPE_STRUCT:
+        case TYPE_ENUM:
+        case TYPE_TYPE_PARAMETER: return false;
+
+        case TYPE_ARRAY: return a.binary.first.id == b.binary.first.id && a.binary.second.id == b.binary.second.id;
+        case TYPE_ARRAY_LENGTH: return a.array_length == b.array_length;
+
+        case TYPE_PTR:
+        case TYPE_PTR_MUT:
+        case TYPE_MULTIPTR:
+        case TYPE_MULTIPTR_MUT:
+        case TYPE_LINEAR: return a.unary.id == b.unary.id;
+
+        case TYPE_FUNCTION: {
+            if (a.function.type_param_count || b.function.type_param_count) {
+                return false;
+            }
+            if (a.function.param_count != b.function.param_count) {
+                return false;
+            }
+            for (int32_t i = 0; i < a.function.param_count; i++) {
+                if (a.function.params[i].id != b.function.params[i].id) {
+                    return false;
+                }
+            }
+            return a.function.ret.id == b.function.ret.id;
+        }
+        case TYPE_TAGGED: {
+            if (a.tagged.newtype.id != b.tagged.newtype.id) {
+                return false;
+            }
+            if (a.tagged.arg_count != b.tagged.arg_count) {
+                return false;
+            }
+            for (int32_t i = 0; i < a.tagged.arg_count; i++) {
+                if (a.tagged.args[i].id != b.tagged.args[i].id) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+    abort();
+}
+
+static size_t hash_type(TirContext ctx, StructuralType type) {
+    size_t result = 17;
+    result = 31 * result + type.tag;
+    switch (type.tag) {
+        case TYPE_PRIMITIVE:
+        case TYPE_NEWTYPE:
+        case TYPE_STRUCT:
+        case TYPE_ENUM:
+        case TYPE_TYPE_PARAMETER: {
+            result = 31 * result + type.unary.id;
             break;
         }
-        case TYPE_TYPE_PARAMETER: {
-            result = 31 * result + get_type_parameter_index(ctx, type);
+        case TYPE_ARRAY: {
+            result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.binary.first));
+            result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.binary.second));
+            break;
+        }
+        case TYPE_ARRAY_LENGTH: {
+            result = 31 * result + type.array_length;
+            break;
+        }
+        case TYPE_PTR:
+        case TYPE_PTR_MUT:
+        case TYPE_MULTIPTR:
+        case TYPE_MULTIPTR_MUT:
+        case TYPE_LINEAR: {
+            result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.unary));
+            break;
+        }
+        case TYPE_FUNCTION: {
+            result = 31 * result + type.function.type_param_count;
+            result = 31 * result + type.function.param_count;
+            for (int32_t i = 0; i < type.function.param_count; i++) {
+                result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.function.params[i]));
+            }
+            result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.function.ret));
+            break;
+        }
+        case TYPE_TAGGED: {
+            result = 31 * result + type.tagged.newtype.id;
+            result = 31 * result + type.tagged.arg_count;
+            for (int32_t i = 0; i < type.tagged.arg_count; i++) {
+                result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.tagged.args[i]));
+            }
             break;
         }
     }
     return result;
 }
 
-static size_t find_type_entry(TypeSet const *set, TypeId key, TirContext ctx) {
-    size_t index = hash_type(ctx, key) & (set->capacity - 1);
-    for (;;) {
-        if (!set->ptr[index].id) {
-            return SIZE_MAX;
-        }
-        if (type_eq(ctx, set->ptr[index], key)) {
-            return index;
-        }
-        index = (index + 1) & (set->capacity - 1);
-    }
-    return SIZE_MAX;
-}
-
-static void typeset_init(TypeSet *set, size_t capacity) {
-    set->capacity = capacity;
-    set->count = 0;
-    set->ptr = calloc(capacity, sizeof(*set->ptr));
-    if (!set->ptr) {
+static TypeSet typeset_init(size_t capacity) {
+    TypeId *ptr = calloc(capacity, sizeof(*ptr));
+    if (!ptr) {
         abort();
     }
+    return (TypeSet) {
+        .capacity = capacity,
+        .count = 0,
+        .ptr = ptr,
+    };
 }
 
-static void typeset_free(TypeSet *set) {
-    free(set->ptr);
-}
-
-/*
-    If set contains key, return existing TypeId.
-    Otherwise, add and return key.
-*/
 static void typeset_insert_entry(TypeSet *set, TypeId key, TirContext ctx) {
-    assert(set);
-    assert(key.id);
-    size_t index = hash_type(ctx, key) & (set->capacity - 1);
+    size_t index = hash_type(ctx, get_type_from_id(ctx, key)) & (set->capacity - 1);
     while (set->ptr[index].id) {
         index = (index + 1) & (set->capacity - 1);
     }
@@ -119,127 +210,162 @@ static void typeset_insert_entry(TypeSet *set, TypeId key, TirContext ctx) {
 }
 
 static void typeset_resize(TypeSet *set, TirContext ctx) {
-    TypeSet new_set;
-    typeset_init(&new_set, set->capacity * 2);
+    TypeSet new_set = typeset_init(set->capacity * 2);
     new_set.count = set->count;
     for (size_t i = 0; i < set->capacity; i++) {
         if (set->ptr[i].id) {
             typeset_insert_entry(&new_set, set->ptr[i], ctx);
         }
     }
-    typeset_free(set);
+    free(set->ptr);
     *set = new_set;
 }
-
-static TypeId typeset_try_insert(TypeSet *set, TypeId key, TirContext ctx) {
-    if (set->capacity == 0) {
-        typeset_init(set, 64);
-    } else if (set->count * 4 / set->capacity >= 3) {
-        typeset_resize(set, ctx);
-    }
-
-    size_t index = hash_type(ctx, key) & (set->capacity - 1);
-    while (set->ptr[index].id) {
-        if (type_eq(ctx, set->ptr[index], key)) {
-            return set->ptr[index];
-        }
-        index = (index + 1) & (set->capacity - 1);
-    }
-
-    set->ptr[index] = key;
-    set->count++;
-    return key;
-}
-
-static TypeId typeset_contains(TypeSet const *set, TypeId key, TirContext ctx) {
-    size_t entry = find_type_entry(set, key, ctx);
-    if (entry == SIZE_MAX) {
-        return key;
-    }
-    return set->ptr[entry];
-}
-
-static TypeId new_type(TirContext ctx, TypeTag tag, TypeData const *data, int32_t extra_count) {
-    TypeId tmp = {ctx.global->types.types.len + TYPE_COUNT};
-    TypeList *types = &ctx.global->types;
-    if (ctx.thread) {
-        types = &ctx.thread->deps.types;
-        tmp.id += ctx.thread->deps.types.types.len;
-    }
-    sum_vec_push(&types->types, *data, tag);
-
-    if (ctx.thread) {
-        // Check if type already exists in thread.
-        TypeId type = typeset_try_insert(&ctx.thread->deps.types.set, tmp, ctx);
-        if (type.id == tmp.id) {
-            // Check if type already exists in global.
-            type = typeset_contains(&ctx.global->types.set, tmp, ctx);
-        }
-
-        if (type.id != tmp.id) {
-            ctx.thread->deps.types.types.len--;
-            ctx.thread->deps.types.extra.len -= extra_count;
-        }
-
-        return type;
-    }
-
-    TypeId type = typeset_try_insert(&ctx.global->types.set, tmp, ctx);
-    if (type.id != tmp.id) {
-        ctx.global->types.types.len--;
-        ctx.global->types.extra.len -= extra_count;
-    }
-
-    return type;
-}
-
-// Types
 
 static TypeList *ctx_types(TirContext ctx) {
     return ctx.thread ? &ctx.thread->deps.types : &ctx.global->types;
 }
 
+static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
+    TypeSet *set = &ctx_types(ctx)->set;
+    if (set->capacity == 0) {
+        *set = typeset_init(64);
+    } else if (set->count * 4 / set->capacity >= 3) {
+        typeset_resize(set, ctx);
+    }
+
+    size_t hash = hash_type(ctx, descriptor);
+    size_t slot = hash & (set->capacity - 1);
+    while (set->ptr[slot].id) {
+        if (type_eq(get_type_from_id(ctx, set->ptr[slot]), descriptor)) {
+            return set->ptr[slot];
+        }
+        slot = (slot + 1) & (set->capacity - 1);
+    }
+
+    if (ctx.thread) {
+        TypeSet *global_set = &ctx.global->types.set;
+        size_t global_slot = hash & (global_set->capacity - 1);
+        while (global_set->ptr[global_slot].id) {
+            if (type_eq(get_type_from_id(ctx, global_set->ptr[global_slot]), descriptor)) {
+                return global_set->ptr[global_slot];
+            }
+            global_slot = (global_slot + 1) & (global_set->capacity - 1);
+        }
+    }
+
+    TypeId type = {ctx.global->types.types.len + TYPE_COUNT};
+    if (ctx.thread) {
+        type.id += ctx.thread->deps.types.types.len;
+    }
+    set->ptr[slot] = type;
+    set->count++;
+
+    TypeList *types = ctx_types(ctx);
+    switch (descriptor.tag) {
+        case TYPE_PRIMITIVE:
+        case TYPE_NEWTYPE:
+        case TYPE_STRUCT:
+        case TYPE_ENUM:
+        case TYPE_TYPE_PARAMETER: {
+            abort();
+        }
+        case TYPE_ARRAY: {
+            TypeData data = {
+                .index = descriptor.binary.second.id,
+                .extra = descriptor.binary.first.id,
+            };
+            sum_vec_push(&types->types, data, descriptor.tag);
+            break;
+        }
+        case TYPE_ARRAY_LENGTH: {
+            sum_vec_push(&types->types, *(TypeData *) &descriptor.array_length, descriptor.tag);
+            break;
+        }
+        case TYPE_PTR:
+        case TYPE_PTR_MUT:
+        case TYPE_LINEAR: {
+            TypeData data = {
+                .index = descriptor.unary.id,
+                .extra = 0,
+            };
+            sum_vec_push(&types->types, data, descriptor.tag);
+            break;
+        }
+        case TYPE_MULTIPTR:
+        case TYPE_MULTIPTR_MUT: {
+            TypeData data = {
+                .index = descriptor.binary.first.id,
+                .extra = descriptor.binary.second.id,
+            };
+            sum_vec_push(&types->types, data, descriptor.tag);
+            break;
+        }
+        case TYPE_FUNCTION: {
+            int32_t index = types->extra.len;
+            vec_push(&types->extra, descriptor.function.type_param_count);
+            vec_push(&types->extra, descriptor.function.ret.id);
+            for (int32_t i = 0; i < descriptor.function.param_count; i++) {
+                vec_push(&types->extra, descriptor.function.params[i].id);
+            }
+            TypeData data = {
+                .index = index,
+                .extra = descriptor.function.param_count,
+            };
+            sum_vec_push(&types->types, data, descriptor.tag);
+            break;
+        }
+        case TYPE_TAGGED: {
+            int32_t index = types->extra.len;
+            vec_push(&types->extra, descriptor.tagged.newtype.id);
+            vec_push(&types->extra, descriptor.tagged.inner.id);
+            for (int32_t i = 0; i < descriptor.tagged.arg_count; i++) {
+                vec_push(&types->extra, descriptor.tagged.args[i].id);
+            }
+            TypeData data = {
+                .index = index,
+                .extra = descriptor.tagged.arg_count,
+            };
+            sum_vec_push(&types->types, data, descriptor.tag);
+            break;
+        }
+    }
+
+    return type;
+}
+
+static TypeId new_nominal_type(TirContext ctx, TypeTag tag, TypeData data) {
+    TypeId type = {ctx.global->types.types.len + TYPE_COUNT};
+    if (ctx.thread) {
+        type.id += ctx.thread->deps.types.types.len;
+    }
+    sum_vec_push(&ctx_types(ctx)->types, data, tag);
+    return type;
+}
+
 TypeId new_array_type(TirContext ctx, TypeId index, TypeId element) {
-    TypeData data = {
-        .index = element.id,
-        .extra = index.id,
-    };
-    return new_type(ctx, TYPE_ARRAY, &data, 0);
+    return new_structural_type(ctx, (StructuralType) {.tag = TYPE_ARRAY, .binary = {index, element}});
 }
 
 TypeId new_array_length_type(TirContext ctx, int64_t length) {
-    return new_type(ctx, TYPE_ARRAY_LENGTH, (TypeData *) &length, 0);
+    return new_structural_type(ctx, (StructuralType) {.tag = TYPE_ARRAY_LENGTH, .array_length = length});
 }
 
 TypeId new_ptr_type(TirContext ctx, TypeTag tag, TypeId elem) {
-    TypeData data = {
-        .index = elem.id,
-        .extra = 0,
-    };
-    return new_type(ctx, tag, &data, 0);
+    return new_structural_type(ctx, (StructuralType) {.tag = tag, .unary = elem});
 }
 
 TypeId new_multiptr_type(TirContext ctx, TypeTag tag, TypeId elem) {
-    TypeData data = {
-        .index = elem.id,
-        .extra = new_ptr_type(ctx, tag == TYPE_MULTIPTR_MUT ? TYPE_PTR_MUT : TYPE_PTR, type_byte).id,
-    };
-    return new_type(ctx, tag, &data, 0);
+    TypeId pointer = new_ptr_type(ctx, tag == TYPE_MULTIPTR_MUT ? TYPE_PTR_MUT : TYPE_PTR, type_byte);
+    return new_structural_type(ctx, (StructuralType) {.tag = tag, .binary = {elem, pointer}});
 }
 
 TypeId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TypeId const *params, TypeId ret) {
-    TypeList *types = ctx_types(ctx);
-    int32_t index = types->extra.len;
-    vec_push(&types->extra, type_param_count);
-    vec_push(&types->extra, ret.id);
-    for (int32_t i = 0; i < param_count; i++) {
-        vec_push(&types->extra, params[i].id);
-    }
-    TypeData data = {
-        .index = index,
-        .extra = param_count,
-    };
-    return new_type(ctx, TYPE_FUNCTION, &data, param_count + 2);
+    return new_structural_type(ctx, (StructuralType) {.tag = TYPE_FUNCTION, .function = {
+        .type_param_count = type_param_count,
+        .param_count = param_count,
+        .params = params,
+        .ret = ret,
+    }});
 }
 
 typedef struct {
@@ -291,7 +417,7 @@ TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type
         .index = index,
         .extra = field_count,
     };
-    return new_type(ctx, TYPE_STRUCT, &data, field_count + sizeof(StructTypeLayout) / sizeof(int32_t));
+    return new_nominal_type(ctx, TYPE_STRUCT, data);
 }
 
 TypeId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TypeId repr) {
@@ -303,7 +429,7 @@ TypeId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TypeId repr) {
         .index = index,
         .extra = repr.id,
     };
-    return new_type(ctx, TYPE_ENUM, &data, 0);
+    return new_nominal_type(ctx, TYPE_ENUM, data);
 }
 
 TypeId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TypeId type) {
@@ -316,33 +442,23 @@ TypeId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TypeId type)
         .index = index,
         .extra = type.id,
     };
-    return new_type(ctx, TYPE_NEWTYPE, &data, sizeof(NewtypeLayout) / sizeof(int32_t));
+    return new_nominal_type(ctx, TYPE_NEWTYPE, data);
 }
 
 TypeId new_tagged_type(TirContext ctx, TypeId newtype, TypeId inner, int32_t arg_count, TypeId const *args) {
-    TypeList *types = ctx_types(ctx);
-    int32_t index = types->extra.len;
-    vec_push(&types->extra, newtype.id);
-    vec_push(&types->extra, inner.id);
-    for (int32_t i = 0; i < arg_count; i++) {
-        vec_push(&types->extra, args[i].id);
-    }
-    TypeData data = {
-        .index = index,
-        .extra = arg_count,
-    };
-    return new_type(ctx, TYPE_TAGGED, &data, arg_count + 2);
+    return new_structural_type(ctx, (StructuralType) {.tag = TYPE_TAGGED, .tagged = {
+        .newtype = newtype,
+        .inner = inner,
+        .arg_count = arg_count,
+        .args = args,
+    }});
 }
 
 TypeId new_linear_type(TirContext ctx, TypeId elem) {
     if (get_type_tag(ctx, elem) == TYPE_LINEAR) {
         return elem;
     }
-    TypeData data = {
-        .index = elem.id,
-        .extra = 0,
-    };
-    return new_type(ctx, TYPE_LINEAR, &data, 0);
+    return new_structural_type(ctx, (StructuralType) {.tag = TYPE_LINEAR, .unary = elem});
 }
 
 TypeId new_type_parameter(TirContext ctx, int32_t i, int32_t name) {
@@ -350,7 +466,7 @@ TypeId new_type_parameter(TirContext ctx, int32_t i, int32_t name) {
         .index = i,
         .extra = name,
     };
-    return new_type(ctx, TYPE_TYPE_PARAMETER, &data, 0);
+    return new_nominal_type(ctx, TYPE_TYPE_PARAMETER, data);
 }
 
 typedef struct {
@@ -506,81 +622,6 @@ bool type_is_unknown_size(TirContext ctx, TypeId type) {
     }
 }
 
-static bool array_type_eq(TirContext ctx, TypeId a, TypeId b) {
-    ArrayType a_array = get_array_type(ctx, a);
-    ArrayType b_array = get_array_type(ctx, b);
-    return type_eq(ctx, a_array.index, b_array.index) && type_eq(ctx, a_array.elem, b_array.elem);
-}
-
-static bool function_type_eq(TirContext ctx, TypeId a, TypeId b) {
-    FunctionType a_f = get_function_type(ctx, a);
-    FunctionType b_f = get_function_type(ctx, b);
-    if (a_f.type_param_count != b_f.type_param_count || a_f.type_param_count) {
-        return false;
-    }
-    if (a_f.param_count != b_f.param_count) {
-        return false;
-    }
-    for (int64_t i = 0; i < a_f.param_count; i++) {
-        if (!type_eq(ctx, get_function_type_param(ctx, a, i), get_function_type_param(ctx, b, i))) {
-            return false;
-        }
-    }
-    if (a_f.ret.id != -1 && b_f.ret.id != -1) {
-        return type_eq(ctx, a_f.ret, b_f.ret);
-    }
-    return true;
-}
-
-static bool tagged_type_eq(TirContext ctx, TypeId a, TypeId b) {
-    TaggedType a_t = get_tagged_type(ctx, a);
-    TaggedType b_t = get_tagged_type(ctx, a);
-    if (a_t.newtype.id != b_t.newtype.id) {
-        return false;
-    }
-    if (a_t.arg_count != b_t.arg_count) {
-        return false;
-    }
-    for (int32_t i = 0; i < a_t.arg_count; i++) {
-        if (!type_eq(ctx, get_tagged_type_arg(ctx, a, i), get_tagged_type_arg(ctx, b, i))) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool type_eq(TirContext ctx, TypeId a, TypeId b) {
-    if (!a.id || !b.id) {
-        return false;
-    }
-    if (a.id == b.id) {
-        return true;
-    }
-    if (get_type_tag(ctx, a) != get_type_tag(ctx, b)) {
-        return false;
-    }
-    switch (get_type_tag(ctx, a)) {
-        case TYPE_PRIMITIVE:
-        case TYPE_STRUCT:
-        case TYPE_ENUM:
-        case TYPE_NEWTYPE:
-        case TYPE_TYPE_PARAMETER: return false;
-
-        case TYPE_ARRAY: return array_type_eq(ctx, a, b);
-        case TYPE_ARRAY_LENGTH: return get_array_length_type(ctx, a) == get_array_length_type(ctx, b);
-
-        case TYPE_PTR:
-        case TYPE_PTR_MUT:
-        case TYPE_MULTIPTR:
-        case TYPE_MULTIPTR_MUT: return type_eq(ctx, remove_any_pointer(ctx, a), remove_any_pointer(ctx, b));
-
-        case TYPE_FUNCTION: return function_type_eq(ctx, a, b);
-        case TYPE_TAGGED: return tagged_type_eq(ctx, a, b);
-        case TYPE_LINEAR: return tagged_type_eq(ctx, a, b);
-    }
-    abort();
-}
-
 bool is_equality_type(TirContext ctx, TypeId a) {
     if (type_is_arithmetic(a)) {
         return true;
@@ -714,6 +755,7 @@ FunctionType get_function_type(TirContext ctx, TypeId type) {
     FunctionType function = {
         .type_param_count = extra[0],
         .param_count = data->extra,
+        .params = (TypeId *) &extra[2],
         .ret = {extra[1]},
     };
     return function;
@@ -833,6 +875,7 @@ TaggedType get_tagged_type(TirContext ctx, TypeId type) {
         .newtype = {extra[0]},
         .inner = {extra[1]},
         .arg_count = data->extra,
+        .args = (TypeId *) &extra[2],
     };
     return t;
 }
@@ -1000,7 +1043,7 @@ void print_type(FILE *file, TirContext ctx, TypeId type) {
                 print_type(file, ctx, param_type);
             }
             fprintf(file, ")");
-            if (f.ret.id != -1) {
+            if (f.ret.id != TYPE_VOID) {
                 fprintf(file, " -> ");
                 print_type(file, ctx, f.ret);
             }
