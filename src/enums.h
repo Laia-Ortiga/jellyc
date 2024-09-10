@@ -244,9 +244,10 @@ typedef enum {
     ROLE_BUILTIN_MACRO,
     ROLE_MACRO,
     ROLE_TYPE,
-    ROLE_TAG_TYPE,
     ROLE_VALUE,
     ROLE_MULTIVALUE,
+    ROLE_GENERIC_TYPE,
+    ROLE_GENERIC_FUNCTION,
 } Role;
 
 typedef enum {

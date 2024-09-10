@@ -219,8 +219,9 @@ static MirId transform_access(Context *c, TirId tir_id) {
     ValueId operand = {data.left};
     int32_t index = data.right;
     TypeId type = get_value_type(c->tir.ctx, operand);
+    TypeId s = remove_tags(c->tir.ctx, type);
     MirId operand_mir = transform_value(c, operand);
-    return add_mir_const_instruction(c, MIR_ACCESS, type, operand_mir, index);
+    return add_mir_const_instruction(c, MIR_ACCESS, s, operand_mir, index);
 }
 
 static MirId transform_call(Context *c, TirId tir_id) {
