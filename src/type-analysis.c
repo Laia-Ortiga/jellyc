@@ -6,6 +6,7 @@
 #include "data/rir.h"
 #include "data/tir.h"
 #include "diagnostic.h"
+#include "enums.h"
 #include "fwd.h"
 #include "hash.h"
 #include "lex.h"
@@ -928,13 +929,11 @@ static ValueId analyze_address(TypeContext *c, AstId node, TypeId hint) {
             TypeId type = new_ptr_type(c->tir, TYPE_PTR_MUT, operand_type);
             return new_unary_inst(c, TIR_ADDRESS, node, type, operand_value.id);
         }
+        case VALUE_MULTIVALUE: {
+            return analyze_value(c, operand, hint);
+        }
     }
     return null_value;
-}
-
-static ValueId analyze_multiaddress(TypeContext *c, AstId node, TypeId hint) {
-    AstId operand = get_ast_unary(node, c->ast);
-    return analyze_value(c, operand, hint);
 }
 
 static ValueId analyze_deref(TypeContext *c, AstId node) {
@@ -2071,7 +2070,6 @@ static ValueId analyze_value(TypeContext *c, AstId node, TypeId hint) {
         case RIR_MINUS: return analyze_un_arithmetic(c, node, hint, TIR_MINUS);
         case RIR_NOT: return analyze_not(c, node);
         case RIR_ADDRESS: return analyze_address(c, node, hint);
-        case RIR_MULTIADDRESS: return analyze_multiaddress(c, node, hint);
         case RIR_DEREF: return analyze_deref(c, node);
         case RIR_ADD: return analyze_bin_arithmetic(c, node, hint, TIR_ADD);
         case RIR_SUB: return analyze_bin_arithmetic(c, node, hint, TIR_SUB);

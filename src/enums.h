@@ -242,10 +242,8 @@ typedef enum {
     ROLE_INVALID,
     ROLE_MODULE,
     ROLE_BUILTIN_MACRO,
-    ROLE_MACRO,
     ROLE_TYPE,
     ROLE_VALUE,
-    ROLE_MULTIVALUE,
     ROLE_GENERIC_TYPE,
     ROLE_GENERIC_FUNCTION,
 } Role;
@@ -301,7 +299,6 @@ typedef enum {
     RIR_MINUS,
     RIR_NOT,
     RIR_ADDRESS,
-    RIR_MULTIADDRESS,
     RIR_DEREF,
 
     // Binary operators
@@ -402,6 +399,7 @@ typedef enum {
     VALUE_TEMPORARY,
     VALUE_PLACE,
     VALUE_MUTABLE_PLACE,
+    VALUE_MULTIVALUE,
 } ValueCategory;
 
 typedef enum {

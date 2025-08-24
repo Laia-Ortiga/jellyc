@@ -1509,7 +1509,6 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
                 case TIR_NOP:
                 case TIR_ARRAY_TO_SLICE:
                 case TIR_CALL:
-                case TIR_SLICE:
                 case TIR_NEW_STRUCT:
                 case TIR_NEW_ARRAY:
                 case TIR_SWITCH: return VALUE_TEMPORARY;
@@ -1534,6 +1533,7 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
                     ValueId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
                     return get_value_category(ctx, operand);
                 }
+                case TIR_SLICE: return VALUE_MULTIVALUE;
             }
         }
     }

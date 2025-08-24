@@ -267,8 +267,7 @@ static Result analyze_const(Context *c, AstRef ref) {
     Role role = analyze_node(c, subvertex(ref, init));
     switch (role) {
         case ROLE_INVALID:
-        case ROLE_BUILTIN_MACRO:
-        case ROLE_MACRO: {
+        case ROLE_BUILTIN_MACRO: {
             return (Result) {role, RIR_ROOT, 0};
         }
         case ROLE_TYPE: {
@@ -492,10 +491,6 @@ static Role analyze_address(Context *c, AstRef ref) {
             set_rir(c, ref, RIR_ADDRESS, 0);
             return ROLE_VALUE;
         }
-        case ROLE_MULTIVALUE: {
-            set_rir(c, ref, RIR_MULTIADDRESS, 0);
-            return ROLE_VALUE;
-        }
         default: diagnostic(c, ref, ERROR_EXPECTED_VALUE); return ROLE_INVALID;
     }
 }
@@ -677,8 +672,7 @@ static Role analyze_index(Context *c, AstRef ref) {
         case ROLE_BUILTIN_MACRO: return analyze_builtin_macro(c, ref);
         case ROLE_GENERIC_TYPE: return analyze_tagged_type(c, ref);
 
-        case ROLE_VALUE:
-        case ROLE_MULTIVALUE: return analyze_value_args(c, ref, RIR_INDEX);
+        case ROLE_VALUE: return analyze_value_args(c, ref, RIR_INDEX);
         default: {
             diagnostic(c, ref, ERROR_INDEX_OPERAND_ROLE);
             return ROLE_INVALID;
@@ -693,7 +687,7 @@ static Role analyze_slice(Context *c, AstRef ref) {
         expect_value(c, subvertex(ref, call.args[i]));
     }
     set_rir(c, ref, RIR_SLICE, 0);
-    return ROLE_MULTIVALUE;
+    return ROLE_VALUE;
 }
 
 static Role analyze_list(Context *c, AstRef ref) {
@@ -794,8 +788,7 @@ static void analyze_expression_statement(Context *c, AstRef ref) {
             set_rir(c, ref, RIR_TYPE_STATEMENT, 0);
             break;
         }
-        case ROLE_VALUE:
-        case ROLE_MULTIVALUE: {
+        case ROLE_VALUE: {
             set_rir(c, ref, RIR_VALUE_STATEMENT, 0);
             break;
         }
