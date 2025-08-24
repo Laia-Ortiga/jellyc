@@ -376,6 +376,8 @@ typedef enum {
 } PrimitiveType;
 
 typedef enum {
+    TERM_ERROR,
+
     TYPE_PRIMITIVE,
     TYPE_ARRAY,
     TYPE_ARRAY_LENGTH,
@@ -390,19 +392,6 @@ typedef enum {
     TYPE_ENUM,
     TYPE_LINEAR,
     TYPE_TYPE_PARAMETER,
-} TypeTag;
-
-typedef enum {
-    VALUE_INVALID,
-    VALUE_TEMPORARY,
-    VALUE_PLACE,
-    VALUE_MUTABLE_PLACE,
-    VALUE_MULTIVALUE,
-} ValueCategory;
-
-typedef enum {
-    // index is unused
-    VAL_ERROR,
 
     // index is unused
     VAL_FUNCTION,
@@ -431,7 +420,15 @@ typedef enum {
 
     // index is the instruction index
     VAL_TEMPORARY,
-} ValueTag;
+} TermTag;
+
+typedef enum {
+    VALUE_INVALID,
+    VALUE_TEMPORARY,
+    VALUE_PLACE,
+    VALUE_MUTABLE_PLACE,
+    VALUE_MULTIVALUE,
+} ValueCategory;
 
 typedef enum {
     TIR_FUNCTION,

@@ -333,8 +333,8 @@ typedef struct {
 static void print_tir_node(TirPrinter *printer, TirId tir_id, TermId type);
 
 static void print_tir_value(TirPrinter *printer, TermId value) {
-    switch (get_value_tag(printer->context, value)) {
-        case VAL_ERROR: {
+    switch (get_term_tag(printer->context, value)) {
+        default: {
             print_indent(printer->depth);
             printf("(error)\n");
             break;
@@ -343,7 +343,7 @@ static void print_tir_value(TirPrinter *printer, TermId value) {
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
             print_indent(printer->depth);
-            int32_t s = get_value_data(printer->context, value)->b;
+            int32_t s = get_term_data(printer->context, value)->b;
             printf("%s\n", &printer->context.global->strtab.ptr[s]);
             break;
         }
@@ -370,14 +370,14 @@ static void print_tir_value(TirPrinter *printer, TermId value) {
         case VAL_VARIABLE:
         case VAL_MUTABLE_VARIABLE: {
             print_indent(printer->depth);
-            printf("variable_%d: ", get_value_data(printer->context, value)->b);
-            print_type(stdout, printer->context, (TermId) {get_value_data(printer->context, value)->a});
+            printf("variable_%d: ", get_term_data(printer->context, value)->b);
+            print_type(stdout, printer->context, (TermId) {get_term_data(printer->context, value)->a});
             printf("\n");
             break;
         }
         case VAL_TEMPORARY: {
-            TirId tir_id = {get_value_data(printer->context, value)->b};
-            TermId type = {get_value_data(printer->context, value)->a};
+            TirId tir_id = {get_term_data(printer->context, value)->b};
+            TermId type = {get_term_data(printer->context, value)->a};
             print_tir_node(printer, tir_id, type);
             break;
         }

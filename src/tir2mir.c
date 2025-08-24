@@ -99,10 +99,7 @@ static void patch_br(Context *c, MirId br, int32_t basic_block) {
 static MirId transform_node(Context *c, TirId tir_id, TermId type);
 
 static MirId transform_value(Context *c, TermId value) {
-    switch (get_value_tag(c->tir.ctx, value)) {
-        case VAL_ERROR: {
-            break;
-        }
+    switch (get_term_tag(c->tir.ctx, value)) {
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR:
@@ -116,13 +113,16 @@ static MirId transform_value(Context *c, TermId value) {
         }
         case VAL_VARIABLE:
         case VAL_MUTABLE_VARIABLE: {
-            int32_t variable = get_value_data(c->tir.ctx, value)->b;
+            int32_t variable = get_term_data(c->tir.ctx, value)->b;
             return c->variable_to_mir_map[variable];
         }
         case VAL_TEMPORARY: {
-            TirId tir_id = {get_value_data(c->tir.ctx, value)->b};
+            TirId tir_id = {get_term_data(c->tir.ctx, value)->b};
             TermId type = get_value_type(c->tir.ctx, value);
             return transform_node(c, tir_id, type);
+        }
+        default: {
+            break;
         }
     }
     abort();

@@ -24,7 +24,7 @@ typedef struct {
 } GenContext;
 
 static void gen_type(GenContext *ctx, TermId type) {
-    switch (get_type_tag(ctx->tir, type)) {
+    switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
                 case TYPE_INVALID:
@@ -95,8 +95,10 @@ static void gen_type(GenContext *ctx, TermId type) {
             gen_type(ctx, get_linear_elem_type(ctx->tir, type));
             return;
         }
+        default: {
+            abort();
+        }
     }
-    abort();
 }
 
 static void gen_params(GenContext *ctx, TermId type) {
@@ -137,7 +139,7 @@ static void gen_ret_type(GenContext *ctx, TermId type) {
 
 static void gen_extern_var(GenContext *ctx, TermId value) {
     TermId type = get_value_type(ctx->tir, value);
-    int32_t name = get_value_data(ctx->tir, value)->b;
+    int32_t name = get_term_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "@%s = external global ", &ctx->tir.global->strtab.ptr[name]);
     gen_type(ctx, type);
     fprintf(ctx->stream, ", align %d\n", alignof_type(ctx->tir, type, ctx->target));
@@ -148,7 +150,7 @@ static void gen_extern_function(GenContext *ctx, TermId value) {
     TermId ret_type = get_function_type(ctx->tir, type).ret;
     fprintf(ctx->stream, "declare ");
     gen_ret_type(ctx, ret_type);
-    int32_t name = get_value_data(ctx->tir, value)->b;
+    int32_t name = get_term_data(ctx->tir, value)->b;
     fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
     fprintf(ctx->stream, "\n");
@@ -165,7 +167,7 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         }
         case MIR_TIR_VALUE: {
             TermId value = get_mir_tir_value(ctx->mir, mir_id);
-            switch (get_value_tag(ctx->tir, value)) {
+            switch (get_term_tag(ctx->tir, value)) {
                 case VAL_EXTERN_VAR: {
                     return true;
                 }
@@ -251,17 +253,14 @@ static void gen_string(GenContext *ctx, int32_t index, char const *str) {
 }
 
 static void gen_value(GenContext *ctx, TermId value) {
-    switch (get_value_tag(ctx->tir, value)) {
-        case VAL_ERROR:
-        case VAL_VARIABLE:
-        case VAL_MUTABLE_VARIABLE:
-        case VAL_TEMPORARY: {
+    switch (get_term_tag(ctx->tir, value)) {
+        default: {
             abort();
         }
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
-            TermData const *data = get_value_data(ctx->tir, value);
+            TermData const *data = get_term_data(ctx->tir, value);
             fprintf(ctx->stream, "@%s", &ctx->tir.global->strtab.ptr[data->b]);
             break;
         }
@@ -765,7 +764,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
     } else {
         fprintf(ctx->stream, "define private ");
         gen_ret_type(ctx, ret_type);
-        int32_t name = get_value_data(ctx->tir, value)->b;
+        int32_t name = get_term_data(ctx->tir, value)->b;
         fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
     }
     gen_params(ctx, type);

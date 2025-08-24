@@ -402,7 +402,7 @@ typedef struct {
 } Constant;
 
 static Constant try_get_const(TypeContext *c, TermId value) {
-    switch (get_value_tag(c->tir, value)) {
+    switch (get_term_tag(c->tir, value)) {
         case VAL_CONST_INT: return (Constant) {.type = CONSTANT_INT, .i = get_value_int(c->tir, value)};
         case VAL_CONST_FLOAT: return (Constant) {.type = CONSTANT_FLOAT, .f = get_value_float(c->tir, value)};
         default: return (Constant) {.type = CONSTANT_INVALID};
@@ -410,7 +410,7 @@ static Constant try_get_const(TypeContext *c, TermId value) {
 }
 
 static bool try_get_int_const(TypeContext *c, TermId value, int64_t *i) {
-    if (get_value_tag(c->tir, value) == VAL_CONST_INT) {
+    if (get_term_tag(c->tir, value) == VAL_CONST_INT) {
         *i = get_value_int(c->tir, value);
         return true;
     }
@@ -647,8 +647,8 @@ static TermId analyze_const(TypeContext *c, AstId node) {
     AstId init = get_ast_unary(node, c->ast);
     TermId init_result = analyze_value(c, init, null_term);
 
-    switch (get_value_tag(c->tir, init_result)) {
-        case VAL_ERROR: {
+    switch (get_term_tag(c->tir, init_result)) {
+        case TERM_ERROR: {
             return (TermId) {0};
         }
         case VAL_CONST_INT:
@@ -698,7 +698,7 @@ static TermId analyze_array_type(TypeContext *c, AstId node) {
     TermId index = analyze_type(c, array.left);
     TermId element = analyze_type(c, array.right);
 
-    if (get_type_tag(c->tir, index) != TYPE_ARRAY_LENGTH) {
+    if (get_term_tag(c->tir, index) != TYPE_ARRAY_LENGTH) {
         type_error(c, array.left, index, 0, ERROR_ARRAY_TYPE_EXPECTS_LENGTH_TYPE);
         index = null_term;
     }
@@ -950,13 +950,13 @@ static TermId analyze_deref(TypeContext *c, AstId node) {
     return new_unary_inst(c, TIR_DEREF, node, type, operand_value.id);
 }
 
-static TermId analyze_ptr(TypeContext *c, AstId node, TypeTag tag) {
+static TermId analyze_ptr(TypeContext *c, AstId node, TermTag tag) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId operand_type = analyze_type(c, operand);
     return new_ptr_type(c->tir, tag, operand_type);
 }
 
-static TermId analyze_multiptr(TypeContext *c, AstId node, TypeTag tag) {
+static TermId analyze_multiptr(TypeContext *c, AstId node, TermTag tag) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId operand_type = analyze_type(c, operand);
     return new_multiptr_type(c->tir, tag, operand_type);
@@ -1383,7 +1383,7 @@ static TermId analyze_enum_member(TypeContext *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId type = analyze_type(c, operand);
 
-    if (get_type_tag(c->tir, type) != TYPE_ENUM) {
+    if (get_term_tag(c->tir, type) != TYPE_ENUM) {
         type_error(c, operand, type, 0, ERROR_UNDEFINED_TYPE_SCOPE);
         return null_term;
     }
@@ -1392,7 +1392,7 @@ static TermId analyze_enum_member(TypeContext *c, AstId node) {
 }
 
 static TermId analyze_enum_member_inferred(TypeContext *c, AstId node, TermId hint) {
-    if (!hint.id || get_type_tag(c->tir, hint) != TYPE_ENUM) {
+    if (!hint.id || get_term_tag(c->tir, hint) != TYPE_ENUM) {
         error(c, node, &(Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
         return null_term;
     }
@@ -1402,7 +1402,7 @@ static TermId analyze_enum_member_inferred(TypeContext *c, AstId node, TermId hi
 
 static TermId resolve_length(TypeContext *c, AstId node, TermId array_like) {
     TermId type = get_value_type(c->tir, array_like);
-    switch (get_type_tag(c->tir, type)) {
+    switch (get_term_tag(c->tir, type)) {
         case TYPE_ARRAY: {
             TermId index_type = get_array_type(c->tir, type).index;
             return new_int_constant(c->tir, type_isize, get_array_length_type(c->tir, index_type));
@@ -1460,7 +1460,7 @@ static TermId analyze_struct_access(TypeContext *c, AstId node) {
         return null_term;
     }
 
-    if (get_type_tag(c->tir, type) != TYPE_STRUCT) {
+    if (get_term_tag(c->tir, type) != TYPE_STRUCT) {
         type_error(c, operand, operand_type, 0, ERROR_UNDEFINED_TYPE_FIELD);
         return null_term;
     }
@@ -1627,7 +1627,7 @@ static TermId analyze_linear_ctor(TypeContext *c, AstId node, TermId linear_type
 static TermId analyze_constructor(TypeContext *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
     TermId type = analyze_type(c, call.operand);
-    switch (get_type_tag(c->tir, type)) {
+    switch (get_term_tag(c->tir, type)) {
         case TYPE_STRUCT: return analyze_struct_ctor(c, node, type);
         case TYPE_LINEAR: return analyze_linear_ctor(c, node, type);
         default: type_error(c, call.operand, type, 0, ERROR_TYPE_CONSTRUCTOR_TYPE); return null_term;
@@ -1639,7 +1639,7 @@ static TermId analyze_call(TypeContext *c, AstId node) {
     TermId operand_value = analyze_value(c, call.operand, null_term);
     TermId operand_type = get_value_type(c->tir, operand_value);
 
-    if (get_type_tag(c->tir, operand_type) != TYPE_FUNCTION) {
+    if (get_term_tag(c->tir, operand_type) != TYPE_FUNCTION) {
         type_error(c, call.operand, operand_type, 0, ERROR_CALLEE);
         return null_term;
     }
@@ -1782,7 +1782,7 @@ static TermId analyze_slice(TypeContext *c, AstId node) {
     TermId type;
     if (remove_slice(c->tir, operand_type).id) {
         type = operand_type;
-    } else if (get_type_tag(c->tir, operand_type) == TYPE_ARRAY
+    } else if (get_term_tag(c->tir, operand_type) == TYPE_ARRAY
         && get_value_category(c->tir, operand_value) == VALUE_MUTABLE_PLACE)
     {
         type = new_multiptr_type(c->tir, TYPE_MULTIPTR_MUT, elem_type);
@@ -1986,7 +1986,7 @@ static TermId analyze_switch(TypeContext *c, AstId node, TermId hint) {
             error(c, first_incompatible_case, &(Diagnostic) {.kind = ERROR_SWITCH_INCOMPATIBLE_CASES});
         } else {
             if (result_type.id != TYPE_VOID) {
-                if (get_type_tag(c->tir, pattern_type) == TYPE_ENUM) {
+                if (get_term_tag(c->tir, pattern_type) == TYPE_ENUM) {
                     EnumType enum_type = get_enum_type(c->tir, pattern_type);
                     validate_exhaustive_enum_switch(c, node, &enum_type, branches_tir);
                 } else if (is_ast_null(else_case)) {

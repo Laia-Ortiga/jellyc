@@ -20,7 +20,7 @@ static void gen_type_before(GenContext *ctx, TermId type);
 static void gen_type_after(GenContext *ctx, TermId type);
 
 static bool ptr_type_needs_parens(GenContext *ctx, TermId type) {
-    return get_type_tag(ctx->tir, type) == TYPE_ARRAY || get_type_tag(ctx->tir, type) == TYPE_FUNCTION;
+    return get_term_tag(ctx->tir, type) == TYPE_ARRAY || get_term_tag(ctx->tir, type) == TYPE_FUNCTION;
 }
 
 static void gen_ptr_type_before(GenContext *ctx, TermId type) {
@@ -89,7 +89,7 @@ static void gen_params(GenContext *ctx, TermId type) {
 }
 
 static void gen_type_before(GenContext *ctx, TermId type) {
-    switch (get_type_tag(ctx->tir, type)) {
+    switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
                 case TYPE_INVALID:
@@ -173,12 +173,14 @@ static void gen_type_before(GenContext *ctx, TermId type) {
             fprintf(ctx->stream, "void ");
             return;
         }
+        default: {
+            abort();
+        }
     }
-    abort();
 }
 
 static void gen_type_after(GenContext *ctx, TermId type) {
-    switch (get_type_tag(ctx->tir, type)) {
+    switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE:
         case TYPE_ARRAY_LENGTH:
         case TYPE_TYPE_PARAMETER:
@@ -228,15 +230,17 @@ static void gen_type_after(GenContext *ctx, TermId type) {
             gen_type_after(ctx, get_linear_elem_type(ctx->tir, type));
             return;
         }
+        default: {
+            abort();
+        }
     }
-    abort();
 }
 
 static void gen_extern_var(GenContext *ctx, TermId value) {
     TermId type = get_value_type(ctx->tir, value);
     fprintf(ctx->stream, "extern ");
     gen_type_before(ctx, type);
-    int32_t name = get_value_data(ctx->tir, value)->b;
+    int32_t name = get_term_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_type_after(ctx, type);
     fprintf(ctx->stream, ";\n");
@@ -259,7 +263,7 @@ static void gen_extern_function(GenContext *ctx, TermId value) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_value_data(ctx->tir, value)->b;
+    int32_t name = get_term_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
 
@@ -298,7 +302,7 @@ static void gen_function_decl(GenContext *ctx, TermId value, bool is_main) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_value_data(ctx->tir, value)->b;
+    int32_t name = get_term_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
 
@@ -385,10 +389,10 @@ static void gen_string(GenContext *ctx, char const *str) {
 }
 
 static void gen_value(GenContext *ctx, TermId value) {
-    TermData const *data = get_value_data(ctx->tir, value);
+    TermData const *data = get_term_data(ctx->tir, value);
 
-    switch (get_value_tag(ctx->tir, value)) {
-        case VAL_ERROR: {
+    switch (get_term_tag(ctx->tir, value)) {
+        default: {
             abort();
         }
         case VAL_FUNCTION:
@@ -556,7 +560,7 @@ static void gen_assign(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
     TermId type = get_mir_type(ctx->mir, mir_id);
 
-    if (get_type_tag(ctx->tir, type) == TYPE_ARRAY) {
+    if (get_term_tag(ctx->tir, type) == TYPE_ARRAY) {
         fprintf(ctx->stream, "    __builtin_memcpy(&");
         gen_operand(ctx, binary.left);
         fprintf(ctx->stream, ", &");
@@ -822,7 +826,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
             fprintf(ctx->stream, "void ");
         }
 
-        int32_t name = get_value_data(ctx->tir, value)->b;
+        int32_t name = get_term_data(ctx->tir, value)->b;
         fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
         gen_params(ctx, type);
 

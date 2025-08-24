@@ -62,8 +62,8 @@ static void check_value(LinearChecker *ctx, TermId value, ExpectedValue expected
         return;
     }
 
-    switch (get_value_tag(ctx->tir_ctx, value)) {
-        case VAL_ERROR: {
+    switch (get_term_tag(ctx->tir_ctx, value)) {
+        default: {
             abort();
         }
         case VAL_FUNCTION:
@@ -76,13 +76,13 @@ static void check_value(LinearChecker *ctx, TermId value, ExpectedValue expected
             break;
         }
         case VAL_TEMPORARY: {
-            TirId tir_id = {get_value_data(ctx->tir_ctx, value)->b};
+            TirId tir_id = {get_term_data(ctx->tir_ctx, value)->b};
             check_node(ctx, tir_id, expected_category);
             break;
         }
         case VAL_VARIABLE:
         case VAL_MUTABLE_VARIABLE: {
-            int32_t var = get_value_data(ctx->tir_ctx, value)->b;
+            int32_t var = get_term_data(ctx->tir_ctx, value)->b;
             AstId ast_id = ctx->var_refs[var];
             switch (ctx->var_states[var]) {
                 case VAR_CONSUMED: {

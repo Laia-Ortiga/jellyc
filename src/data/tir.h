@@ -62,8 +62,8 @@ typedef struct {
 
 TermId new_array_type(TirContext ctx, TermId index, TermId element);
 TermId new_array_length_type(TirContext ctx, int64_t length);
-TermId new_ptr_type(TirContext ctx, TypeTag tag, TermId elem);
-TermId new_multiptr_type(TirContext ctx, TypeTag tag, TermId elem);
+TermId new_ptr_type(TirContext ctx, TermTag tag, TermId elem);
+TermId new_multiptr_type(TirContext ctx, TermTag tag, TermId elem);
 TermId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TermId const *params, TermId ret);
 TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TermId const *fields, Target target);
 TermId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TermId repr);
@@ -72,7 +72,7 @@ TermId new_tagged_type(TirContext ctx, TermId newtype, TermId inner, int32_t arg
 TermId new_linear_type(TirContext ctx, TermId elem);
 TermId new_type_parameter(TirContext ctx, int32_t i, int32_t name);
 
-TypeTag get_type_tag(TirContext ctx, TermId type);
+TermTag get_term_tag(TirContext ctx, TermId type);
 TermId remove_any_pointer(TirContext ctx, TermId type);
 TermId remove_pointer(TirContext ctx, TermId type);
 TermId remove_slice(TirContext ctx, TermId type);
@@ -191,8 +191,7 @@ TermId new_extern_var(TirContext ctx, TermId type, int32_t name);
 TermId new_variable(TirContext ctx, TermId type, bool mutable);
 TermId new_temporary(TirContext ctx, TermId type, TirId tir_id);
 
-ValueTag get_value_tag(TirContext ctx, TermId value);
-TermData const *get_value_data(TirContext ctx, TermId value);
+TermData const *get_term_data(TirContext ctx, TermId term);
 TermId get_value_type(TirContext ctx, TermId value);
 ValueCategory get_value_category(TirContext ctx, TermId value);
 char const *get_value_str(TirContext ctx, TermId value);
