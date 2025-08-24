@@ -232,11 +232,7 @@ static Result analyze_function_decl(Context *c, AstRef ref) {
     if (!is_ast_null(f.ret)) {
         expect_type(c, subvertex(ref, f.ret), ERROR_EXPECTED_TYPE);
     }
-    if (f.type_param_count) {
-        return (Result) {ROLE_GENERIC_FUNCTION, RIR_FUNCTION, 0};
-    } else {
-        return (Result) {ROLE_VALUE, RIR_FUNCTION, 0};
-    }
+    return (Result) {ROLE_VALUE, RIR_FUNCTION, 0};
 }
 
 static Result analyze_struct(Context *c, AstRef ref) {
@@ -259,7 +255,7 @@ static Result analyze_enum(Context *c, AstRef ref) {
 static Result analyze_newtype(Context *c, AstRef ref) {
     AstNewtype n = get_ast_newtype(ref.node, &c->asts[ref.file]);
     expect_type(c, subvertex(ref, n.type), ERROR_EXPECTED_TYPE);
-    return (Result) {ROLE_GENERIC_TYPE, RIR_NEWTYPE, 0};
+    return (Result) {ROLE_TYPE, RIR_NEWTYPE, 0};
 }
 
 static Result analyze_const(Context *c, AstRef ref) {
@@ -422,7 +418,7 @@ static Role analyze_id(Context *c, AstRef ref) {
                 }
                 case BUILTIN_SIZE_TAG:
                 case BUILTIN_ALIGNMENT_TAG: {
-                    return ROLE_GENERIC_TYPE;
+                    return ROLE_TYPE;
                 }
                 case BUILTIN_ALIGNOF:
                 case BUILTIN_SIZEOF:
@@ -604,7 +600,6 @@ static Role analyze_call(Context *c, AstRef ref) {
         case ROLE_INVALID: return ROLE_INVALID;
         case ROLE_TYPE: return analyze_value_args(c, ref, RIR_CONSTRUCT);
         case ROLE_VALUE: return analyze_value_args(c, ref, RIR_CALL);
-        case ROLE_GENERIC_FUNCTION: return analyze_value_args(c, ref, RIR_CALL);
         default: diagnostic(c, ref, ERROR_CALL_OPERAND_ROLE); return ROLE_INVALID;
     }
 }
@@ -670,7 +665,7 @@ static Role analyze_index(Context *c, AstRef ref) {
     switch (analyze_node(c, subvertex(ref, call.operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
         case ROLE_BUILTIN_MACRO: return analyze_builtin_macro(c, ref);
-        case ROLE_GENERIC_TYPE: return analyze_tagged_type(c, ref);
+        case ROLE_TYPE: return analyze_tagged_type(c, ref);
 
         case ROLE_VALUE: return analyze_value_args(c, ref, RIR_INDEX);
         default: {
