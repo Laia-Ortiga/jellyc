@@ -6,16 +6,16 @@
 #include "data/tir.h"
 
 typedef struct {
-    Vec(TypeId) structs;
-    Vec(ValueId) extern_vars;
-    Vec(ValueId) extern_functions;
-    Vec(ValueId) functions;
-    ValueId main;
+    Vec(TermId) structs;
+    Vec(TermId) extern_vars;
+    Vec(TermId) extern_functions;
+    Vec(TermId) functions;
+    TermId main;
 } Declarations;
 
 typedef union {
-    ValueId value;
-    TypeId type;
+    TermId value;
+    TermId type;
 } TirRef;
 
 typedef struct {

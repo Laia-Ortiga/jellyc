@@ -16,14 +16,14 @@ typedef struct {
     Vec(char const *) strings;
     int32_t tmp_count;
     int32_t blocks;
-    TypeId return_type;
+    TermId return_type;
     bool is_main;
     Target target;
     TirContext tir;
     FILE *stream;
 } GenContext;
 
-static void gen_type(GenContext *ctx, TypeId type) {
+static void gen_type(GenContext *ctx, TermId type) {
     switch (get_type_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
@@ -99,7 +99,7 @@ static void gen_type(GenContext *ctx, TypeId type) {
     abort();
 }
 
-static void gen_params(GenContext *ctx, TypeId type) {
+static void gen_params(GenContext *ctx, TermId type) {
     fprintf(ctx->stream, "(");
     FunctionType func_type = get_function_type(ctx->tir, type);
 
@@ -116,7 +116,7 @@ static void gen_params(GenContext *ctx, TypeId type) {
             fprintf(ctx->stream, ", ");
         }
 
-        TypeId param_type = get_function_type_param(ctx->tir, type, i);
+        TermId param_type = get_function_type_param(ctx->tir, type, i);
         if (is_aggregate_type(ctx->tir, param_type)) {
             fprintf(ctx->stream, "ptr");
         } else {
@@ -127,7 +127,7 @@ static void gen_params(GenContext *ctx, TypeId type) {
     fprintf(ctx->stream, ")");
 }
 
-static void gen_ret_type(GenContext *ctx, TypeId type) {
+static void gen_ret_type(GenContext *ctx, TermId type) {
     if (is_aggregate_type(ctx->tir, type)) {
         fprintf(ctx->stream, "ptr");
         return;
@@ -135,20 +135,20 @@ static void gen_ret_type(GenContext *ctx, TypeId type) {
     gen_type(ctx, type);
 }
 
-static void gen_extern_var(GenContext *ctx, ValueId value) {
-    TypeId type = get_value_type(ctx->tir, value);
-    int32_t name = get_value_data(ctx->tir, value)->index;
+static void gen_extern_var(GenContext *ctx, TermId value) {
+    TermId type = get_value_type(ctx->tir, value);
+    int32_t name = get_value_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "@%s = external global ", &ctx->tir.global->strtab.ptr[name]);
     gen_type(ctx, type);
     fprintf(ctx->stream, ", align %d\n", alignof_type(ctx->tir, type, ctx->target));
 }
 
-static void gen_extern_function(GenContext *ctx, ValueId value) {
-    TypeId type = get_value_type(ctx->tir, value);
-    TypeId ret_type = get_function_type(ctx->tir, type).ret;
+static void gen_extern_function(GenContext *ctx, TermId value) {
+    TermId type = get_value_type(ctx->tir, value);
+    TermId ret_type = get_function_type(ctx->tir, type).ret;
     fprintf(ctx->stream, "declare ");
     gen_ret_type(ctx, ret_type);
-    int32_t name = get_value_data(ctx->tir, value)->index;
+    int32_t name = get_value_data(ctx->tir, value)->b;
     fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
     fprintf(ctx->stream, "\n");
@@ -164,7 +164,7 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
             return is_aggregate_type(ctx->tir, func_type.ret);
         }
         case MIR_TIR_VALUE: {
-            ValueId value = get_mir_tir_value(ctx->mir, mir_id);
+            TermId value = get_mir_tir_value(ctx->mir, mir_id);
             switch (get_value_tag(ctx->tir, value)) {
                 case VAL_EXTERN_VAR: {
                     return true;
@@ -250,7 +250,7 @@ static void gen_string(GenContext *ctx, int32_t index, char const *str) {
     fprintf(ctx->stream, "\\00\", align 1\n");
 }
 
-static void gen_value(GenContext *ctx, ValueId value) {
+static void gen_value(GenContext *ctx, TermId value) {
     switch (get_value_tag(ctx->tir, value)) {
         case VAL_ERROR:
         case VAL_VARIABLE:
@@ -261,8 +261,8 @@ static void gen_value(GenContext *ctx, ValueId value) {
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
-            ValueData const *data = get_value_data(ctx->tir, value);
-            fprintf(ctx->stream, "@%s", &ctx->tir.global->strtab.ptr[data->index]);
+            TermData const *data = get_value_data(ctx->tir, value);
+            fprintf(ctx->stream, "@%s", &ctx->tir.global->strtab.ptr[data->b]);
             break;
         }
         case VAL_STRING: {
@@ -321,13 +321,13 @@ static void gen_operand_address(GenContext *ctx, MirId mir_id) {
             break;
         }
         case MIR_STRING: {
-            ValueId value = get_mir_tir_value(ctx->mir, mir_id);
+            TermId value = get_mir_tir_value(ctx->mir, mir_id);
             fprintf(ctx->stream, "@s%d", ctx->strings.len);
             vec_push(&ctx->strings, get_value_str(ctx->tir, value));
             break;
         }
         case MIR_TIR_VALUE: {
-            ValueId operand = get_mir_tir_value(ctx->mir, mir_id);
+            TermId operand = get_mir_tir_value(ctx->mir, mir_id);
             gen_value(ctx, operand);
             break;
         }
@@ -344,7 +344,7 @@ static void gen_operand_address(GenContext *ctx, MirId mir_id) {
     }
 }
 
-static int32_t load_operand(GenContext *ctx, MirId mir_id, TypeId type) {
+static int32_t load_operand(GenContext *ctx, MirId mir_id, TermId type) {
     if (is_lvalue(ctx, mir_id)) {
         int32_t tmp = ctx->tmp_count++;
         fprintf(ctx->stream, "  %%%d = load ", tmp);
@@ -366,7 +366,7 @@ static void gen_operand(GenContext *ctx, MirId mir_id, int32_t place) {
 }
 
 static void gen_alloc(GenContext *ctx, MirId mir_id) {
-    TypeId local_type = get_mir_type(ctx->mir, mir_id);
+    TermId local_type = get_mir_type(ctx->mir, mir_id);
     if (local_type.id == TYPE_VOID) {
         return;
     }
@@ -376,7 +376,7 @@ static void gen_alloc(GenContext *ctx, MirId mir_id) {
 }
 
 static void gen_call_alloc(GenContext *ctx, MirId mir_id) {
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     FunctionType function_type = get_function_type(ctx->tir, type);
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_aggregate_type(ctx->tir, function_type.ret);
     if (function_type.ret.id != TYPE_VOID && implicit_return) {
@@ -392,7 +392,7 @@ static void gen_new_slice_alloc(GenContext *ctx, MirId mir_id) {
 
 static void gen_negative(GenContext *ctx, MirId mir_id) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_operand = load_operand(ctx, operand, type);
     char const *op = "sub";
     char const *zero = "0";
@@ -409,7 +409,7 @@ static void gen_negative(GenContext *ctx, MirId mir_id) {
 
 static void gen_not(GenContext *ctx, MirId mir_id) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_operand = load_operand(ctx, operand, type);
     fprintf(ctx->stream, "  %%%d = xor ", new_tmp(ctx, mir_id));
     gen_type(ctx, type);
@@ -420,7 +420,7 @@ static void gen_not(GenContext *ctx, MirId mir_id) {
 
 static void gen_binary(GenContext *ctx, MirId mir_id, char const *op) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_left = load_operand(ctx, binary.left, type);
     int32_t llvm_right = load_operand(ctx, binary.right, type);
     fprintf(ctx->stream, "  %%t%d = %s ", mir_id.private_field_id, op);
@@ -434,7 +434,7 @@ static void gen_binary(GenContext *ctx, MirId mir_id, char const *op) {
 
 static void gen_overloaded_binary(GenContext *ctx, MirId mir_id, char const *op, char const *float_op) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_left = load_operand(ctx, binary.left, type);
     int32_t llvm_right = load_operand(ctx, binary.right, type);
     if (type_is_float(type)) {
@@ -479,7 +479,7 @@ static void gen_deref(GenContext *ctx, MirId mir_id) {
 
 static void gen_assign(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_right = load_operand(ctx, binary.right, type);
     fprintf(ctx->stream, "  store ");
     gen_type(ctx, type);
@@ -492,7 +492,7 @@ static void gen_assign(GenContext *ctx, MirId mir_id) {
 
 static void gen_new_slice(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
 
     int32_t length_address = ctx->tmp_count++;
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds %%slice, ptr ", length_address);
@@ -518,8 +518,8 @@ static void gen_new_slice(GenContext *ctx, MirId mir_id) {
 
 static void gen_cast(GenContext *ctx, MirId mir_id, char const *op) {
     MirAccess cast = get_mir_access(ctx->mir, mir_id);
-    TypeId type = {cast.index};
-    TypeId cast_type = get_mir_type(ctx->mir, mir_id);
+    TermId type = {cast.index};
+    TermId cast_type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_operand = load_operand(ctx, cast.operand, type);
     fprintf(ctx->stream, "  %%%d = %s ", new_tmp(ctx, mir_id), op);
     gen_type(ctx, type);
@@ -532,7 +532,7 @@ static void gen_cast(GenContext *ctx, MirId mir_id, char const *op) {
 
 static void gen_call(GenContext *ctx, MirId mir_id) {
     MirAccess call = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     FunctionType function_type = get_function_type(ctx->tir, type);
     int32_t arg_count = function_type.param_count;
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_aggregate_type(ctx->tir, function_type.ret);
@@ -596,7 +596,7 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
 
 static void gen_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_right = load_operand(ctx, index.right, type_isize);
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", new_tmp(ctx, mir_id));
     gen_type(ctx, type);
@@ -609,7 +609,7 @@ static void gen_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_slice_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_right = load_operand(ctx, index.right, type_isize);
     int32_t data_address = ctx->tmp_count++;
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", data_address);
@@ -630,7 +630,7 @@ static void gen_slice_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_const_index(GenContext *ctx, MirId mir_id) {
     MirAccess index = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", new_tmp(ctx, mir_id));
     gen_type(ctx, type);
     fprintf(ctx->stream, ", ptr ");
@@ -640,7 +640,7 @@ static void gen_const_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_access(GenContext *ctx, MirId mir_id) {
     MirAccess access = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", new_tmp(ctx, mir_id));
     gen_type(ctx, type);
     fprintf(ctx->stream, ", ptr ");
@@ -752,12 +752,12 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
     }
 }
 
-static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, ValueId value, bool is_main) {
+static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, TermId value, bool is_main) {
     ctx->mir_start = mir_start;
     ctx->temporaries = arena_alloc(&ctx->scratch, int32_t, mir_end - mir_start);
     ctx->tmp_count = 0;
-    TypeId type = get_value_type(ctx->tir, value);
-    TypeId ret_type = get_function_type(ctx->tir, type).ret;
+    TermId type = get_value_type(ctx->tir, value);
+    TermId ret_type = get_function_type(ctx->tir, type).ret;
     ctx->return_type = ret_type;
     ctx->is_main = is_main;
     if (is_main) {
@@ -765,7 +765,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Va
     } else {
         fprintf(ctx->stream, "define private ");
         gen_ret_type(ctx, ret_type);
-        int32_t name = get_value_data(ctx->tir, value)->index;
+        int32_t name = get_value_data(ctx->tir, value)->b;
         fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
     }
     gen_params(ctx, type);
@@ -796,7 +796,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Va
     fprintf(ctx->stream, "}\n");
 }
 
-static void gen_struct(GenContext *ctx, TypeId type) {
+static void gen_struct(GenContext *ctx, TermId type) {
     StructType s = get_struct_type(ctx->tir, type);
     fprintf(ctx->stream, "%%_%s = type { ", ctx->tir.global->strtab.ptr + s.name);
 
@@ -804,7 +804,7 @@ static void gen_struct(GenContext *ctx, TypeId type) {
         if (i != 0) {
             fprintf(ctx->stream, ", ");
         }
-        TypeId field_type = get_struct_type_field(ctx->tir, type, i);
+        TermId field_type = get_struct_type_field(ctx->tir, type, i);
         gen_type(ctx, field_type);
     }
 
@@ -833,23 +833,23 @@ void gen_llvm(GenInput *input, Target target, Arena scratch) {
     };
 
     for (int32_t i = 0; i < input->declarations.structs.len; i++) {
-        TypeId type = input->declarations.structs.ptr[i];
+        TermId type = input->declarations.structs.ptr[i];
         gen_struct(&ctx, type);
     }
 
     for (int32_t i = 0; i < input->declarations.extern_vars.len; i++) {
-        ValueId value = input->declarations.extern_vars.ptr[i];
+        TermId value = input->declarations.extern_vars.ptr[i];
         gen_extern_var(&ctx, value);
     }
 
     for (int32_t i = 0; i < input->declarations.extern_functions.len; i++) {
-        ValueId value = input->declarations.extern_functions.ptr[i];
+        TermId value = input->declarations.extern_functions.ptr[i];
         gen_extern_function(&ctx, value);
     }
 
     for (int32_t i = 0; i < input->declarations.functions.len; i++) {
         ctx.tir.thread = &input->insts[i];
-        ValueId value = input->declarations.functions.ptr[i];
+        TermId value = input->declarations.functions.ptr[i];
         gen_function(&ctx, input->mir_result->ends[i], input->mir_result->ends[i + 1], value, input->declarations.main.id == value.id);
     }
 

@@ -18,13 +18,13 @@ typedef struct {
         TokenTag expected_token;
         struct {
             TirContext ctx;
-            TypeId type;
+            TermId type;
             int32_t extra;
         } type_error;
         struct {
             TirContext ctx;
-            TypeId type1;
-            TypeId type2;
+            TermId type1;
+            TermId type2;
         } double_type_error;
         struct {
             int32_t expected;

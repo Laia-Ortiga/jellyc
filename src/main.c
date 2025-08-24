@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
                 .global = &tir_output.global_deps,
                 .thread = &tir_output.insts[i],
             };
-            int32_t name = get_value_data(ctx, tir_output.declarations.functions.ptr[i])->index;
+            int32_t name = get_value_data(ctx, tir_output.declarations.functions.ptr[i])->b;
             print_tir(ctx, &ctx.global->strtab.ptr[name], &tir_output.insts[i].insts, tir_output.insts[i].first);
         }
     }

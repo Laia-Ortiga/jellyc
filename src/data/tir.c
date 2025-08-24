@@ -17,28 +17,28 @@
 typedef struct {
     TypeTag tag;
     union {
-        TypeId unary;
+        TermId unary;
         int64_t array_length;
         struct {
-            TypeId first;
-            TypeId second;
+            TermId first;
+            TermId second;
         } binary;
         struct {
             int32_t type_param_count;
             int32_t param_count;
-            TypeId const *params;
-            TypeId ret;
+            TermId const *params;
+            TermId ret;
         } function;
         struct {
-            TypeId newtype;
-            TypeId inner;
+            TermId newtype;
+            TermId inner;
             int32_t arg_count;
-            TypeId const *args;
+            TermId const *args;
         } tagged;
     };
 } StructuralType;
 
-static StructuralType get_type_from_id(TirContext ctx, TypeId type) {
+static StructuralType get_type_from_id(TirContext ctx, TermId type) {
     TypeTag tag = get_type_tag(ctx, type);
     switch (tag) {
         case TYPE_PRIMITIVE:
@@ -189,19 +189,19 @@ static size_t hash_type(TirContext ctx, StructuralType type) {
     return result;
 }
 
-static TypeSet typeset_init(size_t capacity) {
-    TypeId *ptr = calloc(capacity, sizeof(*ptr));
+static TermSet termset_init(size_t capacity) {
+    TermId *ptr = calloc(capacity, sizeof(*ptr));
     if (!ptr) {
         abort();
     }
-    return (TypeSet) {
+    return (TermSet) {
         .capacity = capacity,
         .count = 0,
         .ptr = ptr,
     };
 }
 
-static void typeset_insert_entry(TypeSet *set, TypeId key, TirContext ctx) {
+static void termset_insert_entry(TermSet *set, TermId key, TirContext ctx) {
     size_t index = hash_type(ctx, get_type_from_id(ctx, key)) & (set->capacity - 1);
     while (set->ptr[index].id) {
         index = (index + 1) & (set->capacity - 1);
@@ -209,28 +209,28 @@ static void typeset_insert_entry(TypeSet *set, TypeId key, TirContext ctx) {
     set->ptr[index] = key;
 }
 
-static void typeset_resize(TypeSet *set, TirContext ctx) {
-    TypeSet new_set = typeset_init(set->capacity * 2);
+static void termset_resize(TermSet *set, TirContext ctx) {
+    TermSet new_set = termset_init(set->capacity * 2);
     new_set.count = set->count;
     for (size_t i = 0; i < set->capacity; i++) {
         if (set->ptr[i].id) {
-            typeset_insert_entry(&new_set, set->ptr[i], ctx);
+            termset_insert_entry(&new_set, set->ptr[i], ctx);
         }
     }
     free(set->ptr);
     *set = new_set;
 }
 
-static TypeList *ctx_types(TirContext ctx) {
-    return ctx.thread ? &ctx.thread->deps.types : &ctx.global->types;
+static TermList *ctx_types(TirContext ctx) {
+    return ctx.thread ? &ctx.thread->deps.terms : &ctx.global->terms;
 }
 
-static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
-    TypeSet *set = &ctx_types(ctx)->set;
+static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
+    TermSet *set = &ctx_types(ctx)->set;
     if (set->capacity == 0) {
-        *set = typeset_init(64);
+        *set = termset_init(64);
     } else if (set->count * 4 / set->capacity >= 3) {
-        typeset_resize(set, ctx);
+        termset_resize(set, ctx);
     }
 
     size_t hash = hash_type(ctx, descriptor);
@@ -243,7 +243,7 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
     }
 
     if (ctx.thread) {
-        TypeSet *global_set = &ctx.global->types.set;
+        TermSet *global_set = &ctx.global->terms.set;
         size_t global_slot = hash & (global_set->capacity - 1);
         while (global_set->ptr[global_slot].id) {
             if (type_eq(get_type_from_id(ctx, global_set->ptr[global_slot]), descriptor)) {
@@ -253,14 +253,14 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
         }
     }
 
-    TypeId type = {ctx.global->types.types.len + TYPE_COUNT};
+    TermId type = {ctx.global->terms.terms.len + TYPE_COUNT};
     if (ctx.thread) {
-        type.id += ctx.thread->deps.types.types.len;
+        type.id += ctx.thread->deps.terms.terms.len;
     }
     set->ptr[slot] = type;
     set->count++;
 
-    TypeList *types = ctx_types(ctx);
+    TermList *types = ctx_types(ctx);
     switch (descriptor.tag) {
         case TYPE_PRIMITIVE:
         case TYPE_NEWTYPE:
@@ -270,34 +270,33 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
             abort();
         }
         case TYPE_ARRAY: {
-            TypeData data = {
-                .index = descriptor.binary.second.id,
-                .extra = descriptor.binary.first.id,
+            TermData data = {
+                .a = descriptor.binary.second.id,
+                .b = descriptor.binary.first.id,
             };
-            sum_vec_push(&types->types, data, descriptor.tag);
+            sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
         case TYPE_ARRAY_LENGTH: {
-            sum_vec_push(&types->types, *(TypeData *) &descriptor.array_length, descriptor.tag);
+            sum_vec_push(&types->terms, *(TermData *) &descriptor.array_length, descriptor.tag);
             break;
         }
         case TYPE_PTR:
         case TYPE_PTR_MUT:
         case TYPE_LINEAR: {
-            TypeData data = {
-                .index = descriptor.unary.id,
-                .extra = 0,
+            TermData data = {
+                .a = descriptor.unary.id,
             };
-            sum_vec_push(&types->types, data, descriptor.tag);
+            sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
         case TYPE_MULTIPTR:
         case TYPE_MULTIPTR_MUT: {
-            TypeData data = {
-                .index = descriptor.binary.first.id,
-                .extra = descriptor.binary.second.id,
+            TermData data = {
+                .a = descriptor.binary.first.id,
+                .b = descriptor.binary.second.id,
             };
-            sum_vec_push(&types->types, data, descriptor.tag);
+            sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
         case TYPE_FUNCTION: {
@@ -307,11 +306,11 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
             for (int32_t i = 0; i < descriptor.function.param_count; i++) {
                 vec_push(&types->extra, descriptor.function.params[i].id);
             }
-            TypeData data = {
-                .index = index,
-                .extra = descriptor.function.param_count,
+            TermData data = {
+                .a = index,
+                .b = descriptor.function.param_count,
             };
-            sum_vec_push(&types->types, data, descriptor.tag);
+            sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
         case TYPE_TAGGED: {
@@ -321,11 +320,11 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
             for (int32_t i = 0; i < descriptor.tagged.arg_count; i++) {
                 vec_push(&types->extra, descriptor.tagged.args[i].id);
             }
-            TypeData data = {
-                .index = index,
-                .extra = descriptor.tagged.arg_count,
+            TermData data = {
+                .a = index,
+                .b = descriptor.tagged.arg_count,
             };
-            sum_vec_push(&types->types, data, descriptor.tag);
+            sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
     }
@@ -333,33 +332,33 @@ static TypeId new_structural_type(TirContext ctx, StructuralType descriptor) {
     return type;
 }
 
-static TypeId new_nominal_type(TirContext ctx, TypeTag tag, TypeData data) {
-    TypeId type = {ctx.global->types.types.len + TYPE_COUNT};
+static TermId new_nominal_type(TirContext ctx, TypeTag tag, TermData data) {
+    TermId type = {ctx.global->terms.terms.len + TYPE_COUNT};
     if (ctx.thread) {
-        type.id += ctx.thread->deps.types.types.len;
+        type.id += ctx.thread->deps.terms.terms.len;
     }
-    sum_vec_push(&ctx_types(ctx)->types, data, tag);
+    sum_vec_push(&ctx_types(ctx)->terms, data, tag);
     return type;
 }
 
-TypeId new_array_type(TirContext ctx, TypeId index, TypeId element) {
+TermId new_array_type(TirContext ctx, TermId index, TermId element) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_ARRAY, .binary = {index, element}});
 }
 
-TypeId new_array_length_type(TirContext ctx, int64_t length) {
+TermId new_array_length_type(TirContext ctx, int64_t length) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_ARRAY_LENGTH, .array_length = length});
 }
 
-TypeId new_ptr_type(TirContext ctx, TypeTag tag, TypeId elem) {
+TermId new_ptr_type(TirContext ctx, TypeTag tag, TermId elem) {
     return new_structural_type(ctx, (StructuralType) {.tag = tag, .unary = elem});
 }
 
-TypeId new_multiptr_type(TirContext ctx, TypeTag tag, TypeId elem) {
-    TypeId pointer = new_ptr_type(ctx, tag == TYPE_MULTIPTR_MUT ? TYPE_PTR_MUT : TYPE_PTR, type_byte);
+TermId new_multiptr_type(TirContext ctx, TypeTag tag, TermId elem) {
+    TermId pointer = new_ptr_type(ctx, tag == TYPE_MULTIPTR_MUT ? TYPE_PTR_MUT : TYPE_PTR, type_byte);
     return new_structural_type(ctx, (StructuralType) {.tag = tag, .binary = {elem, pointer}});
 }
 
-TypeId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TypeId const *params, TypeId ret) {
+TermId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TermId const *params, TermId ret) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_FUNCTION, .function = {
         .type_param_count = type_param_count,
         .param_count = param_count,
@@ -382,7 +381,7 @@ typedef struct {
     int32_t name;
 } NewtypeLayout;
 
-static void init_struct_layout(StructTypeLayout *layout, TirContext ctx, int32_t field_count, TypeId const *fields, Target target) {
+static void init_struct_layout(StructTypeLayout *layout, TirContext ctx, int32_t field_count, TermId const *fields, Target target) {
     int32_t alignment = 1;
     int64_t size = 0;
     for (int32_t i = 0; i < field_count; i++) {
@@ -397,8 +396,8 @@ static void init_struct_layout(StructTypeLayout *layout, TirContext ctx, int32_t
     layout->size = size;
 }
 
-TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TypeId const *fields, Target target) {
-    TypeList *types = ctx_types(ctx);
+TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TermId const *fields, Target target) {
+    TermList *types = ctx_types(ctx);
     int32_t index = types->extra.len;
     int32_t *ptr = vec_grow(&types->extra, field_count + sizeof(StructTypeLayout) / sizeof(int32_t));
     StructTypeLayout *layout = (StructTypeLayout *) ptr;
@@ -413,39 +412,39 @@ TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type
             layout->is_linear = true;
         }
     }
-    TypeData data = {
-        .index = index,
-        .extra = field_count,
+    TermData data = {
+        .a = index,
+        .b = field_count,
     };
     return new_nominal_type(ctx, TYPE_STRUCT, data);
 }
 
-TypeId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TypeId repr) {
-    TypeList *types = ctx_types(ctx);
+TermId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TermId repr) {
+    TermList *types = ctx_types(ctx);
     int32_t index = types->extra.len;
     vec_push(&types->extra, scope);
     vec_push(&types->extra, name);
-    TypeData data = {
-        .index = index,
-        .extra = repr.id,
+    TermData data = {
+        .a = index,
+        .b = repr.id,
     };
     return new_nominal_type(ctx, TYPE_ENUM, data);
 }
 
-TypeId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TypeId type) {
-    TypeList *types = ctx_types(ctx);
+TermId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TermId type) {
+    TermList *types = ctx_types(ctx);
     int32_t index = types->extra.len;
     NewtypeLayout *layout = (NewtypeLayout *) vec_grow(&types->extra, sizeof(NewtypeLayout) / sizeof(int32_t));
     layout->tags = tags;
     layout->name = name;
-    TypeData data = {
-        .index = index,
-        .extra = type.id,
+    TermData data = {
+        .a = index,
+        .b = type.id,
     };
     return new_nominal_type(ctx, TYPE_NEWTYPE, data);
 }
 
-TypeId new_tagged_type(TirContext ctx, TypeId newtype, TypeId inner, int32_t arg_count, TypeId const *args) {
+TermId new_tagged_type(TirContext ctx, TermId newtype, TermId inner, int32_t arg_count, TermId const *args) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_TAGGED, .tagged = {
         .newtype = newtype,
         .inner = inner,
@@ -454,17 +453,17 @@ TypeId new_tagged_type(TirContext ctx, TypeId newtype, TypeId inner, int32_t arg
     }});
 }
 
-TypeId new_linear_type(TirContext ctx, TypeId elem) {
+TermId new_linear_type(TirContext ctx, TermId elem) {
     if (get_type_tag(ctx, elem) == TYPE_LINEAR) {
         return elem;
     }
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_LINEAR, .unary = elem});
 }
 
-TypeId new_type_parameter(TirContext ctx, int32_t i, int32_t name) {
-    TypeData data = {
-        .index = i,
-        .extra = name,
+TermId new_type_parameter(TirContext ctx, int32_t i, int32_t name) {
+    TermData data = {
+        .a = i,
+        .b = name,
     };
     return new_nominal_type(ctx, TYPE_TYPE_PARAMETER, data);
 }
@@ -474,105 +473,105 @@ typedef struct {
     int32_t index;
 } TypeIndex;
 
-static TypeIndex get_type_index(TirContext ctx, TypeId type) {
-    if (type.id - TYPE_COUNT < ctx.global->types.types.len) {
+static TypeIndex get_type_index(TirContext ctx, TermId type) {
+    if (type.id - TYPE_COUNT < ctx.global->terms.terms.len) {
         return (TypeIndex) {ctx.global, type.id - TYPE_COUNT};
     }
-    return (TypeIndex) {&ctx.thread->deps, type.id - TYPE_COUNT - ctx.global->types.types.len};
+    return (TypeIndex) {&ctx.thread->deps, type.id - TYPE_COUNT - ctx.global->terms.terms.len};
 }
 
-TypeTag get_type_tag(TirContext ctx, TypeId type) {
+TypeTag get_type_tag(TirContext ctx, TermId type) {
     if (type.id < TYPE_COUNT) {
         return TYPE_PRIMITIVE;
     }
     TypeIndex i = get_type_index(ctx, type);
-    return i.deps->types.types.tags[i.index];
+    return i.deps->terms.terms.tags[i.index];
 }
 
-static TypeData const *get_type_data(TirContext ctx, TypeId type) {
+static TermData const *get_type_data(TirContext ctx, TermId type) {
     if (type.id < TYPE_COUNT) {
         return NULL;
     }
     TypeIndex i = get_type_index(ctx, type);
-    return &i.deps->types.types.datas[i.index];
+    return &i.deps->terms.terms.datas[i.index];
 }
 
-static int32_t *get_type_extra(TirContext ctx, TypeId type) {
+static int32_t *get_type_extra(TirContext ctx, TermId type) {
     if (type.id < TYPE_COUNT) {
         return NULL;
     }
     TypeIndex i = get_type_index(ctx, type);
-    return &i.deps->types.extra.ptr[i.deps->types.types.datas[i.index].index];
+    return &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].a];
 }
 
-TypeId remove_any_pointer(TirContext ctx, TypeId type) {
+TermId remove_any_pointer(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PTR:
         case TYPE_PTR_MUT:
         case TYPE_MULTIPTR:
-        case TYPE_MULTIPTR_MUT: return (TypeId) {get_type_data(ctx, type)->index};
+        case TYPE_MULTIPTR_MUT: return (TermId) {get_type_data(ctx, type)->a};
 
-        default: return null_type;
+        default: return null_term;
     }
 }
 
-TypeId remove_pointer(TirContext ctx, TypeId type) {
+TermId remove_pointer(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PTR:
-        case TYPE_PTR_MUT: return (TypeId) {get_type_data(ctx, type)->index};
+        case TYPE_PTR_MUT: return (TermId) {get_type_data(ctx, type)->a};
 
-        default: return null_type;
+        default: return null_term;
     }
 }
 
-TypeId remove_slice(TirContext ctx, TypeId type) {
+TermId remove_slice(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_MULTIPTR:
-        case TYPE_MULTIPTR_MUT: return (TypeId) {get_type_data(ctx, type)->index};
+        case TYPE_MULTIPTR_MUT: return (TermId) {get_type_data(ctx, type)->a};
 
-        default: return null_type;
+        default: return null_term;
     }
 }
 
-TypeId replace_slice_with_pointer(TirContext ctx, TypeId type) {
+TermId replace_slice_with_pointer(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
-        case TYPE_MULTIPTR: return new_ptr_type(ctx, TYPE_PTR, (TypeId) {get_type_data(ctx, type)->index});
-        case TYPE_MULTIPTR_MUT: return new_ptr_type(ctx, TYPE_PTR_MUT, (TypeId) {get_type_data(ctx, type)->index});
-        default: return null_type;
+        case TYPE_MULTIPTR: return new_ptr_type(ctx, TYPE_PTR, (TermId) {get_type_data(ctx, type)->a});
+        case TYPE_MULTIPTR_MUT: return new_ptr_type(ctx, TYPE_PTR_MUT, (TermId) {get_type_data(ctx, type)->a});
+        default: return null_term;
     }
 }
 
-TypeId replace_pointer_with_slice(TirContext ctx, TypeId type) {
+TermId replace_pointer_with_slice(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
-        case TYPE_PTR: return new_ptr_type(ctx, TYPE_MULTIPTR, (TypeId) {get_type_data(ctx, type)->index});
-        case TYPE_PTR_MUT: return new_ptr_type(ctx, TYPE_MULTIPTR_MUT, (TypeId) {get_type_data(ctx, type)->index});
-        default: return null_type;
+        case TYPE_PTR: return new_ptr_type(ctx, TYPE_MULTIPTR, (TermId) {get_type_data(ctx, type)->a});
+        case TYPE_PTR_MUT: return new_ptr_type(ctx, TYPE_MULTIPTR_MUT, (TermId) {get_type_data(ctx, type)->a});
+        default: return null_term;
     }
 }
 
-TypeId remove_c_pointer_like(TirContext ctx, TypeId type) {
+TermId remove_c_pointer_like(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_ARRAY:
         case TYPE_PTR:
         case TYPE_PTR_MUT:
         case TYPE_MULTIPTR:
-        case TYPE_MULTIPTR_MUT: return (TypeId) {get_type_data(ctx, type)->index};
+        case TYPE_MULTIPTR_MUT: return (TermId) {get_type_data(ctx, type)->a};
 
-        default: return null_type;
+        default: return null_term;
     }
 }
 
-TypeId remove_array_like(TirContext ctx, TypeId type) {
+TermId remove_array_like(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_ARRAY:
         case TYPE_MULTIPTR:
-        case TYPE_MULTIPTR_MUT: return (TypeId) {get_type_data(ctx, type)->index};
+        case TYPE_MULTIPTR_MUT: return (TermId) {get_type_data(ctx, type)->a};
 
-        default: return null_type;
+        default: return null_term;
     }
 }
 
-TypeId remove_tags(TirContext ctx, TypeId type) {
+TermId remove_tags(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_TAGGED) {
         return type;
     }
@@ -580,7 +579,7 @@ TypeId remove_tags(TirContext ctx, TypeId type) {
     return get_tagged_type(ctx, type).inner;
 }
 
-bool is_aggregate_type(TirContext ctx, TypeId type) {
+bool is_aggregate_type(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PRIMITIVE:
         case TYPE_ARRAY_LENGTH:
@@ -602,7 +601,7 @@ bool is_aggregate_type(TirContext ctx, TypeId type) {
     return false;
 }
 
-bool type_is_linear(TirContext ctx, TypeId type) {
+bool type_is_linear(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_ARRAY: return type_is_linear(ctx, get_array_type(ctx, type).elem);
         case TYPE_TAGGED: return type_is_linear(ctx, get_tagged_type(ctx, type).inner);
@@ -612,7 +611,7 @@ bool type_is_linear(TirContext ctx, TypeId type) {
     }
 }
 
-bool type_is_unknown_size(TirContext ctx, TypeId type) {
+bool type_is_unknown_size(TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_ARRAY: return type_is_unknown_size(ctx, get_array_type(ctx, type).elem);
         case TYPE_TAGGED: return type_is_unknown_size(ctx, get_tagged_type(ctx, type).inner);
@@ -622,7 +621,7 @@ bool type_is_unknown_size(TirContext ctx, TypeId type) {
     }
 }
 
-bool is_equality_type(TirContext ctx, TypeId a) {
+bool is_equality_type(TirContext ctx, TermId a) {
     if (type_is_arithmetic(a)) {
         return true;
     }
@@ -642,7 +641,7 @@ bool is_equality_type(TirContext ctx, TypeId a) {
     }
 }
 
-bool is_relative_type(TirContext ctx, TypeId a) {
+bool is_relative_type(TirContext ctx, TermId a) {
     if (type_is_arithmetic(a)) {
         return true;
     }
@@ -665,7 +664,7 @@ bool int_fits_in_bytes(int64_t i, int bytes) {
     }
 }
 
-static int64_t sizeof_primitive(TypeId type, Target target) {
+static int64_t sizeof_primitive(TermId type, Target target) {
     switch ((PrimitiveType) type.id) {
         case TYPE_INVALID:
         case TYPE_VOID: return -1;
@@ -691,7 +690,7 @@ static int64_t sizeof_primitive(TypeId type, Target target) {
     abort();
 }
 
-bool int_fits_in_type(int64_t i, TypeId type, Target target) {
+bool int_fits_in_type(int64_t i, TermId type, Target target) {
     switch (type.id) {
         case TYPE_char:
         case TYPE_i8:
@@ -704,24 +703,24 @@ bool int_fits_in_type(int64_t i, TypeId type, Target target) {
     }
 }
 
-TypeId bigger_primitive_type(TypeId a, TypeId b, Target target) {
+TermId bigger_primitive_type(TermId a, TermId b, Target target) {
     return sizeof_primitive(a, target) > sizeof_primitive(b, target) ? a : b;
 }
 
-ArrayType get_array_type(TirContext ctx, TypeId type) {
+ArrayType get_array_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_ARRAY) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     ArrayType array = {
-        .index = {data->extra},
-        .elem = {data->index},
+        .index = {data->b},
+        .elem = {data->a},
     };
     return array;
 }
 
-int64_t get_array_length_type(TirContext ctx, TypeId type) {
+int64_t get_array_length_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_ARRAY_LENGTH) {
         abort();
     }
@@ -729,56 +728,56 @@ int64_t get_array_length_type(TirContext ctx, TypeId type) {
     return *(int64_t const *) get_type_data(ctx, type);
 }
 
-TypeId get_linear_elem_type(TirContext ctx, TypeId type) {
+TermId get_linear_elem_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_LINEAR) {
         abort();
     }
 
-    return (TypeId) {get_type_data(ctx, type)->index};
+    return (TermId) {get_type_data(ctx, type)->a};
 }
 
-int32_t get_type_parameter_index(TirContext ctx, TypeId type) {
+int32_t get_type_parameter_index(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_TYPE_PARAMETER) {
         abort();
     }
 
-    return get_type_data(ctx, type)->index;
+    return get_type_data(ctx, type)->a;
 }
 
-FunctionType get_function_type(TirContext ctx, TypeId type) {
+FunctionType get_function_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_FUNCTION) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     FunctionType function = {
         .type_param_count = extra[0],
-        .param_count = data->extra,
-        .params = (TypeId *) &extra[2],
+        .param_count = data->b,
+        .params = (TermId *) &extra[2],
         .ret = {extra[1]},
     };
     return function;
 }
 
-TypeId get_function_type_param(TirContext ctx, TypeId type, int32_t index) {
+TermId get_function_type_param(TirContext ctx, TermId type, int32_t index) {
     if (get_type_tag(ctx, type) != TYPE_FUNCTION) {
-        return null_type;
+        return null_term;
     }
 
-    TypeData const *data = get_type_data(ctx, type);
-    if (index >= data->extra) {
-        return null_type;
+    TermData const *data = get_type_data(ctx, type);
+    if (index >= data->b) {
+        return null_term;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + 2]};
+    return (TermId) {get_type_extra(ctx, type)[index + 2]};
 }
 
-StructType get_struct_type(TirContext ctx, TypeId type) {
+StructType get_struct_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_STRUCT) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     StructTypeLayout *layout = (StructTypeLayout *) extra;
     StructType s = {
@@ -787,60 +786,60 @@ StructType get_struct_type(TirContext ctx, TypeId type) {
         .alignment = layout->alignment,
         .size = layout->size,
         .type_param_count = layout->type_param_count,
-        .field_count = data->extra,
+        .field_count = data->b,
         .is_linear = layout->is_linear,
     };
     return s;
 }
 
-TypeId get_struct_type_field(TirContext ctx, TypeId type, int32_t index) {
+TermId get_struct_type_field(TirContext ctx, TermId type, int32_t index) {
     if (get_type_tag(ctx, type) != TYPE_STRUCT) {
-        return null_type;
+        return null_term;
     }
 
-    TypeData const *data = get_type_data(ctx, type);
-    if (index >= data->extra) {
-        return null_type;
+    TermData const *data = get_type_data(ctx, type);
+    if (index >= data->b) {
+        return null_term;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
+    return (TermId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
 }
 
-TypeId get_any_struct_type_field(TirContext ctx, TypeId type, int32_t index) {
+TermId get_any_struct_type_field(TirContext ctx, TermId type, int32_t index) {
     if (get_type_tag(ctx, type) == TYPE_MULTIPTR || get_type_tag(ctx, type) == TYPE_MULTIPTR_MUT) {
         switch (index) {
             case 0: return type_isize;
-            case 1: return (TypeId) {get_type_data(ctx, type)->extra};
-            default: return null_type;
+            case 1: return (TermId) {get_type_data(ctx, type)->b};
+            default: return null_term;
         }
     }
 
     if (get_type_tag(ctx, type) != TYPE_STRUCT) {
-        return null_type;
+        return null_term;
     }
 
-    TypeData const *data = get_type_data(ctx, type);
-    if (index >= data->extra) {
-        return null_type;
+    TermData const *data = get_type_data(ctx, type);
+    if (index >= data->b) {
+        return null_term;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
+    return (TermId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
 }
 
-EnumType get_enum_type(TirContext ctx, TypeId type) {
+EnumType get_enum_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_ENUM) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     EnumType e = {
         .scope = extra[0],
         .name = extra[1],
-        .repr = {data->extra},
+        .repr = {data->b},
     };
     return e;
 }
 
-NewtypeType get_newtype_type(TirContext ctx, TypeId type) {
+NewtypeType get_newtype_type(TirContext ctx, TermId type) {
     if (type.id == TYPE_SIZE_TAG || type.id == TYPE_ALIGNMENT_TAG) {
         NewtypeType n = {
             .tags = 1,
@@ -854,42 +853,42 @@ NewtypeType get_newtype_type(TirContext ctx, TypeId type) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     NewtypeType n = {
         .tags = extra[0],
         .name = extra[1],
-        .type = {data->extra},
+        .type = {data->b},
     };
     return n;
 }
 
-TaggedType get_tagged_type(TirContext ctx, TypeId type) {
+TaggedType get_tagged_type(TirContext ctx, TermId type) {
     if (get_type_tag(ctx, type) != TYPE_TAGGED) {
         abort();
     }
 
-    TypeData const *data = get_type_data(ctx, type);
+    TermData const *data = get_type_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     TaggedType t = {
         .newtype = {extra[0]},
         .inner = {extra[1]},
-        .arg_count = data->extra,
-        .args = (TypeId *) &extra[2],
+        .arg_count = data->b,
+        .args = (TermId *) &extra[2],
     };
     return t;
 }
 
-TypeId get_tagged_type_arg(TirContext ctx, TypeId type, int32_t index) {
+TermId get_tagged_type_arg(TirContext ctx, TermId type, int32_t index) {
     if (get_type_tag(ctx, type) != TYPE_TAGGED) {
-        return null_type;
+        return null_term;
     }
 
-    TypeData const *data = get_type_data(ctx, type);
-    if (index >= data->extra) {
-        return null_type;
+    TermData const *data = get_type_data(ctx, type);
+    if (index >= data->b) {
+        return null_term;
     }
-    return (TypeId) {get_type_extra(ctx, type)[index + 2]};
+    return (TermId) {get_type_extra(ctx, type)[index + 2]};
 }
 
 int32_t sizeof_pointer(Target target) {
@@ -900,7 +899,7 @@ int32_t sizeof_pointer(Target target) {
     abort();
 }
 
-int32_t alignof_type(TirContext ctx, TypeId type, Target target) {
+int32_t alignof_type(TirContext ctx, TermId type, Target target) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
@@ -946,7 +945,7 @@ int32_t alignof_type(TirContext ctx, TypeId type, Target target) {
     abort();
 }
 
-int64_t sizeof_type(TirContext ctx, TypeId type, Target target) {
+int64_t sizeof_type(TirContext ctx, TermId type, Target target) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PRIMITIVE: return sizeof_primitive(type, target);
 
@@ -973,7 +972,7 @@ int64_t sizeof_type(TirContext ctx, TypeId type, Target target) {
     abort();
 }
 
-void print_type(FILE *file, TirContext ctx, TypeId type) {
+void print_type(FILE *file, TirContext ctx, TermId type) {
     switch (get_type_tag(ctx, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
@@ -1039,7 +1038,7 @@ void print_type(FILE *file, TirContext ctx, TypeId type) {
                 if (j != 0) {
                     fprintf(file, ", ");
                 }
-                TypeId param_type = get_function_type_param(ctx, type, j);
+                TermId param_type = get_function_type_param(ctx, type, j);
                 print_type(file, ctx, param_type);
             }
             fprintf(file, ")");
@@ -1069,7 +1068,7 @@ void print_type(FILE *file, TirContext ctx, TypeId type) {
                 if (j != 0) {
                     fprintf(file, ", ");
                 }
-                TypeId arg = get_tagged_type_arg(ctx, type, j);
+                TermId arg = get_tagged_type_arg(ctx, type, j);
                 print_type(file, ctx, arg);
             }
             fprintf(file, "]");
@@ -1082,22 +1081,22 @@ void print_type(FILE *file, TirContext ctx, TypeId type) {
             return;
         }
         case TYPE_TYPE_PARAMETER: {
-            TypeData const *data = get_type_data(ctx, type);
-            fprintf(file, "T#%d", data->index);
+            TermData const *data = get_type_data(ctx, type);
+            fprintf(file, "T#%d", data->a);
             return;
         }
     }
     compiler_error("print_type: unknown type tag");
 }
 
-void debug_type(TirContext ctx, TypeId type) {
+void debug_type(TirContext ctx, TermId type) {
     print_type(stderr, ctx, type);
     printf("\n");
 }
 
 // Type matching
 
-static int match_types_single(TirContext ctx, TypeId *results, TypeId type, TypeMatcher *matcher) {
+static int match_types_single(TirContext ctx, TermId *results, TermId type, TypeMatcher *matcher) {
     if (!type.id) {
         return 0;
     }
@@ -1127,44 +1126,44 @@ static int match_types_single(TirContext ctx, TypeId *results, TypeId type, Type
             return 0;
         }
         case TYPE_MATCH_ANY_POINTER: {
-            TypeId inner = remove_pointer(ctx, type);
+            TermId inner = remove_pointer(ctx, type);
             return match_types_single(ctx, results, inner, matcher->inner);
         }
         case TYPE_MATCH_ANY_SLICE: {
-            TypeId inner = remove_slice(ctx, type);
+            TermId inner = remove_slice(ctx, type);
             return match_types_single(ctx, results, inner, matcher->inner);
         }
         case TYPE_MATCH_POINTER: {
             if (get_type_tag(ctx, type) == TYPE_PTR) {
-                TypeId inner = remove_pointer(ctx, type);
+                TermId inner = remove_pointer(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_SLICE: {
             if (get_type_tag(ctx, type) == TYPE_MULTIPTR) {
-                TypeId inner = remove_slice(ctx, type);
+                TermId inner = remove_slice(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_MUT_POINTER: {
             if (get_type_tag(ctx, type) == TYPE_PTR_MUT) {
-                TypeId inner = remove_pointer(ctx, type);
+                TermId inner = remove_pointer(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_MUT_SLICE: {
             if (get_type_tag(ctx, type) == TYPE_MULTIPTR_MUT) {
-                TypeId inner = remove_slice(ctx, type);
+                TermId inner = remove_slice(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_TAGGED: {
             if (get_type_tag(ctx, type) == TYPE_TAGGED) {
-                TypeId inner = remove_tags(ctx, type);
+                TermId inner = remove_tags(ctx, type);
                 return match_types_single(ctx, results, inner, matcher->inner);
             }
             return 0;
@@ -1173,7 +1172,7 @@ static int match_types_single(TirContext ctx, TypeId *results, TypeId type, Type
     return 0;
 }
 
-int match_types(TirContext ctx, TypeId *results, int32_t count, TypeId *types, TypeMatcher *matchers) {
+int match_types(TirContext ctx, TermId *results, int32_t count, TermId *types, TypeMatcher *matchers) {
     for (int32_t i = 0; i < count; i++) {
         if (!match_types_single(ctx, results, types[i], &matchers[i])) {
             return 0;
@@ -1182,14 +1181,14 @@ int match_types(TirContext ctx, TypeId *results, int32_t count, TypeId *types, T
     return 1;
 }
 
-int match_type_parameters(TirContext ctx, TypeId *results, TypeId param, TypeId arg) {
+int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId arg) {
     if (param.id == arg.id) {
         return 1;
     }
 
     TypeTag tag = get_type_tag(ctx, param);
     if (tag == TYPE_TYPE_PARAMETER) {
-        int32_t index = get_type_data(ctx, param)->index;
+        int32_t index = get_type_data(ctx, param)->a;
         if (!results[index].id) {
             results[index] = arg;
         } else if (results[index].id != arg.id) {
@@ -1218,8 +1217,8 @@ int match_type_parameters(TirContext ctx, TypeId *results, TypeId param, TypeId 
         case TYPE_MULTIPTR:
         case TYPE_MULTIPTR_MUT:
         case TYPE_LINEAR: {
-            TypeId param_elem = {get_type_data(ctx, param)->index};
-            TypeId arg_elem = {get_type_data(ctx, arg)->index};
+            TermId param_elem = {get_type_data(ctx, param)->a};
+            TermId arg_elem = {get_type_data(ctx, arg)->a};
             return match_type_parameters(ctx, results, param_elem, arg_elem);
         }
         case TYPE_FUNCTION: {
@@ -1264,13 +1263,13 @@ int match_type_parameters(TirContext ctx, TypeId *results, TypeId param, TypeId 
     return 0;
 }
 
-TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Arena scratch) {
+TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Arena scratch) {
     switch (get_type_tag(ctx, generic)) {
         case TYPE_PRIMITIVE: {
             return generic;
         }
         case TYPE_TYPE_PARAMETER: {
-            int32_t index = get_type_data(ctx, generic)->index;
+            int32_t index = get_type_data(ctx, generic)->a;
             return args[index];
         }
         case TYPE_ARRAY: {
@@ -1285,23 +1284,23 @@ TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Are
             return generic;
         }
         case TYPE_PTR: {
-            TypeId elem = {get_type_data(ctx, generic)->index};
+            TermId elem = {get_type_data(ctx, generic)->a};
             return new_ptr_type(ctx, TYPE_PTR, replace_type_parameters(ctx, args, elem, scratch));
         }
         case TYPE_PTR_MUT: {
-            TypeId elem = {get_type_data(ctx, generic)->index};
+            TermId elem = {get_type_data(ctx, generic)->a};
             return new_ptr_type(ctx, TYPE_PTR_MUT, replace_type_parameters(ctx, args, elem, scratch));
         }
         case TYPE_MULTIPTR: {
-            TypeId elem = {get_type_data(ctx, generic)->index};
+            TermId elem = {get_type_data(ctx, generic)->a};
             return new_multiptr_type(ctx, TYPE_MULTIPTR, replace_type_parameters(ctx, args, elem, scratch));
         }
         case TYPE_MULTIPTR_MUT: {
-            TypeId elem = {get_type_data(ctx, generic)->index};
+            TermId elem = {get_type_data(ctx, generic)->a};
             return new_multiptr_type(ctx, TYPE_MULTIPTR_MUT, replace_type_parameters(ctx, args, elem, scratch));
         }
         case TYPE_LINEAR: {
-            TypeId elem = {get_type_data(ctx, generic)->index};
+            TermId elem = {get_type_data(ctx, generic)->a};
             return new_linear_type(ctx, replace_type_parameters(ctx, args, elem, scratch));
         }
         case TYPE_FUNCTION: {
@@ -1309,7 +1308,7 @@ TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Are
             if (f.type_param_count) {
                 return generic;
             }
-            TypeId *params = arena_alloc(&scratch, TypeId, f.param_count);
+            TermId *params = arena_alloc(&scratch, TermId, f.param_count);
             for (int32_t i = 0; i < f.param_count; i++) {
                 params[i] = replace_type_parameters(ctx, args, get_function_type_param(ctx, generic, i), scratch);
             }
@@ -1317,7 +1316,7 @@ TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Are
         }
         case TYPE_TAGGED: {
             TaggedType t = get_tagged_type(ctx, generic);
-            TypeId *tags = arena_alloc(&scratch, TypeId, t.arg_count);
+            TermId *tags = arena_alloc(&scratch, TermId, t.arg_count);
             for (int32_t i = 0; i < t.arg_count; i++) {
                 tags[i] = replace_type_parameters(ctx, args, get_tagged_type_arg(ctx, generic, i), scratch);
             }
@@ -1329,88 +1328,85 @@ TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Are
             return generic;
         }
     }
-    return null_type;
+    return null_term;
 }
 
 // Values
 
-static ValueId new_value(TirContext ctx, ValueTag tag, ValueData const *data) {
+static TermId new_value(TirContext ctx, ValueTag tag, TermData const *data) {
     if (!ctx.thread) {
-        ValueId value = {ctx.global->values.values.len};
-        sum_vec_push(&ctx.global->values.values, *data, tag);
+        TermId value = {ctx.global->terms.terms.len};
+        sum_vec_push(&ctx.global->terms.terms, *data, tag);
         return value;
     }
 
-    ValueId value = {ctx.global->values.values.len + ctx.thread->deps.values.values.len};
-    sum_vec_push(&ctx.thread->deps.values.values, *data, tag);
+    TermId value = {ctx.global->terms.terms.len + ctx.thread->deps.terms.terms.len};
+    sum_vec_push(&ctx.thread->deps.terms.terms, *data, tag);
     return value;
 }
 
-static ValueList *ctx_values(TirContext ctx) {
-    return ctx.thread ? &ctx.thread->deps.values : &ctx.global->values;
-}
-
 void init_tir_deps(TirDependencies *deps) {
-    ValueData data = {
-        .type = null_type,
-        .index = 0,
-    };
-    sum_vec_push(&deps->values.values, data, VAL_ERROR);
+    TermData data = {0};
+    sum_vec_push(&deps->terms.terms, data, VAL_ERROR);
 }
 
-ValueId new_int_constant(TirContext ctx, TypeId type, int64_t x) {
-    ValueList *values = ctx_values(ctx);
-    vec_push(&values->extra, x);
-    ValueData value = {
-        .type = type,
-        .index = values->extra.len - 1,
+TermId new_int_constant(TirContext ctx, TermId type, int64_t x) {
+    TermList *values = ctx_types(ctx);
+    uint32_t low, high;
+    store_i64(x, &low, &high);
+    vec_push(&values->extra, low);
+    vec_push(&values->extra, high);
+    TermData value = {
+        .a = type.id,
+        .b = values->extra.len - 2,
     };
     return new_value(ctx, VAL_CONST_INT, &value);
 }
 
-ValueId new_float_constant(TirContext ctx, TypeId type, double x) {
-    ValueList *values = ctx_values(ctx);
-    uint64_t bits;
-    memcpy(&bits, &x, sizeof(x));
-    vec_push(&values->extra, bits);
-    ValueData value = {
-        .type = type,
-        .index = values->extra.len - 1,
+TermId new_float_constant(TirContext ctx, TermId type, double x) {
+    TermList *values = ctx_types(ctx);
+    uint32_t low, high;
+    store_f64(x, &low, &high);
+    vec_push(&values->extra, low);
+    vec_push(&values->extra, high);
+    TermData value = {
+        .a = type.id,
+        .b = values->extra.len - 2,
     };
     return new_value(ctx, VAL_CONST_FLOAT, &value);
 }
 
-ValueId new_null_constant(TirContext ctx, TypeId type) {
-    ValueData value = {
-        .type = type,
-        .index = 0,
+TermId new_null_constant(TirContext ctx, TermId type) {
+    TermData value = {
+        .a = type.id,
+        .b = 0,
     };
     return new_value(ctx, VAL_CONST_NULL, &value);
 }
 
-ValueId new_string_constant(TirContext ctx, TypeId type, int32_t s) {
-    return new_value(ctx, VAL_STRING, &(ValueData) {.type = type, .index = s});
+TermId new_string_constant(TirContext ctx, TermId type, int32_t s) {
+    return new_value(ctx, VAL_STRING, &(TermData) {.a = type.id, .b = s});
 }
 
-ValueId new_function(TirContext ctx, TypeId type, int32_t name) {
-    return new_value(ctx, VAL_FUNCTION, &(ValueData) {.type = type, .index = name});
+TermId new_function(TirContext ctx, TermId type, int32_t name) {
+    return new_value(ctx, VAL_FUNCTION, &(TermData) {.a = type.id, .b = name});
 }
 
-ValueId new_extern_function(TirContext ctx, TypeId type, int32_t name) {
-    return new_value(ctx, VAL_EXTERN_FUNCTION, &(ValueData) {.type = type, .index = name});
+TermId new_extern_function(TirContext ctx, TermId type, int32_t name) {
+    return new_value(ctx, VAL_EXTERN_FUNCTION, &(TermData) {.a = type.id, .b = name});
 }
 
-ValueId new_extern_var(TirContext ctx, TypeId type, int32_t name) {
-    return new_value(ctx, VAL_EXTERN_VAR, &(ValueData) {.type = type, .index = name});
+TermId new_extern_var(TirContext ctx, TermId type, int32_t name) {
+    return new_value(ctx, VAL_EXTERN_VAR, &(TermData) {.a = type.id, .b = name});
 }
 
-ValueId new_variable(TirContext ctx, TypeId type, bool mutable) {
+TermId new_variable(TirContext ctx, TermId type, bool mutable) {
     int32_t local = ctx.thread->local_count++;
-    return new_value(ctx, mutable ? VAL_MUTABLE_VARIABLE : VAL_VARIABLE, &(ValueData) {.type = type, .index = local});
+    return new_value(ctx, mutable ? VAL_MUTABLE_VARIABLE : VAL_VARIABLE, &(TermData) {.a = type.id, .b = local});
 }
 
-ValueId new_temporary(TirContext ctx, TypeId type, TirId tir_id) {
-    return new_value(ctx, VAL_TEMPORARY, &(ValueData) {.type = type, .index = tir_id.id});
+TermId new_temporary(TirContext ctx, TermId type, TirId tir_id) {
+    return new_value(ctx, VAL_TEMPORARY, &(TermData) {.a = type.id, .b = tir_id.id});
 }
 
 typedef struct {
@@ -1418,28 +1414,28 @@ typedef struct {
     int32_t index;
 } ValueIndex;
 
-static ValueIndex get_value_index(TirContext ctx, ValueId value) {
-    if (value.id < ctx.global->values.values.len) {
+static ValueIndex get_value_index(TirContext ctx, TermId value) {
+    if (value.id < ctx.global->terms.terms.len) {
         return (ValueIndex) {ctx.global, value.id};
     }
-    return (ValueIndex) {&ctx.thread->deps, value.id - ctx.global->values.values.len};
+    return (ValueIndex) {&ctx.thread->deps, value.id - ctx.global->terms.terms.len};
 }
 
-ValueTag get_value_tag(TirContext ctx, ValueId value) {
+ValueTag get_value_tag(TirContext ctx, TermId value) {
     ValueIndex i = get_value_index(ctx, value);
-    return i.deps->values.values.tags[i.index];
+    return i.deps->terms.terms.tags[i.index];
 }
 
-ValueData const *get_value_data(TirContext ctx, ValueId value) {
+TermData const *get_value_data(TirContext ctx, TermId value) {
     ValueIndex i = get_value_index(ctx, value);
-    return &i.deps->values.values.datas[i.index];
+    return &i.deps->terms.terms.datas[i.index];
 }
 
-TypeId get_value_type(TirContext ctx, ValueId value) {
-    return get_value_data(ctx, value)->type;
+TermId get_value_type(TirContext ctx, TermId value) {
+    return (TermId) {get_value_data(ctx, value)->a};
 }
 
-ValueCategory get_value_category(TirContext ctx, ValueId value) {
+ValueCategory get_value_category(TirContext ctx, TermId value) {
     switch (get_value_tag(ctx, value)) {
         case VAL_ERROR: return VALUE_INVALID;
 
@@ -1456,7 +1452,7 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
         case VAL_MUTABLE_VARIABLE: return VALUE_MUTABLE_PLACE;
 
         case VAL_TEMPORARY: {
-            TirId tir_id = {get_value_data(ctx, value)->index};
+            TirId tir_id = {get_value_data(ctx, value)->b};
             switch (get_tir_tag(&ctx.thread->insts, tir_id)) {
                 case TIR_FUNCTION:
                 case TIR_LET:
@@ -1514,7 +1510,7 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
                 case TIR_SWITCH: return VALUE_TEMPORARY;
 
                 case TIR_DEREF: {
-                    ValueId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
+                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
                     if (get_type_tag(ctx, get_value_type(ctx, operand)) == TYPE_PTR_MUT) {
                         return VALUE_MUTABLE_PLACE;
                     } else {
@@ -1522,7 +1518,7 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
                     }
                 }
                 case TIR_INDEX: {
-                    ValueId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
+                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
                     switch (get_type_tag(ctx, get_value_type(ctx, operand))) {
                         case TYPE_PTR: return VALUE_PLACE;
                         case TYPE_PTR_MUT: return VALUE_MUTABLE_PLACE;
@@ -1530,7 +1526,7 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
                     }
                 }
                 case TIR_ACCESS: {
-                    ValueId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
+                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
                     return get_value_category(ctx, operand);
                 }
                 case TIR_SLICE: return VALUE_MULTIVALUE;
@@ -1540,28 +1536,21 @@ ValueCategory get_value_category(TirContext ctx, ValueId value) {
     abort();
 }
 
-char const *get_value_str(TirContext ctx, ValueId value) {
+char const *get_value_str(TirContext ctx, TermId value) {
     ValueIndex i = get_value_index(ctx, value);
-    return &i.deps->strtab.ptr[i.deps->values.values.datas[i.index].index];
+    return &i.deps->strtab.ptr[i.deps->terms.terms.datas[i.index].b];
 }
 
-static uint64_t get_value_constant(TirContext ctx, ValueId value) {
+int64_t get_value_int(TirContext ctx, TermId value) {
     ValueIndex i = get_value_index(ctx, value);
-    return i.deps->values.extra.ptr[i.deps->values.values.datas[i.index].index];
+    int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
+    return load_i64(p[0], p[1]);
 }
 
-int64_t get_value_int(TirContext ctx, ValueId value) {
-    uint64_t bits = get_value_constant(ctx, value);
-    int64_t result;
-    memcpy(&result, &bits, sizeof(bits));
-    return result;
-}
-
-double get_value_float(TirContext ctx, ValueId value) {
-    uint64_t bits = get_value_constant(ctx, value);
-    double result;
-    memcpy(&result, &bits, sizeof(bits));
-    return result;
+double get_value_float(TirContext ctx, TermId value) {
+    ValueIndex i = get_value_index(ctx, value);
+    int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
+    return load_f64(p[0], p[1]);
 }
 
 // Instructions

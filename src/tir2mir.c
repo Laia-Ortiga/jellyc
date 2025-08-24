@@ -29,7 +29,7 @@ int32_t push_extra(Context *c, int32_t *extra, int32_t count) {
     return index;
 }
 
-static MirId add_leaf_instruction(Context *c, MirTag tag, TypeId type) {
+static MirId add_leaf_instruction(Context *c, MirTag tag, TermId type) {
     MirData data = {0};
     data.type = type;
     MirId id = {c->mir.mir.len};
@@ -37,36 +37,36 @@ static MirId add_leaf_instruction(Context *c, MirTag tag, TypeId type) {
     return id;
 }
 
-static MirId add_value_instruction(Context *c, MirTag tag, ValueId value) {
-    TypeId type = get_value_type(c->tir.ctx, value);
+static MirId add_value_instruction(Context *c, MirTag tag, TermId value) {
+    TermId type = get_value_type(c->tir.ctx, value);
     MirData data = {type, .tir_value = value};
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, tag);
     return id;
 }
 
-static MirId add_binary_instruction(Context *c, MirTag tag, TypeId type, MirId left, MirId right) {
+static MirId add_binary_instruction(Context *c, MirTag tag, TermId type, MirId left, MirId right) {
     MirData data = {type, .binary = {left, right}};
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, tag);
     return id;
 }
 
-static MirId add_unary_instruction(Context *c, MirTag tag, TypeId type, MirId operand) {
+static MirId add_unary_instruction(Context *c, MirTag tag, TermId type, MirId operand) {
     MirData data = {type, .unary = operand};
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, tag);
     return id;
 }
 
-static MirId add_mir_const_instruction(Context *c, MirTag tag, TypeId type, MirId operand, int32_t index) {
+static MirId add_mir_const_instruction(Context *c, MirTag tag, TermId type, MirId operand, int32_t index) {
     MirData data = {type, .mir_const = {operand, index}};
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, tag);
     return id;
 }
 
-static MirId add_int_instruction(Context *c, TypeId type, int64_t i) {
+static MirId add_int_instruction(Context *c, TermId type, int64_t i) {
     MirData data = {type, .raw = {(int32_t) (uint32_t) i, (int32_t) (uint32_t) ((uint64_t) i >> 32)}};
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, MIR_INT);
@@ -75,7 +75,7 @@ static MirId add_int_instruction(Context *c, TypeId type, int64_t i) {
 
 static MirId add_cond_br_instruction(Context *c, MirTag tag, MirId operand) {
     MirData data = {0};
-    data.type = null_type;
+    data.type = null_term;
     data.mir_const.operand = operand;
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, tag);
@@ -85,7 +85,7 @@ static MirId add_cond_br_instruction(Context *c, MirTag tag, MirId operand) {
 
 static MirId add_br_instruction(Context *c) {
     MirData data = {0};
-    data.type = null_type;
+    data.type = null_term;
     MirId id = {c->mir.mir.len};
     sum_vec_push(&c->mir.mir, data, MIR_BR);
     c->basic_block++;
@@ -96,9 +96,9 @@ static void patch_br(Context *c, MirId br, int32_t basic_block) {
     c->mir.mir.datas[br.private_field_id].mir_const.index = basic_block;
 }
 
-static MirId transform_node(Context *c, TirId tir_id, TypeId type);
+static MirId transform_node(Context *c, TirId tir_id, TermId type);
 
-static MirId transform_value(Context *c, ValueId value) {
+static MirId transform_value(Context *c, TermId value) {
     switch (get_value_tag(c->tir.ctx, value)) {
         case VAL_ERROR: {
             break;
@@ -116,12 +116,12 @@ static MirId transform_value(Context *c, ValueId value) {
         }
         case VAL_VARIABLE:
         case VAL_MUTABLE_VARIABLE: {
-            int32_t variable = get_value_data(c->tir.ctx, value)->index;
+            int32_t variable = get_value_data(c->tir.ctx, value)->b;
             return c->variable_to_mir_map[variable];
         }
         case VAL_TEMPORARY: {
-            TirId tir_id = {get_value_data(c->tir.ctx, value)->index};
-            TypeId type = get_value_type(c->tir.ctx, value);
+            TirId tir_id = {get_value_data(c->tir.ctx, value)->b};
+            TermId type = get_value_type(c->tir.ctx, value);
             return transform_node(c, tir_id, type);
         }
     }
@@ -131,8 +131,8 @@ static MirId transform_value(Context *c, ValueId value) {
 static MirId transform_let(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
     int32_t variable = data.left;
-    ValueId init = {data.right};
-    TypeId type = get_value_type(c->tir.ctx, init);
+    TermId init = {data.right};
+    TermId type = get_value_type(c->tir.ctx, init);
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
     MirId init_mir = transform_value(c, init);
     add_binary_instruction(c, MIR_ASSIGN, type, alloc_mir, init_mir);
@@ -142,43 +142,43 @@ static MirId transform_let(Context *c, TirId tir_id) {
 
 static MirId transform_plus(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     return transform_value(c, operand);
 }
 
 static MirId transform_unary(Context *c, TirId tir_id, MirTag tag) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId operand = {data.left};
+    TermId type = get_value_type(c->tir.ctx, operand);
     MirId operand_mir = transform_value(c, operand);
     return add_unary_instruction(c, tag, type, operand_mir);
 }
 
-static MirId transform_deref(Context *c, TirId tir_id, TypeId deref_type) {
+static MirId transform_deref(Context *c, TirId tir_id, TermId deref_type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     MirId operand_mir = transform_value(c, operand);
     return add_unary_instruction(c, MIR_DEREF, deref_type, operand_mir);
 }
 
-static MirId transform_cast(Context *c, TirId tir_id, MirTag tag, TypeId cast_type) {
+static MirId transform_cast(Context *c, TirId tir_id, MirTag tag, TermId cast_type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId operand = {data.left};
+    TermId type = get_value_type(c->tir.ctx, operand);
     MirId operand_mir = transform_value(c, operand);
     return add_mir_const_instruction(c, tag, cast_type, operand_mir, type.id);
 }
 
 static MirId transform_nop(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     return transform_value(c, operand);
 }
 
 static MirId transform_tmp_address(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId operand = {data.left};
+    TermId type = get_value_type(c->tir.ctx, operand);
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
     MirId operand_mir = transform_value(c, operand);
     add_binary_instruction(c, MIR_ASSIGN, type, alloc_mir, operand_mir);
@@ -187,17 +187,17 @@ static MirId transform_tmp_address(Context *c, TirId tir_id) {
 
 static MirId transform_address(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId operand = {data.left};
+    TermId type = get_value_type(c->tir.ctx, operand);
     MirId operand_mir = transform_value(c, operand);
     return add_unary_instruction(c, MIR_ADDRESS, type, operand_mir);
 }
 
 static MirId transform_binary(Context *c, TirId tir_id, MirTag tag) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId left = {data.left};
-    ValueId right = {data.right};
-    TypeId type = get_value_type(c->tir.ctx, left);
+    TermId left = {data.left};
+    TermId right = {data.right};
+    TermId type = get_value_type(c->tir.ctx, left);
     MirId left_mir = transform_value(c, left);
     MirId right_mir = transform_value(c, right);
     return add_binary_instruction(c, tag, type, left_mir, right_mir);
@@ -205,9 +205,9 @@ static MirId transform_binary(Context *c, TirId tir_id, MirTag tag) {
 
 static MirId transform_compound_assignment(Context *c, TirId tir_id, MirTag tag) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId left = {data.left};
-    ValueId right = {data.right};
-    TypeId type = get_value_type(c->tir.ctx, left);
+    TermId left = {data.left};
+    TermId right = {data.right};
+    TermId type = get_value_type(c->tir.ctx, left);
     MirId left_mir = transform_value(c, left);
     MirId right_mir = transform_value(c, right);
     MirId op_result = add_binary_instruction(c, tag, type, left_mir, right_mir);
@@ -216,26 +216,26 @@ static MirId transform_compound_assignment(Context *c, TirId tir_id, MirTag tag)
 
 static MirId transform_access(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     int32_t index = data.right;
-    TypeId type = get_value_type(c->tir.ctx, operand);
-    TypeId s = remove_tags(c->tir.ctx, type);
+    TermId type = get_value_type(c->tir.ctx, operand);
+    TermId s = remove_tags(c->tir.ctx, type);
     MirId operand_mir = transform_value(c, operand);
     return add_mir_const_instruction(c, MIR_ACCESS, s, operand_mir, index);
 }
 
 static MirId transform_call(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     int32_t args = data.right;
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId type = get_value_type(c->tir.ctx, operand);
     FunctionType function_type = get_function_type(c->tir.ctx, type);
     MirId operand_mir = transform_value(c, operand);
 
     int32_t *args_mir = arena_alloc(&c->scratch, int32_t, function_type.param_count);
 
     for (int32_t i = 0; i < function_type.param_count; i++) {
-        ValueId arg = {get_tir_extra(&c->tir.insts, args + i)};
+        TermId arg = {get_tir_extra(&c->tir.insts, args + i)};
         MirId arg_mir = transform_value(c, arg);
         args_mir[i] = arg_mir.private_field_id;
     }
@@ -245,9 +245,9 @@ static MirId transform_call(Context *c, TirId tir_id) {
 
 static MirId transform_index(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    ValueId index = {data.right};
-    TypeId type = get_value_type(c->tir.ctx, operand);
+    TermId operand = {data.left};
+    TermId index = {data.right};
+    TermId type = get_value_type(c->tir.ctx, operand);
     MirId operand_mir = transform_value(c, operand);
     MirId index_mir = transform_value(c, index);
     MirTag tag = MIR_INDEX;
@@ -257,17 +257,17 @@ static MirId transform_index(Context *c, TirId tir_id) {
     return add_binary_instruction(c, tag, type, operand_mir, index_mir);
 }
 
-static MirId transform_slice(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_slice(Context *c, TirId tir_id, TermId type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     int32_t index = data.right;
-    ValueId low = {get_tir_extra(&c->tir.insts, index)};
-    ValueId high = {get_tir_extra(&c->tir.insts, index + 1)};
+    TermId low = {get_tir_extra(&c->tir.insts, index)};
+    TermId high = {get_tir_extra(&c->tir.insts, index + 1)};
     MirId operand_mir = transform_value(c, operand);
     MirId low_mir = transform_value(c, low);
     MirId high_mir = transform_value(c, high);
     MirId length_mir = add_binary_instruction(c, MIR_SUB, type_isize, high_mir, low_mir);
-    TypeId operand_type = get_value_type(c->tir.ctx, operand);
+    TermId operand_type = get_value_type(c->tir.ctx, operand);
     MirTag tag = MIR_INDEX;
     if (remove_slice(c->tir.ctx, operand_type).id) {
         tag = MIR_SLICE_INDEX;
@@ -276,26 +276,26 @@ static MirId transform_slice(Context *c, TirId tir_id, TypeId type) {
     return add_binary_instruction(c, MIR_NEW_SLICE, type, length_mir, data_mir);
 }
 
-static MirId transform_array_to_slice(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_array_to_slice(Context *c, TirId tir_id, TermId type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
-    TypeId index_type = {data.right};
+    TermId operand = {data.left};
+    TermId index_type = {data.right};
     int64_t length = get_array_length_type(c->tir.ctx, index_type);
     MirId length_mir = add_int_instruction(c, type_isize, length);
     MirId data_mir = transform_value(c, operand);
     return add_binary_instruction(c, MIR_NEW_SLICE, type, length_mir, data_mir);
 }
 
-static MirId transform_new_struct(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_new_struct(Context *c, TirId tir_id, TermId type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
     int32_t args = data.left;
     int32_t arg_count = data.right;
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
-    TypeId s = remove_tags(c->tir.ctx, type);
+    TermId s = remove_tags(c->tir.ctx, type);
 
     for (int32_t i = 0; i < arg_count; i++) {
-        ValueId arg = {get_tir_extra(&c->tir.insts, args + i)};
-        TypeId field_type = get_value_type(c->tir.ctx, arg);
+        TermId arg = {get_tir_extra(&c->tir.insts, args + i)};
+        TermId field_type = get_value_type(c->tir.ctx, arg);
         MirId arg_mir = transform_value(c, arg);
         MirId field_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, i);
         add_binary_instruction(c, MIR_ASSIGN, field_type, field_address, arg_mir);
@@ -304,15 +304,15 @@ static MirId transform_new_struct(Context *c, TirId tir_id, TypeId type) {
     return alloc_mir;
 }
 
-static MirId transform_new_array(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_new_array(Context *c, TirId tir_id, TermId type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
     int32_t args = data.left;
     int32_t arg_count = data.right;
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
-    TypeId element_type = remove_c_pointer_like(c->tir.ctx, type);
+    TermId element_type = remove_c_pointer_like(c->tir.ctx, type);
 
     for (int32_t i = 0; i < arg_count; i++) {
-        ValueId arg = {get_tir_extra(&c->tir.insts, args + i)};
+        TermId arg = {get_tir_extra(&c->tir.insts, args + i)};
         MirId arg_mir = transform_value(c, arg);
         MirId field_address = add_mir_const_instruction(c, MIR_CONST_INDEX, type, alloc_mir, i);
         add_binary_instruction(c, MIR_ASSIGN, element_type, field_address, arg_mir);
@@ -327,7 +327,7 @@ static bool last_is_terminator(Context *c, MirId last_br) {
 
 static MirId transform_if(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId condition = {data.left};
+    TermId condition = {data.left};
     int32_t extra = data.right;
     int32_t true_block = get_tir_extra(&c->tir.insts, extra);
     int32_t true_block_length = get_tir_extra(&c->tir.insts, extra + 1);
@@ -338,7 +338,7 @@ static MirId transform_if(Context *c, TirId tir_id) {
 
     for (int32_t i = 0; i < true_block_length; i++) {
         TirId statement = {get_tir_extra(&c->tir.insts, true_block + i)};
-        transform_node(c, statement, null_type);
+        transform_node(c, statement, null_term);
     }
 
     MirId true_br = condition_br;
@@ -351,7 +351,7 @@ static MirId transform_if(Context *c, TirId tir_id) {
 
     for (int32_t i = 0; i < false_block_length; i++) {
         TirId statement = {get_tir_extra(&c->tir.insts, false_block + i)};
-        transform_node(c, statement, null_type);
+        transform_node(c, statement, null_term);
     }
 
     MirId false_br = condition_br;
@@ -374,9 +374,9 @@ static MirId transform_if(Context *c, TirId tir_id) {
     return condition_mir;
 }
 
-static MirId transform_switch(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_switch(Context *c, TirId tir_id, TermId type) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId switch_ = {data.left};
+    TermId switch_ = {data.left};
     int32_t extra = data.right;
     int32_t branches = get_tir_extra(&c->tir.insts, extra);
     int32_t branch_count = get_tir_extra(&c->tir.insts, extra + 1);
@@ -387,7 +387,7 @@ static MirId transform_switch(Context *c, TirId tir_id, TypeId type) {
     }
 
     MirId switch_mir;
-    TypeId pattern_type;
+    TermId pattern_type;
 
     if (switch_.id) {
         switch_mir = transform_value(c, switch_);
@@ -398,8 +398,8 @@ static MirId transform_switch(Context *c, TirId tir_id, TypeId type) {
     int32_t real_count = 0;
 
     for (int32_t i = 0; i < branch_count; i++) {
-        ValueId pattern = {get_tir_extra(&c->tir.insts, branches + i * 2)};
-        ValueId value = {get_tir_extra(&c->tir.insts, branches + i * 2 + 1)};
+        TermId pattern = {get_tir_extra(&c->tir.insts, branches + i * 2)};
+        TermId value = {get_tir_extra(&c->tir.insts, branches + i * 2 + 1)};
 
         if (pattern.id) {
             MirId pattern_mir = transform_value(c, pattern);
@@ -438,9 +438,9 @@ static MirId transform_switch(Context *c, TirId tir_id, TypeId type) {
 
 static MirId transform_loop(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId condition = {data.left};
+    TermId condition = {data.left};
     int32_t extra = data.right;
-    ValueId next = {get_tir_extra(&c->tir.insts, extra)};
+    TermId next = {get_tir_extra(&c->tir.insts, extra)};
     int32_t block = get_tir_extra(&c->tir.insts, extra + 1);
     int32_t block_length = get_tir_extra(&c->tir.insts, extra + 2);
 
@@ -456,7 +456,7 @@ static MirId transform_loop(Context *c, TirId tir_id) {
 
     for (int32_t i = 0; i < block_length; i++) {
         TirId statement = {get_tir_extra(&c->tir.insts, block + i)};
-        transform_node(c, statement, null_type);
+        transform_node(c, statement, null_term);
     }
 
     int32_t continue_basic_block = condition_basic_block;
@@ -500,31 +500,31 @@ static MirId transform_continue(Context *c) {
 
 static MirId transform_return(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
 
     if (operand.id) {
-        TypeId type = get_value_type(c->tir.ctx, operand);
+        TermId type = get_value_type(c->tir.ctx, operand);
         MirId operand_mir = transform_value(c, operand);
         c->basic_block++;
         return add_unary_instruction(c, MIR_RET, type, operand_mir);
     }
 
     c->basic_block++;
-    return add_leaf_instruction(c, MIR_RET_VOID, null_type);
+    return add_leaf_instruction(c, MIR_RET_VOID, null_term);
 }
 
 static MirId transform_value_statement(Context *c, TirId tir_id) {
     TirInstData data = get_tir_data(&c->tir.insts, tir_id);
-    ValueId operand = {data.left};
+    TermId operand = {data.left};
     return transform_value(c, operand);
 }
 
-static void transform_function(Context *c, TirId tir_id, ValueId value) {
-    TypeId type = get_value_type(c->tir.ctx, value);
+static void transform_function(Context *c, TirId tir_id, TermId value) {
+    TermId type = get_value_type(c->tir.ctx, value);
     FunctionType func_type = get_function_type(c->tir.ctx, type);
 
     for (int32_t i = 0; i < func_type.param_count; i++) {
-        TypeId param_type = get_function_type_param(c->tir.ctx, type, i);
+        TermId param_type = get_function_type_param(c->tir.ctx, type, i);
         c->variable_to_mir_map[i] = add_leaf_instruction(c, MIR_PARAM, param_type);
     }
 
@@ -534,15 +534,15 @@ static void transform_function(Context *c, TirId tir_id, ValueId value) {
 
     for (int32_t i = 0; i < block_length; i++) {
         TirId statement = {get_tir_extra(&c->tir.insts, block + i)};
-        transform_node(c, statement, null_type);
+        transform_node(c, statement, null_term);
     }
 
     if (func_type.ret.id == TYPE_VOID && (c->mir.mir.len == start || c->mir.mir.tags[c->mir.mir.len - 1] != MIR_RET_VOID)) {
-        add_leaf_instruction(c, MIR_RET_VOID, null_type);
+        add_leaf_instruction(c, MIR_RET_VOID, null_term);
     }
 }
 
-static MirId transform_node(Context *c, TirId tir_id, TypeId type) {
+static MirId transform_node(Context *c, TirId tir_id, TermId type) {
     switch (get_tir_tag(&c->tir.insts, tir_id)) {
         case TIR_FUNCTION: abort();
         case TIR_LET: return transform_let(c, tir_id);

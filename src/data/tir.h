@@ -11,24 +11,13 @@
 typedef struct {
     size_t capacity;
     size_t count;
-    TypeId *ptr;
-} TypeSet;
+    TermId *ptr;
+} TermSet;
 
 typedef struct {
-    int32_t index;
-    int32_t extra;
-} TypeData;
-
-typedef struct {
-    SumVec(TypeData) types;
-    Vec(int32_t) extra;
-    TypeSet set;
-} TypeList;
-
-typedef struct {
-    TypeId type;
-    int32_t index;
-} ValueData;
+    int32_t a;
+    int32_t b;
+} TermData;
 
 typedef struct {
     AstId node;
@@ -42,14 +31,14 @@ typedef struct {
 } TirInstList;
 
 typedef struct {
-    SumVec(ValueData) values;
-    Vec(uint64_t) extra;
-} ValueList;
+    SumVec(TermData) terms;
+    Vec(int32_t) extra;
+    TermSet set;
+} TermList;
 
 typedef struct {
     StringBuffer strtab;
-    TypeList types;
-    ValueList values;
+    TermList terms;
 } TirDependencies;
 
 typedef struct {
@@ -71,45 +60,45 @@ typedef struct {
 
 // Types
 
-TypeId new_array_type(TirContext ctx, TypeId index, TypeId element);
-TypeId new_array_length_type(TirContext ctx, int64_t length);
-TypeId new_ptr_type(TirContext ctx, TypeTag tag, TypeId elem);
-TypeId new_multiptr_type(TirContext ctx, TypeTag tag, TypeId elem);
-TypeId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TypeId const *params, TypeId ret);
-TypeId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TypeId const *fields, Target target);
-TypeId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TypeId repr);
-TypeId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TypeId type);
-TypeId new_tagged_type(TirContext ctx, TypeId newtype, TypeId inner, int32_t arg_count, TypeId const *args);
-TypeId new_linear_type(TirContext ctx, TypeId elem);
-TypeId new_type_parameter(TirContext ctx, int32_t i, int32_t name);
+TermId new_array_type(TirContext ctx, TermId index, TermId element);
+TermId new_array_length_type(TirContext ctx, int64_t length);
+TermId new_ptr_type(TirContext ctx, TypeTag tag, TermId elem);
+TermId new_multiptr_type(TirContext ctx, TypeTag tag, TermId elem);
+TermId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TermId const *params, TermId ret);
+TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TermId const *fields, Target target);
+TermId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TermId repr);
+TermId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TermId type);
+TermId new_tagged_type(TirContext ctx, TermId newtype, TermId inner, int32_t arg_count, TermId const *args);
+TermId new_linear_type(TirContext ctx, TermId elem);
+TermId new_type_parameter(TirContext ctx, int32_t i, int32_t name);
 
-TypeTag get_type_tag(TirContext ctx, TypeId type);
-TypeId remove_any_pointer(TirContext ctx, TypeId type);
-TypeId remove_pointer(TirContext ctx, TypeId type);
-TypeId remove_slice(TirContext ctx, TypeId type);
-TypeId replace_slice_with_pointer(TirContext ctx, TypeId type);
-TypeId replace_pointer_with_slice(TirContext ctx, TypeId type);
-TypeId remove_c_pointer_like(TirContext ctx, TypeId type);
-TypeId remove_array_like(TirContext ctx, TypeId type);
-TypeId remove_tags(TirContext ctx, TypeId type);
-bool is_aggregate_type(TirContext ctx, TypeId type);
-bool type_is_linear(TirContext ctx, TypeId type);
-bool type_is_unknown_size(TirContext ctx, TypeId type);
-bool is_equality_type(TirContext ctx, TypeId a);
-bool is_relative_type(TirContext ctx, TypeId a);
-bool int_fits_in_type(int64_t i, TypeId type, Target target);
-TypeId bigger_primitive_type(TypeId a, TypeId b, Target target);
+TypeTag get_type_tag(TirContext ctx, TermId type);
+TermId remove_any_pointer(TirContext ctx, TermId type);
+TermId remove_pointer(TirContext ctx, TermId type);
+TermId remove_slice(TirContext ctx, TermId type);
+TermId replace_slice_with_pointer(TirContext ctx, TermId type);
+TermId replace_pointer_with_slice(TirContext ctx, TermId type);
+TermId remove_c_pointer_like(TirContext ctx, TermId type);
+TermId remove_array_like(TirContext ctx, TermId type);
+TermId remove_tags(TirContext ctx, TermId type);
+bool is_aggregate_type(TirContext ctx, TermId type);
+bool type_is_linear(TirContext ctx, TermId type);
+bool type_is_unknown_size(TirContext ctx, TermId type);
+bool is_equality_type(TirContext ctx, TermId a);
+bool is_relative_type(TirContext ctx, TermId a);
+bool int_fits_in_type(int64_t i, TermId type, Target target);
+TermId bigger_primitive_type(TermId a, TermId b, Target target);
 
 typedef struct {
-    TypeId index;
-    TypeId elem;
+    TermId index;
+    TermId elem;
 } ArrayType;
 
 typedef struct {
     int32_t type_param_count;
     int32_t param_count;
-    TypeId *params;
-    TypeId ret;
+    TermId *params;
+    TermId ret;
 } FunctionType;
 
 typedef struct {
@@ -125,41 +114,41 @@ typedef struct {
 typedef struct {
     int32_t scope;
     int32_t name;
-    TypeId repr;
+    TermId repr;
 } EnumType;
 
 typedef struct {
     int32_t tags;
     int32_t name;
-    TypeId type;
+    TermId type;
 } NewtypeType;
 
 typedef struct {
-    TypeId newtype;
-    TypeId inner;
+    TermId newtype;
+    TermId inner;
     int32_t arg_count;
-    TypeId *args;
+    TermId *args;
 } TaggedType;
 
-ArrayType get_array_type(TirContext ctx, TypeId type);
-int64_t get_array_length_type(TirContext ctx, TypeId type);
-TypeId get_linear_elem_type(TirContext ctx, TypeId type);
-int32_t get_type_parameter_index(TirContext ctx, TypeId type);
-FunctionType get_function_type(TirContext ctx, TypeId type);
-TypeId get_function_type_param(TirContext ctx, TypeId type, int32_t index);
-StructType get_struct_type(TirContext ctx, TypeId type);
-TypeId get_struct_type_field(TirContext ctx, TypeId type, int32_t index);
-TypeId get_any_struct_type_field(TirContext ctx, TypeId type, int32_t index);
-EnumType get_enum_type(TirContext ctx, TypeId type);
-NewtypeType get_newtype_type(TirContext ctx, TypeId type);
-TaggedType get_tagged_type(TirContext ctx, TypeId type);
-TypeId get_tagged_type_arg(TirContext ctx, TypeId type, int32_t index);
+ArrayType get_array_type(TirContext ctx, TermId type);
+int64_t get_array_length_type(TirContext ctx, TermId type);
+TermId get_linear_elem_type(TirContext ctx, TermId type);
+int32_t get_type_parameter_index(TirContext ctx, TermId type);
+FunctionType get_function_type(TirContext ctx, TermId type);
+TermId get_function_type_param(TirContext ctx, TermId type, int32_t index);
+StructType get_struct_type(TirContext ctx, TermId type);
+TermId get_struct_type_field(TirContext ctx, TermId type, int32_t index);
+TermId get_any_struct_type_field(TirContext ctx, TermId type, int32_t index);
+EnumType get_enum_type(TirContext ctx, TermId type);
+NewtypeType get_newtype_type(TirContext ctx, TermId type);
+TaggedType get_tagged_type(TirContext ctx, TermId type);
+TermId get_tagged_type_arg(TirContext ctx, TermId type, int32_t index);
 
 int32_t sizeof_pointer(Target target);
-int32_t alignof_type(TirContext ctx, TypeId type, Target target);
-int64_t sizeof_type(TirContext ctx, TypeId type, Target target);
-void print_type(FILE *file, TirContext ctx, TypeId type);
-void debug_type(TirContext ctx, TypeId type);
+int32_t alignof_type(TirContext ctx, TermId type, Target target);
+int64_t sizeof_type(TirContext ctx, TermId type, Target target);
+void print_type(FILE *file, TirContext ctx, TermId type);
+void debug_type(TirContext ctx, TermId type);
 
 // Type matching
 
@@ -181,9 +170,9 @@ typedef struct TypeMatcher {
     struct TypeMatcher *inner;
 } TypeMatcher;
 
-int match_types(TirContext ctx, TypeId *results, int32_t count, TypeId *types, TypeMatcher *matchers);
-int match_type_parameters(TirContext ctx, TypeId *results, TypeId param, TypeId arg);
-TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Arena scratch);
+int match_types(TirContext ctx, TermId *results, int32_t count, TermId *types, TypeMatcher *matchers);
+int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId arg);
+TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Arena scratch);
 
 #define match_ignore 0
 #define match_array(I, E, EXTRA) ((TypeMatcher) {.match_type = TYPE_MATCH_ARRAY, .extra = (EXTRA), .inner = (TypeMatcher[]) {(I), (E)}})
@@ -192,23 +181,23 @@ TypeId replace_type_parameters(TirContext ctx, TypeId *args, TypeId generic, Are
 // Values
 
 void init_tir_deps(TirDependencies *deps);
-ValueId new_int_constant(TirContext ctx, TypeId type, int64_t x);
-ValueId new_float_constant(TirContext ctx, TypeId type, double x);
-ValueId new_null_constant(TirContext ctx, TypeId type);
-ValueId new_string_constant(TirContext ctx, TypeId type, int32_t s);
-ValueId new_function(TirContext ctx, TypeId type, int32_t name);
-ValueId new_extern_function(TirContext ctx, TypeId type, int32_t name);
-ValueId new_extern_var(TirContext ctx, TypeId type, int32_t name);
-ValueId new_variable(TirContext ctx, TypeId type, bool mutable);
-ValueId new_temporary(TirContext ctx, TypeId type, TirId tir_id);
+TermId new_int_constant(TirContext ctx, TermId type, int64_t x);
+TermId new_float_constant(TirContext ctx, TermId type, double x);
+TermId new_null_constant(TirContext ctx, TermId type);
+TermId new_string_constant(TirContext ctx, TermId type, int32_t s);
+TermId new_function(TirContext ctx, TermId type, int32_t name);
+TermId new_extern_function(TirContext ctx, TermId type, int32_t name);
+TermId new_extern_var(TirContext ctx, TermId type, int32_t name);
+TermId new_variable(TirContext ctx, TermId type, bool mutable);
+TermId new_temporary(TirContext ctx, TermId type, TirId tir_id);
 
-ValueTag get_value_tag(TirContext ctx, ValueId value);
-ValueData const *get_value_data(TirContext ctx, ValueId value);
-TypeId get_value_type(TirContext ctx, ValueId value);
-ValueCategory get_value_category(TirContext ctx, ValueId value);
-char const *get_value_str(TirContext ctx, ValueId value);
-int64_t get_value_int(TirContext ctx, ValueId value);
-double get_value_float(TirContext ctx, ValueId value);
+ValueTag get_value_tag(TirContext ctx, TermId value);
+TermData const *get_value_data(TirContext ctx, TermId value);
+TermId get_value_type(TirContext ctx, TermId value);
+ValueCategory get_value_category(TirContext ctx, TermId value);
+char const *get_value_str(TirContext ctx, TermId value);
+int64_t get_value_int(TirContext ctx, TermId value);
+double get_value_float(TirContext ctx, TermId value);
 
 // Instructions
 

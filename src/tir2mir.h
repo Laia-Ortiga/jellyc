@@ -10,7 +10,7 @@ typedef struct {
     String *sources;
     Ast *asts;
     AstRef *ast_refs;
-    ValueId *functions;
+    TermId *functions;
     TirDependencies *global_deps;
     LocalTir *insts;
     int32_t function_count;

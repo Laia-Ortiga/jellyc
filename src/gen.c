@@ -2,28 +2,28 @@
 
 #include "data/mir.h"
 #include "data/tir.h"
-#include "fwd.h"
+#include "wrappers.h"
 
 #include <stdlib.h>
 
 typedef struct {
     Mir *mir;
     int32_t mir_start;
-    TypeId return_type;
+    TermId return_type;
     bool is_main;
     Target target;
     TirContext tir;
     FILE *stream;
 } GenContext;
 
-static void gen_type_before(GenContext *ctx, TypeId type);
-static void gen_type_after(GenContext *ctx, TypeId type);
+static void gen_type_before(GenContext *ctx, TermId type);
+static void gen_type_after(GenContext *ctx, TermId type);
 
-static bool ptr_type_needs_parens(GenContext *ctx, TypeId type) {
+static bool ptr_type_needs_parens(GenContext *ctx, TermId type) {
     return get_type_tag(ctx->tir, type) == TYPE_ARRAY || get_type_tag(ctx->tir, type) == TYPE_FUNCTION;
 }
 
-static void gen_ptr_type_before(GenContext *ctx, TypeId type) {
+static void gen_ptr_type_before(GenContext *ctx, TermId type) {
     gen_type_before(ctx, type);
 
     if (ptr_type_needs_parens(ctx, type)) {
@@ -33,7 +33,7 @@ static void gen_ptr_type_before(GenContext *ctx, TypeId type) {
     }
 }
 
-static void gen_ptr_type_after(GenContext *ctx, TypeId type) {
+static void gen_ptr_type_after(GenContext *ctx, TermId type) {
     if (ptr_type_needs_parens(ctx, type)) {
         fprintf(ctx->stream, ")");
     }
@@ -41,7 +41,7 @@ static void gen_ptr_type_after(GenContext *ctx, TypeId type) {
     gen_type_after(ctx, type);
 }
 
-static bool is_type_passed_by_ptr(GenContext *ctx, TypeId type) {
+static bool is_type_passed_by_ptr(GenContext *ctx, TermId type) {
     if (is_aggregate_type(ctx->tir, type)) {
         return true;
     }
@@ -49,7 +49,7 @@ static bool is_type_passed_by_ptr(GenContext *ctx, TypeId type) {
     return false;
 }
 
-static void gen_params(GenContext *ctx, TypeId type) {
+static void gen_params(GenContext *ctx, TermId type) {
     fprintf(ctx->stream, "(");
     FunctionType func_type = get_function_type(ctx->tir, type);
     bool c_has_params = func_type.param_count != 0;
@@ -72,7 +72,7 @@ static void gen_params(GenContext *ctx, TypeId type) {
                 fprintf(ctx->stream, ", ");
             }
 
-            TypeId param_type = get_function_type_param(ctx->tir, type, i);
+            TermId param_type = get_function_type_param(ctx->tir, type, i);
             if (type_is_unknown_size(ctx->tir, param_type)) {
                 fprintf(ctx->stream, "void *t%d", i);
             } else {
@@ -88,7 +88,7 @@ static void gen_params(GenContext *ctx, TypeId type) {
     fprintf(ctx->stream, ")");
 }
 
-static void gen_type_before(GenContext *ctx, TypeId type) {
+static void gen_type_before(GenContext *ctx, TermId type) {
     switch (get_type_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveType) type.id) {
@@ -134,7 +134,7 @@ static void gen_type_before(GenContext *ctx, TypeId type) {
             return;
         }
         case TYPE_FUNCTION: {
-            TypeId ret = get_function_type(ctx->tir, type).ret;
+            TermId ret = get_function_type(ctx->tir, type).ret;
 
             if (ret.id != TYPE_VOID) {
                 if (is_type_passed_by_ptr(ctx, ret)) {
@@ -177,7 +177,7 @@ static void gen_type_before(GenContext *ctx, TypeId type) {
     abort();
 }
 
-static void gen_type_after(GenContext *ctx, TypeId type) {
+static void gen_type_after(GenContext *ctx, TermId type) {
     switch (get_type_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE:
         case TYPE_ARRAY_LENGTH:
@@ -202,7 +202,7 @@ static void gen_type_after(GenContext *ctx, TypeId type) {
         case TYPE_FUNCTION: {
             fprintf(ctx->stream, ")");
             gen_params(ctx, type);
-            TypeId ret = get_function_type(ctx->tir, type).ret;
+            TermId ret = get_function_type(ctx->tir, type).ret;
             if (ret.id != TYPE_VOID) {
                 if (is_type_passed_by_ptr(ctx, ret)) {
                     gen_ptr_type_after(ctx, ret);
@@ -232,19 +232,19 @@ static void gen_type_after(GenContext *ctx, TypeId type) {
     abort();
 }
 
-static void gen_extern_var(GenContext *ctx, ValueId value) {
-    TypeId type = get_value_type(ctx->tir, value);
+static void gen_extern_var(GenContext *ctx, TermId value) {
+    TermId type = get_value_type(ctx->tir, value);
     fprintf(ctx->stream, "extern ");
     gen_type_before(ctx, type);
-    int32_t name = get_value_data(ctx->tir, value)->index;
+    int32_t name = get_value_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_type_after(ctx, type);
     fprintf(ctx->stream, ";\n");
 }
 
-static void gen_extern_function(GenContext *ctx, ValueId value) {
-    TypeId type = get_value_type(ctx->tir, value);
-    TypeId ret_type = get_function_type(ctx->tir, type).ret;
+static void gen_extern_function(GenContext *ctx, TermId value) {
+    TermId type = get_value_type(ctx->tir, value);
+    TermId ret_type = get_function_type(ctx->tir, type).ret;
 
     if (ret_type.id != TYPE_VOID) {
         gen_type_before(ctx, ret_type);
@@ -259,7 +259,7 @@ static void gen_extern_function(GenContext *ctx, ValueId value) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_value_data(ctx->tir, value)->index;
+    int32_t name = get_value_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
 
@@ -275,14 +275,14 @@ static void gen_extern_function(GenContext *ctx, ValueId value) {
     fprintf(ctx->stream, ";\n");
 }
 
-static void gen_function_decl(GenContext *ctx, ValueId value, bool is_main) {
+static void gen_function_decl(GenContext *ctx, TermId value, bool is_main) {
     if (is_main) {
         fprintf(ctx->stream, "int main(void);\n");
         return;
     }
 
-    TypeId type = get_value_type(ctx->tir, value);
-    TypeId ret_type = get_function_type(ctx->tir, type).ret;
+    TermId type = get_value_type(ctx->tir, value);
+    TermId ret_type = get_function_type(ctx->tir, type).ret;
     fprintf(ctx->stream, "static ");
 
     if (ret_type.id != TYPE_VOID) {
@@ -298,7 +298,7 @@ static void gen_function_decl(GenContext *ctx, ValueId value, bool is_main) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_value_data(ctx->tir, value)->index;
+    int32_t name = get_value_data(ctx->tir, value)->b;
     fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
     gen_params(ctx, type);
 
@@ -384,8 +384,8 @@ static void gen_string(GenContext *ctx, char const *str) {
     fprintf(ctx->stream, "\"");
 }
 
-static void gen_value(GenContext *ctx, ValueId value) {
-    ValueData const *data = get_value_data(ctx->tir, value);
+static void gen_value(GenContext *ctx, TermId value) {
+    TermData const *data = get_value_data(ctx->tir, value);
 
     switch (get_value_tag(ctx->tir, value)) {
         case VAL_ERROR: {
@@ -394,7 +394,7 @@ static void gen_value(GenContext *ctx, ValueId value) {
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
-            fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[data->index]);
+            fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[data->b]);
             break;
         }
         case VAL_STRING: {
@@ -421,7 +421,7 @@ static void gen_value(GenContext *ctx, ValueId value) {
     }
 }
 
-static void introduce_temporary(GenContext *ctx, MirId mir_id, TypeId type, bool is_pointer) {
+static void introduce_temporary(GenContext *ctx, MirId mir_id, TermId type, bool is_pointer) {
     fprintf(ctx->stream, "    ");
 
     if (is_pointer) {
@@ -448,12 +448,12 @@ static void gen_operand(GenContext *ctx, MirId mir_id) {
             return;
         }
         case MIR_STRING: {
-            ValueId value = get_mir_tir_value(ctx->mir, mir_id);
+            TermId value = get_mir_tir_value(ctx->mir, mir_id);
             gen_string(ctx, get_value_str(ctx->tir, value));
             return;
         }
         case MIR_TIR_VALUE: {
-            ValueId operand = get_mir_tir_value(ctx->mir, mir_id);
+            TermId operand = get_mir_tir_value(ctx->mir, mir_id);
             gen_value(ctx, operand);
             return;
         }
@@ -475,7 +475,7 @@ static void gen_operand(GenContext *ctx, MirId mir_id) {
 }
 
 static void gen_alloc(GenContext *ctx, MirId mir_id) {
-    TypeId local_type = get_mir_type(ctx->mir, mir_id);
+    TermId local_type = get_mir_type(ctx->mir, mir_id);
 
     if (local_type.id == TYPE_VOID) {
         abort();
@@ -490,7 +490,7 @@ static void gen_alloc(GenContext *ctx, MirId mir_id) {
 
 static void gen_address(GenContext *ctx, MirId mir_id) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, type, true);
 
     if (get_mir_tag(ctx->mir, operand) == MIR_STRING) {
@@ -510,7 +510,7 @@ static void gen_address(GenContext *ctx, MirId mir_id) {
 
 static void gen_unary(GenContext *ctx, MirId mir_id, char const *op) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, type, false);
     fputs(op, ctx->stream);
     gen_operand(ctx, operand);
@@ -519,7 +519,7 @@ static void gen_unary(GenContext *ctx, MirId mir_id, char const *op) {
 
 static void gen_binary(GenContext *ctx, MirId mir_id, char const *op) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, type, false);
     gen_operand(ctx, binary.left);
     fprintf(ctx->stream, " %s ", op);
@@ -538,7 +538,7 @@ static void gen_bool_binary(GenContext *ctx, MirId mir_id, char const *op) {
 
 static void gen_mod(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
 
     if (type_is_int(type)) {
         gen_binary(ctx, mir_id, "%");
@@ -554,7 +554,7 @@ static void gen_mod(GenContext *ctx, MirId mir_id) {
 
 static void gen_assign(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
 
     if (get_type_tag(ctx->tir, type) == TYPE_ARRAY) {
         fprintf(ctx->stream, "    __builtin_memcpy(&");
@@ -573,7 +573,7 @@ static void gen_assign(GenContext *ctx, MirId mir_id) {
 
 static void gen_new_slice(GenContext *ctx, MirId mir_id) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, type, false);
     fprintf(ctx->stream, "{");
     gen_operand(ctx, binary.left);
@@ -583,7 +583,7 @@ static void gen_new_slice(GenContext *ctx, MirId mir_id) {
 
 static void gen_cast(GenContext *ctx, MirId mir_id) {
     MirAccess cast = get_mir_access(ctx->mir, mir_id);
-    TypeId cast_type = get_mir_type(ctx->mir, mir_id);
+    TermId cast_type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, cast_type, false);
     fprintf(ctx->stream, "(");
     gen_type_before(ctx, cast_type);
@@ -595,8 +595,8 @@ static void gen_cast(GenContext *ctx, MirId mir_id) {
 
 static void gen_zext(GenContext *ctx, MirId mir_id) {
     MirAccess cast = get_mir_access(ctx->mir, mir_id);
-    TypeId cast_type = get_mir_type(ctx->mir, mir_id);
-    TypeId operand_type = {cast.index};
+    TermId cast_type = get_mir_type(ctx->mir, mir_id);
+    TermId operand_type = {cast.index};
     introduce_temporary(ctx, mir_id, cast_type, false);
     fprintf(ctx->stream, "(");
     gen_type_before(ctx, cast_type);
@@ -611,7 +611,7 @@ static void gen_zext(GenContext *ctx, MirId mir_id) {
 
 static void gen_call(GenContext *ctx, MirId mir_id) {
     MirAccess call = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     FunctionType function_type = get_function_type(ctx->tir, type);
     int32_t arg_count = function_type.param_count;
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_type_passed_by_ptr(ctx, function_type.ret);
@@ -657,7 +657,7 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
 
 static void gen_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, remove_c_pointer_like(ctx->tir, type), true);
     fprintf(ctx->stream, "&");
     gen_operand(ctx, index.left);
@@ -668,8 +668,8 @@ static void gen_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_slice_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
-    TypeId elem_type = remove_slice(ctx->tir, type);
+    TermId type = get_mir_type(ctx->mir, mir_id);
+    TermId elem_type = remove_slice(ctx->tir, type);
     introduce_temporary(ctx, mir_id, elem_type, true);
     fprintf(ctx->stream, "&((");
     gen_ptr_type_before(ctx, elem_type);
@@ -683,7 +683,7 @@ static void gen_slice_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_const_index(GenContext *ctx, MirId mir_id) {
     MirAccess index = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
+    TermId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, remove_c_pointer_like(ctx->tir, type), true);
     fprintf(ctx->stream, "&");
     gen_operand(ctx, index.operand);
@@ -692,8 +692,8 @@ static void gen_const_index(GenContext *ctx, MirId mir_id) {
 
 static void gen_access(GenContext *ctx, MirId mir_id) {
     MirAccess access = get_mir_access(ctx->mir, mir_id);
-    TypeId type = get_mir_type(ctx->mir, mir_id);
-    TypeId field_type = get_any_struct_type_field(ctx->tir, type, access.index);
+    TermId type = get_mir_type(ctx->mir, mir_id);
+    TermId field_type = get_any_struct_type_field(ctx->tir, type, access.index);
     introduce_temporary(ctx, mir_id, field_type, true);
     fprintf(ctx->stream, "&");
     gen_operand(ctx, access.operand);
@@ -796,10 +796,10 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
     }
 }
 
-static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, ValueId value, bool is_main) {
+static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, TermId value, bool is_main) {
     ctx->mir_start = mir_start;
-    TypeId type = get_value_type(ctx->tir, value);
-    TypeId ret_type = get_function_type(ctx->tir, type).ret;
+    TermId type = get_value_type(ctx->tir, value);
+    TermId ret_type = get_function_type(ctx->tir, type).ret;
     ctx->return_type = ret_type;
     ctx->is_main = is_main;
 
@@ -822,7 +822,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Va
             fprintf(ctx->stream, "void ");
         }
 
-        int32_t name = get_value_data(ctx->tir, value)->index;
+        int32_t name = get_value_data(ctx->tir, value)->b;
         fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
         gen_params(ctx, type);
 
@@ -853,16 +853,16 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Va
     fprintf(ctx->stream, "}\n");
 }
 
-static void gen_struct_decl(GenContext *ctx, TypeId type) {
+static void gen_struct_decl(GenContext *ctx, TermId type) {
     fprintf(ctx->stream, "struct _S%s;\n", ctx->tir.global->strtab.ptr + get_struct_type(ctx->tir, type).name);
 }
 
-static void gen_struct(GenContext *ctx, TypeId type) {
+static void gen_struct(GenContext *ctx, TermId type) {
     StructType s = get_struct_type(ctx->tir, type);
     fprintf(ctx->stream, "struct _S%s {\n", ctx->tir.global->strtab.ptr + s.name);
 
     for (int32_t i = 0; i < s.field_count; i++) {
-        TypeId field_type = get_struct_type_field(ctx->tir, type, i);
+        TermId field_type = get_struct_type_field(ctx->tir, type, i);
         fprintf(ctx->stream, "    ");
         gen_type_before(ctx, field_type);
         fprintf(ctx->stream, "_%d", i);
@@ -896,33 +896,33 @@ void gen_c(GenInput *input, Target target) {
     };
 
     for (int32_t i = 0; i < input->declarations.structs.len; i++) {
-        TypeId type = input->declarations.structs.ptr[i];
+        TermId type = input->declarations.structs.ptr[i];
         gen_struct_decl(&ctx, type);
     }
 
     for (int32_t i = 0; i < input->declarations.structs.len; i++) {
-        TypeId type = input->declarations.structs.ptr[i];
+        TermId type = input->declarations.structs.ptr[i];
         gen_struct(&ctx, type);
     }
 
     for (int32_t i = 0; i < input->declarations.extern_vars.len; i++) {
-        ValueId value = input->declarations.extern_vars.ptr[i];
+        TermId value = input->declarations.extern_vars.ptr[i];
         gen_extern_var(&ctx, value);
     }
 
     for (int32_t i = 0; i < input->declarations.extern_functions.len; i++) {
-        ValueId value = input->declarations.extern_functions.ptr[i];
+        TermId value = input->declarations.extern_functions.ptr[i];
         gen_extern_function(&ctx, value);
     }
 
     for (int32_t i = 0; i < input->declarations.functions.len; i++) {
-        ValueId value = input->declarations.functions.ptr[i];
+        TermId value = input->declarations.functions.ptr[i];
         gen_function_decl(&ctx, value, input->declarations.main.id == value.id);
     }
 
     for (int32_t i = 0; i < input->declarations.functions.len; i++) {
         ctx.tir.thread = &input->insts[i];
-        ValueId value = input->declarations.functions.ptr[i];
+        TermId value = input->declarations.functions.ptr[i];
         gen_function(&ctx, input->mir_result->ends[i], input->mir_result->ends[i + 1], value, input->declarations.main.id == value.id);
     }
 
