@@ -35,7 +35,7 @@ typedef struct {
 } GlobalData;
 
 typedef struct {
-    TirRef *tir_refs;
+    TermId *tir_refs;
     bool *notes_shown;  // Weather a note to fix an error has been shown already.
 } LocalData;
 
@@ -51,7 +51,7 @@ typedef struct {
     Arena *scratch;
 
     AstRef *ast_refs;
-    TirRef *tir_refs;
+    TermId *tir_refs;
 
     int error;
 
@@ -431,14 +431,14 @@ static TermId analyze_return_type(TypeContext *c, AstId node) {
 
 // Global nodes
 
-static TirRef analyze_function_decl(TypeContext *c, AstId node) {
+static TermId analyze_function_decl(TypeContext *c, AstId node) {
     AstFunction f = get_ast_function(node, c->ast);
 
     for (int32_t i = 0; i < f.type_param_count; i++) {
         int32_t sym = get_rir_data(f.type_params[i], c->rir);
         SourceIndex token = get_rir_token(c, f.type_params[i]);
         String name = id_token_to_string(ctx_source(c), token);
-        c->local->tir_refs[sym] = (TirRef) {.type = new_type_parameter(c->tir, i, ctx_push_str(c, name))};
+        c->local->tir_refs[sym] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
     }
 
     TermId *param_types = arena_alloc(c->scratch, TermId, f.param_count);
@@ -464,7 +464,7 @@ static TirRef analyze_function_decl(TypeContext *c, AstId node) {
     }
 
     vec_push(&c->global->declarations.functions, value);
-    return (TirRef) {.value = value};
+    return value;
 }
 
 typedef struct {
@@ -493,7 +493,7 @@ static TirId analyze_function(TypeContext *c, AstId node, TermId value) {
         int32_t sym = get_rir_data(f.params[i], c->rir);
         TermId param_type = get_function_type_param(c->tir, type, i);
         TermId param_value = new_variable(c->tir, param_type, false);
-        c->local->tir_refs[sym] = (TirRef) {.value = param_value};
+        c->local->tir_refs[sym] = param_value;
     }
     c->current_function_type = type;
     TirBlock tir_block = analyze_block(c, f.body);
@@ -503,7 +503,7 @@ static TirId analyze_function(TypeContext *c, AstId node, TermId value) {
     return new_binary_statement(c, TIR_FUNCTION, f.body, tir_block.index, tir_block.length);
 }
 
-static TirRef analyze_enum(TypeContext *c, AstId node) {
+static TermId analyze_enum(TypeContext *c, AstId node) {
     AstEnum e = get_ast_enum(node, c->ast);
 
     TermId repr_type = analyze_type(c, e.repr);
@@ -540,17 +540,17 @@ static TirRef analyze_enum(TypeContext *c, AstId node) {
         vec_push(&c->global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
     }
 
-    return (TirRef) {.type = type};
+    return type;
 }
 
-static TirRef analyze_struct(TypeContext *c, AstId node) {
+static TermId analyze_struct(TypeContext *c, AstId node) {
     AstStruct s = get_ast_struct(node, c->ast);
 
     for (int32_t i = 0; i < s.type_param_count; i++) {
         int32_t sym = get_rir_data(s.type_params[i], c->rir);
         SourceIndex token = get_rir_token(c, s.type_params[i]);
         String name = id_token_to_string(ctx_source(c), token);
-        c->local->tir_refs[sym] = (TirRef) {.type = new_type_parameter(c->tir, i, ctx_push_str(c, name))};
+        c->local->tir_refs[sym] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
     }
 
     TermId *field_types = arena_alloc(c->scratch, TermId, s.field_count);
@@ -595,18 +595,18 @@ static TirRef analyze_struct(TypeContext *c, AstId node) {
 
     TermId type = new_struct_type(c->tir, scope, ctx_push_str(c, name), s.type_param_count, s.field_count, field_types, c->options->target);
     vec_push(&c->global->declarations.structs, type);
-    return (TirRef) {.type = type};
+    return type;
 }
 
-static TirRef analyze_newtype(TypeContext *c, AstId node) {
+static TermId analyze_newtype(TypeContext *c, AstId node) {
     AstNewtype n = get_ast_newtype(node, c->ast);
     TermId alias = analyze_type(c, n.type);
     SourceIndex token = get_rir_token(c, node);
     String name = id_token_to_string(ctx_source(c), token);
-    return (TirRef) {.type = new_newtype_type(c->tir, ctx_push_str(c, name), n.count, alias)};
+    return new_newtype_type(c->tir, ctx_push_str(c, name), n.count, alias);
 }
 
-static TirRef analyze_extern_function(TypeContext *c, AstId node) {
+static TermId analyze_extern_function(TypeContext *c, AstId node) {
     AstFunction f = get_ast_extern_function(node, c->ast);
     TermId *param_types = arena_alloc(c->scratch, TermId, f.param_count);
     for (int32_t i = 0; i < f.param_count; i++) {
@@ -625,40 +625,40 @@ static TirRef analyze_extern_function(TypeContext *c, AstId node) {
 
     TermId value = new_extern_function(c->tir, type, ctx_push_str(c, name));
     vec_push(&c->global->declarations.extern_functions, value);
-    return (TirRef) {.value = value};
+    return value;
 }
 
-static TirRef analyze_extern_mut(TypeContext *c, AstId node) {
+static TermId analyze_extern_mut(TypeContext *c, AstId node) {
     AstId var_type = get_ast_unary(node, c->ast);
     TermId type = analyze_type(c, var_type);
     String name = id_token_to_string(ctx_source(c), get_rir_token(c, node));
     TermId value = new_extern_var(c->tir, type, ctx_push_str(c, name));
     vec_push(&c->global->declarations.extern_vars, value);
-    return (TirRef) {.value = value};
+    return value;
 }
 
-static TirRef analyze_type_alias(TypeContext *c, AstId node) {
+static TermId analyze_type_alias(TypeContext *c, AstId node) {
     AstId init = get_ast_unary(node, c->ast);
     TermId type = analyze_type(c, init);
-    return (TirRef) {.type = type};
+    return type;
 }
 
-static TirRef analyze_const(TypeContext *c, AstId node) {
+static TermId analyze_const(TypeContext *c, AstId node) {
     AstId init = get_ast_unary(node, c->ast);
     TermId init_result = analyze_value(c, init, null_term);
 
     switch (get_value_tag(c->tir, init_result)) {
         case VAL_ERROR: {
-            return (TirRef) {0};
+            return (TermId) {0};
         }
         case VAL_CONST_INT:
         case VAL_CONST_FLOAT:
         case VAL_CONST_NULL: {
-            return (TirRef) {.value = init_result};
+            return init_result;
         }
         default: {
             error(c, init, &(Diagnostic) {.kind = ERROR_CONST_INIT});
-            return (TirRef) {0};
+            return (TermId) {0};
         }
     }
 }
@@ -676,7 +676,7 @@ static TirId analyze_let(TypeContext *c, AstId node, bool mutable) {
     TermId value = new_variable(c->tir, init_type, mutable);
     TirId inst = new_inst_impl(c, mutable ? TIR_MUT : TIR_LET, node, var, init_value.id);
     int32_t sym = get_rir_data(node, c->rir);
-    c->local->tir_refs[sym] = (TirRef) {.value = value};
+    c->local->tir_refs[sym] = value;
     return inst;
 }
 
@@ -732,10 +732,10 @@ static TermId analyze_type_id(TypeContext *c, AstId node, SymbolKind kind) {
             break;
         }
         case SYM_GLOBAL: {
-            return c->tir_refs[id].type;
+            return c->tir_refs[id];
         }
         case SYM_LOCAL: {
-            return c->local->tir_refs[id].type;
+            return c->local->tir_refs[id];
         }
     }
     return null_term;
@@ -743,13 +743,13 @@ static TermId analyze_type_id(TypeContext *c, AstId node, SymbolKind kind) {
 
 static TermId analyze_value_id(TypeContext *c, AstId node, SymbolKind kind) {
     int32_t id = get_rir_data(node, c->rir);
-    TirRef info;
+    TermId info;
     switch (kind) {
         case SYM_GLOBAL: info = c->tir_refs[id]; break;
         case SYM_LOCAL: info = c->local->tir_refs[id]; break;
         default: return null_term;
     }
-    return info.value;
+    return info;
 }
 
 static TermId analyze_int(TypeContext *c, AstId node, TermId hint) {
@@ -2152,7 +2152,7 @@ static TirId analyze_statement(TypeContext *c, AstId node) {
 
 static void analyze_def(TypeContext *c, DefId def) {
     AstId node = c->ast_refs[def.id].node;
-    TirRef ref = {0};
+    TermId ref = {0};
     switch (get_rir_tag(node, c->rir)) {
         case RIR_FUNCTION: ref = analyze_function_decl(c, node); break;
         case RIR_ENUM: ref = analyze_enum(c, node); break;
@@ -2179,7 +2179,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     global_tc.permanent = permanent;
     global_tc.scratch = &scratch;
     global_tc.ast_refs = input->ast_refs;
-    global_tc.tir_refs = arena_alloc(&scratch, TirRef, input->def_count);
+    global_tc.tir_refs = arena_alloc(&scratch, TermId, input->def_count);
     global_tc.global = &global;
     global_tc.tir.global = &global_tir;
     LocalData *local_data = arena_alloc(&scratch, LocalData, input->def_count);
@@ -2191,7 +2191,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         global_tc.ast = &input->asts[global_tc.file];
         global_tc.rir = &input->rirs[global_tc.file];
 
-        local_data[def.id].tir_refs = arena_alloc(&scratch, TirRef, input->local_ast_refs[global_tc.file].len);
+        local_data[def.id].tir_refs = arena_alloc(&scratch, TermId, input->local_ast_refs[global_tc.file].len);
         local_data[def.id].notes_shown = arena_alloc(&scratch, bool, input->local_ast_refs[global_tc.file].len);
         global_tc.local = &local_data[def.id];
         analyze_def(&global_tc, def);
@@ -2219,7 +2219,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_count; i++) {
             DefId def = input->functions[i];
-            TermId value = global_tc.tir_refs[def.id].value;
+            TermId value = global_tc.tir_refs[def.id];
             AstRef ref = input->ast_refs[def.id];
 
             local_tc.local = &local_data[def.id];

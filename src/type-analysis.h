@@ -13,11 +13,6 @@ typedef struct {
     TermId main;
 } Declarations;
 
-typedef union {
-    TermId value;
-    TermId type;
-} TirRef;
-
 typedef struct {
     Options *options;
     char **paths;
