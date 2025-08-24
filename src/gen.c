@@ -91,10 +91,10 @@ static void gen_params(GenContext *ctx, TermId type) {
 static void gen_type_before(GenContext *ctx, TermId type) {
     switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
-            switch ((PrimitiveType) type.id) {
+            switch ((PrimitiveTerm) type.id) {
                 case TYPE_INVALID:
                 case TYPE_VOID:
-                case TYPE_COUNT: break;
+                case TERM_COUNT: break;
 
                 case TYPE_i8: fprintf(ctx->stream, "int8_t "); return;
                 case TYPE_i16: fprintf(ctx->stream, "int16_t "); return;

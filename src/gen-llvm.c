@@ -26,9 +26,9 @@ typedef struct {
 static void gen_type(GenContext *ctx, TermId type) {
     switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
-            switch ((PrimitiveType) type.id) {
+            switch ((PrimitiveTerm) type.id) {
                 case TYPE_INVALID:
-                case TYPE_COUNT: break;
+                case TERM_COUNT: break;
 
                 case TYPE_VOID: fprintf(ctx->stream, "void"); return;
 

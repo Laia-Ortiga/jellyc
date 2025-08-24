@@ -181,7 +181,7 @@ static void expect_type(Context *c, AstRef ref, ErrorKind kind) {
         case ROLE_NOT_VISITED: break;
         case ROLE_VISITING: break;
         case ROLE_INVALID: break;
-        case ROLE_TYPE: break;
+        case ROLE_TERM: break;
         default: diagnostic(c, ref, kind); break;
     }
 }
@@ -191,7 +191,7 @@ static void expect_value(Context *c, AstRef ref) {
         case ROLE_NOT_VISITED: break;
         case ROLE_VISITING: break;
         case ROLE_INVALID: break;
-        case ROLE_VALUE: break;
+        case ROLE_TERM: break;
         default: diagnostic(c, ref, ERROR_EXPECTED_VALUE); break;
     }
 }
@@ -222,40 +222,40 @@ static void analyze_param(Context *c, AstRef ref) {
 static Result analyze_function_decl(Context *c, AstRef ref) {
     AstFunction f = get_ast_function(ref.node, &c->asts[ref.file]);
     for (int32_t i = 0; i < f.type_param_count; i++) {
-        add_local(c, subvertex(ref, f.type_params[i]), ROLE_TYPE);
+        add_local(c, subvertex(ref, f.type_params[i]), ROLE_TERM);
     }
     for (int32_t i = 0; i < f.param_count; i++) {
         AstRef param = subvertex(ref, f.params[i]);
         analyze_param(c, param);
-        add_local(c, param, ROLE_VALUE);
+        add_local(c, param, ROLE_TERM);
     }
     if (!is_ast_null(f.ret)) {
         expect_type(c, subvertex(ref, f.ret), ERROR_EXPECTED_TYPE);
     }
-    return (Result) {ROLE_VALUE, RIR_FUNCTION, 0};
+    return (Result) {ROLE_TERM, RIR_FUNCTION, 0};
 }
 
 static Result analyze_struct(Context *c, AstRef ref) {
     AstStruct s = get_ast_struct(ref.node, &c->asts[ref.file]);
     for (int32_t i = 0; i < s.type_param_count; i++) {
-        add_local(c, subvertex(ref, s.type_params[i]), ROLE_TYPE);
+        add_local(c, subvertex(ref, s.type_params[i]), ROLE_TERM);
     }
     for (int32_t i = 0; i < s.field_count; i++) {
         analyze_param(c, subvertex(ref, s.fields[i]));
     }
-    return (Result) {ROLE_TYPE, RIR_STRUCT, 0};
+    return (Result) {ROLE_TERM, RIR_STRUCT, 0};
 }
 
 static Result analyze_enum(Context *c, AstRef ref) {
     AstEnum e = get_ast_enum(ref.node, &c->asts[ref.file]);
     expect_type(c, subvertex(ref, e.repr), ERROR_EXPECTED_TYPE);
-    return (Result) {ROLE_TYPE, RIR_ENUM, 0};
+    return (Result) {ROLE_TERM, RIR_ENUM, 0};
 }
 
 static Result analyze_newtype(Context *c, AstRef ref) {
     AstNewtype n = get_ast_newtype(ref.node, &c->asts[ref.file]);
     expect_type(c, subvertex(ref, n.type), ERROR_EXPECTED_TYPE);
-    return (Result) {ROLE_TYPE, RIR_NEWTYPE, 0};
+    return (Result) {ROLE_TERM, RIR_NEWTYPE, 0};
 }
 
 static Result analyze_const(Context *c, AstRef ref) {
@@ -266,10 +266,7 @@ static Result analyze_const(Context *c, AstRef ref) {
         case ROLE_BUILTIN_MACRO: {
             return (Result) {role, RIR_ROOT, 0};
         }
-        case ROLE_TYPE: {
-            return (Result) {role, RIR_TYPE_ALIAS, 0};
-        }
-        case ROLE_VALUE: {
+        case ROLE_TERM: {
             return (Result) {role, RIR_CONST, 0};
         }
         default: {
@@ -287,12 +284,12 @@ static Result analyze_extern_function(Context *c, AstRef ref) {
     if (!is_ast_null(f.ret)) {
         expect_type(c, subvertex(ref, f.ret), ERROR_EXPECTED_TYPE);
     }
-    return (Result) {ROLE_VALUE, RIR_EXTERN_FUNCTION, 0};
+    return (Result) {ROLE_TERM, RIR_EXTERN_FUNCTION, 0};
 }
 
 static Result analyze_extern_mut(Context *c, AstRef ref) {
     analyze_param(c, ref);
-    return (Result) {ROLE_VALUE, RIR_EXTERN_MUT, 0};
+    return (Result) {ROLE_TERM, RIR_EXTERN_MUT, 0};
 }
 
 static int analyze_def(Context *c, DefId def) {
@@ -330,7 +327,7 @@ static void analyze_let(Context *c, AstRef ref, RirTag tag) {
     AstId init = get_ast_unary(ref.node, &c->asts[ref.file]);
     expect_value(c, subvertex(ref, init));
     set_rir(c, ref, tag, 0);
-    add_local(c, ref, ROLE_VALUE);
+    add_local(c, ref, ROLE_TERM);
 }
 
 static void analyze_local_const(Context *c, AstRef ref) {
@@ -348,7 +345,7 @@ static Role analyze_function_type(Context *c, AstRef ref) {
         expect_type(c, subvertex(ref, s.operand), ERROR_EXPECTED_TYPE);
     }
     set_rir(c, ref, RIR_FUNCTION_TYPE, 0);
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role analyze_array_type(Context *c, AstRef ref) {
@@ -356,7 +353,7 @@ static Role analyze_array_type(Context *c, AstRef ref) {
     expect_type(c, subvertex(ref, bin.left), ERROR_ARRAY_TYPE_EXPECTS_LENGTH_TYPE);
     expect_type(c, subvertex(ref, bin.right), ERROR_EXPECTED_TYPE);
     set_rir(c, ref, RIR_ARRAY_TYPE, 0);
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role analyze_array_type_sugar(Context *c, AstRef ref) {
@@ -364,7 +361,7 @@ static Role analyze_array_type_sugar(Context *c, AstRef ref) {
     expect_value(c, subvertex(ref, bin.left));
     expect_type(c, subvertex(ref, bin.right), ERROR_EXPECTED_TYPE);
     set_rir(c, ref, RIR_ARRAY_TYPE_SUGAR, 0);
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role resolve_global(Context *c, AstRef ref, DefId global) {
@@ -414,11 +411,11 @@ static Role analyze_id(Context *c, AstRef ref) {
                 #define TYPE(type) case BUILTIN_##type:
                 #include "simple-types"
                 {
-                    return ROLE_TYPE;
+                    return ROLE_TERM;
                 }
                 case BUILTIN_SIZE_TAG:
                 case BUILTIN_ALIGNMENT_TAG: {
-                    return ROLE_TYPE;
+                    return ROLE_TERM;
                 }
                 case BUILTIN_ALIGNOF:
                 case BUILTIN_SIZEOF:
@@ -444,48 +441,48 @@ static Role analyze_id(Context *c, AstRef ref) {
 
 static Role analyze_int(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_INT, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_float(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_FLOAT, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_char(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_CHAR, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_string(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_STRING, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_bool(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_BOOL, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_null(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_NULL, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_value_unary(Context *c, AstRef ref, RirTag tag) {
     AstId operand = get_ast_unary(ref.node, &c->asts[ref.file]);
     expect_value(c, subvertex(ref, operand));
     set_rir(c, ref, tag, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_address(Context *c, AstRef ref) {
     AstId operand = get_ast_unary(ref.node, &c->asts[ref.file]);
     switch (analyze_node(c, subvertex(ref, operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
-        case ROLE_VALUE: {
+        case ROLE_TERM: {
             set_rir(c, ref, RIR_ADDRESS, 0);
-            return ROLE_VALUE;
+            return ROLE_TERM;
         }
         default: diagnostic(c, ref, ERROR_EXPECTED_VALUE); return ROLE_INVALID;
     }
@@ -495,13 +492,9 @@ static Role analyze_ptr(Context *c, AstRef ref) {
     AstId operand = get_ast_unary(ref.node, &c->asts[ref.file]);
     switch (analyze_node(c, subvertex(ref, operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
-        case ROLE_TYPE: {
-            set_rir(c, ref, RIR_POINTER_TYPE, 0);
-            return ROLE_TYPE;
-        }
-        case ROLE_VALUE: {
+        case ROLE_TERM: {
             set_rir(c, ref, RIR_DEREF, 0);
-            return ROLE_VALUE;
+            return ROLE_TERM;
         }
         default: diagnostic(c, ref, ERROR_DEREF_OPERAND_ROLE); return ROLE_INVALID;
     }
@@ -511,7 +504,7 @@ static Role analyze_ptr_type(Context *c, AstRef ref, RirTag tag) {
     AstId operand = get_ast_unary(ref.node, &c->asts[ref.file]);
     expect_type(c, subvertex(ref, operand), ERROR_EXPECTED_TYPE);
     set_rir(c, ref, tag, 0);
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role analyze_value_binary(Context *c, AstRef ref, RirTag tag) {
@@ -519,7 +512,7 @@ static Role analyze_value_binary(Context *c, AstRef ref, RirTag tag) {
     expect_value(c, subvertex(ref, bin.left));
     expect_value(c, subvertex(ref, bin.right));
     set_rir(c, ref, tag, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_assignment(Context *c, AstRef ref, RirTag tag) {
@@ -527,7 +520,7 @@ static Role analyze_assignment(Context *c, AstRef ref, RirTag tag) {
     expect_value(c, subvertex(ref, bin.left));
     expect_value(c, subvertex(ref, bin.right));
     set_rir(c, ref, tag, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_module_id(Context *c, AstRef ref) {
@@ -559,13 +552,9 @@ static Role analyze_access(Context *c, AstRef ref) {
     switch (analyze_node(c, subvertex(ref, operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
         case ROLE_MODULE: return analyze_module_id(c, ref);
-        case ROLE_TYPE: {
-            set_rir(c, ref, RIR_SCOPE_ACCESS, 0);
-            return ROLE_VALUE;
-        }
-        case ROLE_VALUE: {
+        case ROLE_TERM: {
             set_rir(c, ref, RIR_TYPE_ACCESS, 0);
-            return ROLE_VALUE;
+            return ROLE_TERM;
         }
         default: diagnostic(c, ref, ERROR_ACCESS_OPERAND_ROLE); return ROLE_INVALID;
     }
@@ -574,7 +563,7 @@ static Role analyze_access(Context *c, AstRef ref) {
 
 static Role analyze_access_infer(Context *c, AstRef ref) {
     set_rir(c, ref, RIR_INFERRED_SCOPE_ACCESS, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_cast(Context *c, AstRef ref) {
@@ -582,7 +571,7 @@ static Role analyze_cast(Context *c, AstRef ref) {
     expect_value(c, subvertex(ref, bin.left));
     expect_type(c, subvertex(ref, bin.right), ERROR_EXPECTED_TYPE);
     set_rir(c, ref, RIR_CAST, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_value_args(Context *c, AstRef ref, RirTag tag) {
@@ -591,26 +580,16 @@ static Role analyze_value_args(Context *c, AstRef ref, RirTag tag) {
         expect_value(c, subvertex(ref, call.args[i]));
     }
     set_rir(c, ref, tag, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_call(Context *c, AstRef ref) {
     AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
     switch (analyze_node(c, subvertex(ref, call.operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
-        case ROLE_TYPE: return analyze_value_args(c, ref, RIR_CONSTRUCT);
-        case ROLE_VALUE: return analyze_value_args(c, ref, RIR_CALL);
+        case ROLE_TERM: return analyze_value_args(c, ref, RIR_CALL);
         default: diagnostic(c, ref, ERROR_CALL_OPERAND_ROLE); return ROLE_INVALID;
     }
-}
-
-static Role analyze_tagged_type(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        expect_type(c, subvertex(ref, call.args[i]), ERROR_EXPECTED_TYPE);
-    }
-    set_rir(c, ref, RIR_TAG_TYPE, 0);
-    return ROLE_TYPE;
 }
 
 static Role analyze_type_args_to_value(Context *c, AstRef ref) {
@@ -618,7 +597,7 @@ static Role analyze_type_args_to_value(Context *c, AstRef ref) {
     for (int32_t i = 0; i < call.arg_count; i++) {
         expect_type(c, subvertex(ref, call.args[i]), ERROR_EXPECTED_TYPE);
     }
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_macro_value_args(Context *c, AstRef ref) {
@@ -626,7 +605,7 @@ static Role analyze_macro_value_args(Context *c, AstRef ref) {
     for (int32_t i = 0; i < call.arg_count; i++) {
         expect_value(c, subvertex(ref, call.args[i]));
     }
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_macro_type_args(Context *c, AstRef ref) {
@@ -634,7 +613,7 @@ static Role analyze_macro_type_args(Context *c, AstRef ref) {
     for (int32_t i = 0; i < call.arg_count; i++) {
         expect_type(c, subvertex(ref, call.args[i]), ERROR_EXPECTED_TYPE);
     }
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role analyze_value_args_to_type(Context *c, AstRef ref) {
@@ -642,7 +621,7 @@ static Role analyze_value_args_to_type(Context *c, AstRef ref) {
     for (int32_t i = 0; i < call.arg_count; i++) {
         expect_value(c, subvertex(ref, call.args[i]));
     }
-    return ROLE_TYPE;
+    return ROLE_TERM;
 }
 
 static Role analyze_builtin_macro(Context *c, AstRef ref) {
@@ -665,9 +644,7 @@ static Role analyze_index(Context *c, AstRef ref) {
     switch (analyze_node(c, subvertex(ref, call.operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
         case ROLE_BUILTIN_MACRO: return analyze_builtin_macro(c, ref);
-        case ROLE_TYPE: return analyze_tagged_type(c, ref);
-
-        case ROLE_VALUE: return analyze_value_args(c, ref, RIR_INDEX);
+        case ROLE_TERM: return analyze_value_args(c, ref, RIR_INDEX);
         default: {
             diagnostic(c, ref, ERROR_INDEX_OPERAND_ROLE);
             return ROLE_INVALID;
@@ -682,7 +659,7 @@ static Role analyze_slice(Context *c, AstRef ref) {
         expect_value(c, subvertex(ref, call.args[i]));
     }
     set_rir(c, ref, RIR_SLICE, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static Role analyze_list(Context *c, AstRef ref) {
@@ -691,7 +668,7 @@ static Role analyze_list(Context *c, AstRef ref) {
         expect_value(c, subvertex(ref, list.nodes[i]));
     }
     set_rir(c, ref, RIR_LIST, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static void analyze_block(Context *c, AstRef block, bool implicit_ret) {
@@ -765,7 +742,7 @@ static Role analyze_switch(Context *c, AstRef ref) {
     }
 
     set_rir(c, ref, RIR_SWITCH, 0);
-    return ROLE_VALUE;
+    return ROLE_TERM;
 }
 
 static void analyze_return(Context *c, AstRef ref) {
@@ -779,11 +756,7 @@ static void analyze_return(Context *c, AstRef ref) {
 static void analyze_expression_statement(Context *c, AstRef ref) {
     AstId expr = get_ast_unary(ref.node, &c->asts[ref.file]);
     switch (analyze_node(c, subvertex(ref, expr))) {
-        case ROLE_TYPE: {
-            set_rir(c, ref, RIR_TYPE_STATEMENT, 0);
-            break;
-        }
-        case ROLE_VALUE: {
+        case ROLE_TERM: {
             set_rir(c, ref, RIR_VALUE_STATEMENT, 0);
             break;
         }

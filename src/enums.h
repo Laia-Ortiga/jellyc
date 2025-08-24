@@ -242,8 +242,7 @@ typedef enum {
     ROLE_INVALID,
     ROLE_MODULE,
     ROLE_BUILTIN_MACRO,
-    ROLE_TYPE,
-    ROLE_VALUE,
+    ROLE_TERM,
 } Role;
 
 typedef enum {
@@ -268,7 +267,6 @@ typedef enum {
     // Statements
 
     RIR_VALUE_STATEMENT,
-    RIR_TYPE_STATEMENT,
     RIR_IF,
     RIR_WHILE,
     RIR_FOR_HELPER,
@@ -281,15 +279,12 @@ typedef enum {
 
     // Types
 
-    RIR_TYPE_ALIAS,
     RIR_ARRAY_TYPE,
     RIR_ARRAY_TYPE_SUGAR,
-    RIR_POINTER_TYPE,
     RIR_MUTABLE_POINTER_TYPE,
     RIR_SLICE_TYPE,
     RIR_MUTABLE_SLICE_TYPE,
     RIR_FUNCTION_TYPE,
-    RIR_TAG_TYPE,
 
     // Unary operators
 
@@ -340,12 +335,10 @@ typedef enum {
     RIR_CALL,
     RIR_CALL_BUILTIN,
 
-    RIR_CONSTRUCT,
     RIR_LIST,
 
     RIR_INDEX,
     RIR_SLICE,
-    RIR_SCOPE_ACCESS,
     RIR_INFERRED_SCOPE_ACCESS,
     RIR_TYPE_ACCESS,
 
@@ -372,13 +365,13 @@ typedef enum {
     #define TYPE(type) TYPE_##type,
     #include "simple-types"
 
-    TYPE_COUNT,
-} PrimitiveType;
+    TERM_COUNT,
+} PrimitiveTerm;
 
 typedef enum {
     TERM_ERROR,
 
-    TYPE_PRIMITIVE,
+    TYPE_PRIMITIVE = 16,
     TYPE_ARRAY,
     TYPE_ARRAY_LENGTH,
     TYPE_PTR,
@@ -394,7 +387,7 @@ typedef enum {
     TYPE_TYPE_PARAMETER,
 
     // index is unused
-    VAL_FUNCTION,
+    VAL_FUNCTION = 32,
 
     // index points to the name of the function
     VAL_EXTERN_FUNCTION,
@@ -421,6 +414,10 @@ typedef enum {
     // index is the instruction index
     VAL_TEMPORARY,
 } TermTag;
+
+#define get_term_category(tag) ((tag) >> 4)
+#define is_term_type(tag) (get_term_category(tag) == 1)
+#define is_term_value(tag) (get_term_category(tag) == 2)
 
 typedef enum {
     VALUE_INVALID,
