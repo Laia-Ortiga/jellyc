@@ -751,14 +751,7 @@ static TermId analyze_id(TypeContext *c, AstId node, SymbolKind kind) {
     TermId info;
     switch (kind) {
         case SYM_BUILTIN: {
-            switch ((BuiltinId) id) {
-                case BUILTIN_SIZE_TAG: return type_size_tag;
-                case BUILTIN_ALIGNMENT_TAG: return type_alignment_tag;
-                #define TYPE(type) case BUILTIN_##type: return type_##type;
-                #include "simple-types"
-                default: break;
-            }
-            break;
+            return (TermId) {id};
         }
         case SYM_GLOBAL: info = c->tir_refs[id]; break;
         case SYM_LOCAL: info = c->local->tir_refs[id]; break;
@@ -1400,9 +1393,8 @@ static TermId resolve_enum_member(TypeContext *c, AstId node, TermId type) {
     return (TermId) {sym.field_index};
 }
 
-static TermId analyze_enum_member(TypeContext *c, AstId node) {
+static TermId analyze_enum_member(TypeContext *c, AstId node, TermId type) {
     AstId operand = get_ast_unary(node, c->ast);
-    TermId type = expect_type(c, operand);
 
     if (get_term_tag(c->tir, type) != TYPE_ENUM) {
         type_error(c, operand, type, 0, ERROR_UNDEFINED_TYPE_SCOPE);
@@ -1451,7 +1443,17 @@ static TermId analyze_struct_access(TypeContext *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     SourceIndex field_token = get_rir_token(c, node);
     String field_name = id_token_to_string(ctx_source(c), field_token);
-    TermId operand_value = expect_value(c, operand, null_term);
+    TermId operand_value = analyze_term(c, operand, null_term);
+
+    if (is_term_type(get_term_tag(c->tir, operand_value))) {
+        return analyze_enum_member(c, operand, operand_value);
+    }
+
+    if (!is_term_value(get_term_tag(c->tir, operand_value))) {
+        error(c, node, &(Diagnostic) {.kind = ERROR_ACCESS_OPERAND_ROLE});
+        return null_term;
+    }
+
     operand_value = implicit_pointer_deref(c, node, operand_value);
     TermId operand_type = get_value_type(c->tir, operand_value);
     TermId type = remove_tags(c->tir, operand_type);
@@ -1721,18 +1723,6 @@ static TermId analyze_call(TypeContext *c, AstId node) {
     );
 }
 
-static TermId analyze_builtin_call(TypeContext *c, AstId node, TermId hint) {
-    switch ((BuiltinId) get_rir_data(node, c->rir)) {
-        case BUILTIN_ALIGNOF: return analyze_alignof(c, node);
-        case BUILTIN_SIZEOF: return analyze_sizeof(c, node);
-        case BUILTIN_ZERO_EXTEND: return analyze_zero_extend(c, node, hint);
-        case BUILTIN_SLICE: return analyze_slice_constructor(c, node, hint);
-        case BUILTIN_AFFINE: return analyze_linear(c, node);
-        case BUILTIN_ARRAY_LENGTH_TYPE: return analyze_array_length_type(c, node);
-        default: abort();
-    }
-}
-
 static TermId analyze_tagged_type(TypeContext *c, AstId node, TermId newtype) {
     AstCall call = get_ast_call(node, c->ast);
     TermId *arg_types = arena_alloc(c->scratch, TermId, call.arg_count);
@@ -1750,12 +1740,24 @@ static TermId analyze_tagged_type(TypeContext *c, AstId node, TermId newtype) {
     return new_tagged_type(c->tir, newtype, n.type, call.arg_count, arg_types);
 }
 
-static TermId analyze_index(TypeContext *c, AstId node) {
+static TermId analyze_index(TypeContext *c, AstId node, TermId hint) {
     AstCall call = get_ast_call(node, c->ast);
     TermId operand_value = analyze_term(c, call.operand, null_term);
 
     if (is_term_type(get_term_tag(c->tir, operand_value))) {
         return analyze_tagged_type(c, node, operand_value);
+    }
+
+    if (get_term_tag(c->tir, operand_value) == TERM_MACRO) {
+        switch ((PrimitiveTerm) operand_value.id) {
+            case BUILTIN_ALIGNOF: return analyze_alignof(c, node);
+            case BUILTIN_SIZEOF: return analyze_sizeof(c, node);
+            case BUILTIN_ZERO_EXTEND: return analyze_zero_extend(c, node, hint);
+            case BUILTIN_SLICE: return analyze_slice_constructor(c, node, hint);
+            case BUILTIN_AFFINE: return analyze_linear(c, node);
+            case BUILTIN_ARRAY_LENGTH_TYPE: return analyze_array_length_type(c, node);
+            default: abort();
+        }
     }
 
     operand_value = implicit_pointer_deref(c, node, operand_value);
@@ -2126,8 +2128,7 @@ static TermId analyze_term(TypeContext *c, AstId node, TermId hint) {
         case RIR_INFERRED_SCOPE_ACCESS: return analyze_enum_member_inferred(c, node, hint);
         case RIR_CAST: return analyze_cast(c, node);
         case RIR_CALL: return analyze_call(c, node);
-        case RIR_CALL_BUILTIN: return analyze_builtin_call(c, node, hint);
-        case RIR_INDEX: return analyze_index(c, node);
+        case RIR_INDEX: return analyze_index(c, node, hint);
         case RIR_SLICE: return analyze_slice(c, node);
         case RIR_LIST: return analyze_list(c, node, hint);
         case RIR_SWITCH: return analyze_switch(c, node, hint);

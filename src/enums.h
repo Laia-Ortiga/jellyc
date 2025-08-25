@@ -216,20 +216,6 @@ typedef enum {
 } AstTag;
 
 typedef enum {
-    #define TYPE(type) BUILTIN_##type,
-    #include "simple-types"
-
-    BUILTIN_SIZE_TAG,
-    BUILTIN_ALIGNMENT_TAG,
-    BUILTIN_ALIGNOF,
-    BUILTIN_SIZEOF,
-    BUILTIN_ZERO_EXTEND,
-    BUILTIN_SLICE,
-    BUILTIN_AFFINE,
-    BUILTIN_ARRAY_LENGTH_TYPE,
-} BuiltinId;
-
-typedef enum {
     SYM_UNDEFINED,
     SYM_BUILTIN,
     SYM_GLOBAL,
@@ -241,7 +227,6 @@ typedef enum {
     ROLE_VISITING,
     ROLE_INVALID,
     ROLE_MODULE,
-    ROLE_BUILTIN_MACRO,
     ROLE_TERM,
 } Role;
 
@@ -333,7 +318,6 @@ typedef enum {
     // Miscellaneous
 
     RIR_CALL,
-    RIR_CALL_BUILTIN,
 
     RIR_LIST,
 
@@ -358,14 +342,25 @@ typedef enum {
 
 typedef enum {
     TYPE_INVALID,
-    TYPE_VOID,
+
+    TERM_TYPE_START,
+    TYPE_VOID = TERM_TYPE_START,
     TYPE_SIZE_TAG,
     TYPE_ALIGNMENT_TAG,
-
     #define TYPE(type) TYPE_##type,
     #include "simple-types"
+    TERM_TYPE_END,
 
-    TERM_COUNT,
+    TERM_MACRO_START = TERM_TYPE_END,
+    BUILTIN_ALIGNOF = TERM_MACRO_START,
+    BUILTIN_SIZEOF,
+    BUILTIN_ZERO_EXTEND,
+    BUILTIN_SLICE,
+    BUILTIN_AFFINE,
+    BUILTIN_ARRAY_LENGTH_TYPE,
+    TERM_MACRO_END,
+
+    TERM_COUNT = TERM_MACRO_END,
 } PrimitiveTerm;
 
 typedef enum {
@@ -413,6 +408,8 @@ typedef enum {
 
     // index is the instruction index
     VAL_TEMPORARY,
+
+    TERM_MACRO = 48,
 } TermTag;
 
 #define get_term_category(tag) ((tag) >> 4)

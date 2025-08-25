@@ -262,8 +262,7 @@ static Result analyze_const(Context *c, AstRef ref) {
     AstId init = get_ast_unary(ref.node, &c->asts[ref.file]);
     Role role = analyze_node(c, subvertex(ref, init));
     switch (role) {
-        case ROLE_INVALID:
-        case ROLE_BUILTIN_MACRO: {
+        case ROLE_INVALID: {
             return (Result) {role, RIR_ROOT, 0};
         }
         case ROLE_TERM: {
@@ -407,26 +406,7 @@ static Role analyze_id(Context *c, AstRef ref) {
         }
         case SYM_BUILTIN: {
             set_rir(c, ref, RIR_BUILTIN_ID, symbol.builtin);
-            switch (symbol.builtin) {
-                #define TYPE(type) case BUILTIN_##type:
-                #include "simple-types"
-                {
-                    return ROLE_TERM;
-                }
-                case BUILTIN_SIZE_TAG:
-                case BUILTIN_ALIGNMENT_TAG: {
-                    return ROLE_TERM;
-                }
-                case BUILTIN_ALIGNOF:
-                case BUILTIN_SIZEOF:
-                case BUILTIN_ZERO_EXTEND:
-                case BUILTIN_SLICE:
-                case BUILTIN_AFFINE:
-                case BUILTIN_ARRAY_LENGTH_TYPE: {
-                    return ROLE_BUILTIN_MACRO;
-                }
-            }
-            break;
+            return ROLE_TERM;
         }
         case SYM_GLOBAL: {
             return resolve_global(c, ref, symbol.global);
@@ -592,58 +572,10 @@ static Role analyze_call(Context *c, AstRef ref) {
     }
 }
 
-static Role analyze_type_args_to_value(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        expect_type(c, subvertex(ref, call.args[i]), ERROR_EXPECTED_TYPE);
-    }
-    return ROLE_TERM;
-}
-
-static Role analyze_macro_value_args(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        expect_value(c, subvertex(ref, call.args[i]));
-    }
-    return ROLE_TERM;
-}
-
-static Role analyze_macro_type_args(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        expect_type(c, subvertex(ref, call.args[i]), ERROR_EXPECTED_TYPE);
-    }
-    return ROLE_TERM;
-}
-
-static Role analyze_value_args_to_type(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        expect_value(c, subvertex(ref, call.args[i]));
-    }
-    return ROLE_TERM;
-}
-
-static Role analyze_builtin_macro(Context *c, AstRef ref) {
-    AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
-    BuiltinId macro = get_rir_data(call.operand, &c->rirs[ref.file]);
-    set_rir(c, ref, RIR_CALL_BUILTIN, macro);
-    switch (macro) {
-        case BUILTIN_ALIGNOF:
-        case BUILTIN_SIZEOF: return analyze_type_args_to_value(c, ref);
-        case BUILTIN_ZERO_EXTEND:
-        case BUILTIN_SLICE: return analyze_macro_value_args(c, ref);
-        case BUILTIN_AFFINE: return analyze_macro_type_args(c, ref);
-        case BUILTIN_ARRAY_LENGTH_TYPE: return analyze_value_args_to_type(c, ref);
-        default: compiler_error("unknown built-in macro");
-    }
-}
-
 static Role analyze_index(Context *c, AstRef ref) {
     AstCall call = get_ast_call(ref.node, &c->asts[ref.file]);
     switch (analyze_node(c, subvertex(ref, call.operand))) {
         case ROLE_INVALID: return ROLE_INVALID;
-        case ROLE_BUILTIN_MACRO: return analyze_builtin_macro(c, ref);
         case ROLE_TERM: return analyze_value_args(c, ref, RIR_INDEX);
         default: {
             diagnostic(c, ref, ERROR_INDEX_OPERAND_ROLE);

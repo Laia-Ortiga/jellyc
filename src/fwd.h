@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
     SymbolKind kind;
     union {
-        BuiltinId builtin;
+        PrimitiveTerm builtin;
         DefId global;
         LocalId local;
     };

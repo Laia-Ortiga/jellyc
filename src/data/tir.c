@@ -485,10 +485,13 @@ static TermIndex get_term_index(TirContext ctx, TermId type) {
 
 TermTag get_term_tag(TirContext ctx, TermId type) {
     if (type.id < TERM_COUNT) {
-        if (type.id == 0) {
-            return TERM_ERROR;
+        if (type.id >= TERM_TYPE_START && type.id < TERM_TYPE_END) {
+            return TYPE_PRIMITIVE;
         }
-        return TYPE_PRIMITIVE;
+        if (type.id >= TERM_MACRO_START && type.id < TERM_MACRO_END) {
+            return TERM_MACRO;
+        }
+        return TERM_ERROR;
     }
     TermIndex i = get_term_index(ctx, type);
     return i.deps->terms.terms.tags[i.index];
@@ -692,7 +695,7 @@ static int64_t sizeof_primitive(TermId type, Target target) {
         case TYPE_SIZE_TAG:
         case TYPE_ALIGNMENT_TAG:
         case TYPE_isize: return sizeof_pointer(target);
-        case TERM_COUNT: break;
+        default: break;
     }
     abort();
 }
@@ -930,7 +933,7 @@ int32_t alignof_type(TirContext ctx, TermId type, Target target) {
                 case TYPE_ALIGNMENT_TAG:
                 case TYPE_isize: return sizeof_pointer(target);
 
-                case TERM_COUNT: break;
+                default: break;
             }
             abort();
         }
@@ -992,7 +995,7 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
                 #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;
                 #include "simple-types"
 
-                case TERM_COUNT: break;
+                default: break;
             }
             compiler_error("print_type: unknown primitive type");
         }
