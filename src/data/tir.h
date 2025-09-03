@@ -37,8 +37,18 @@ typedef struct {
 } TermList;
 
 typedef struct {
+    AstId ast_id;
+    union {
+        int32_t field_index;
+        TermId enum_value;
+    };
+} TypeScopeSymbol;
+
+typedef struct {
     StringBuffer strtab;
     TermList terms;
+    Vec(TypeScopeSymbol) type_scope_symbols;
+    Vec(HashTable) type_scopes;
 } TirDependencies;
 
 typedef struct {

@@ -21,16 +21,6 @@
 #include <stdio.h>
 
 typedef struct {
-    AstId ast_id;
-    union {
-        int32_t field_index;
-        TermId enum_value;
-    };
-} TypeScopeSymbol;
-
-typedef struct {
-    Vec(TypeScopeSymbol) type_scope_symbols;
-    Vec(HashTable) type_scopes;
     Declarations declarations;
 } GlobalData;
 
@@ -540,21 +530,21 @@ static TermId analyze_enum(TypeContext *c, AstId node) {
     SourceIndex token = get_rir_token(c, node);
     String name = id_token_to_string(ctx_source(c), token);
     HashTable table_init = htable_init();
-    int32_t scope = c->global->type_scopes.len;
-    vec_push(&c->global->type_scopes, table_init);
+    int32_t scope = c->tir.global->type_scopes.len;
+    vec_push(&c->tir.global->type_scopes, table_init);
     TermId type = new_enum_type(c->tir, scope, ctx_push_str(c, name), repr_type);
-    HashTable *table = &c->global->type_scopes.ptr[scope];
+    HashTable *table = &c->tir.global->type_scopes.ptr[scope];
 
     for (int32_t i = 0; i < e.member_count; i++) {
         SourceIndex member_token = get_rir_token(c, e.members[i]);
         String member_name = id_token_to_string(ctx_source(c), member_token);
-        int32_t member_sym = c->global->type_scope_symbols.len;
+        int32_t member_sym = c->tir.global->type_scope_symbols.len;
         int64_t prev = htable_try_insert(table, member_name, member_sym);
 
         if (prev >= 0) {
             SourceLoc loc = ctx_init_loc(c, member_token, member_name.len);
             print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
-            AstId prev_ref = c->global->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
             SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
             SourceLoc prev_loc = ctx_init_loc(c, prev_token, member_name.len);
             print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
@@ -562,7 +552,7 @@ static TermId analyze_enum(TypeContext *c, AstId node) {
         }
 
         TermId value = new_int_constant(c->tir, type, i);
-        vec_push(&c->global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
+        vec_push(&c->tir.global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
     }
 
     return type;
@@ -591,14 +581,14 @@ static TermId analyze_struct(TypeContext *c, AstId node) {
         SourceIndex field_token = get_rir_token(c, s.fields[i]);
         String field_name = id_token_to_string(ctx_source(c), field_token);
 
-        int32_t field_sym = c->global->type_scope_symbols.len;
-        vec_push(&c->global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = s.fields[i], .field_index = index});
+        int32_t field_sym = c->tir.global->type_scope_symbols.len;
+        vec_push(&c->tir.global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = s.fields[i], .field_index = index});
         int64_t prev = htable_try_insert(&table, field_name, field_sym);
 
         if (prev >= 0) {
             SourceLoc loc = ctx_init_loc(c, field_token, field_name.len);
             print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
-            AstId prev_ref = c->global->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
             SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
             SourceLoc prev_loc = ctx_init_loc(c, prev_token, field_name.len);
             print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
@@ -608,8 +598,8 @@ static TermId analyze_struct(TypeContext *c, AstId node) {
         index++;
     }
 
-    int32_t scope = c->global->type_scopes.len;
-    vec_push(&c->global->type_scopes, table);
+    int32_t scope = c->tir.global->type_scopes.len;
+    vec_push(&c->tir.global->type_scopes, table);
 
     SourceIndex token = get_rir_token(c, node);
     String name = id_token_to_string(ctx_source(c), token);
@@ -1369,7 +1359,7 @@ static TermId implicit_pointer_deref(TypeContext *c, AstId node, TermId value) {
 
 static int32_t find_field(TypeContext *c, TermId type, String name) {
     int32_t scope = get_struct_type(c->tir, type).scope;
-    uint32_t *sym = htable_lookup(&c->global->type_scopes.ptr[scope], name);
+    uint32_t *sym = htable_lookup(&c->tir.global->type_scopes.ptr[scope], name);
 
     if (!sym) {
         return -1;
@@ -1382,14 +1372,14 @@ static TermId resolve_enum_member(TypeContext *c, AstId node, TermId type) {
     SourceIndex field_token = get_rir_token(c, node);
     String field_name = id_token_to_string(ctx_source(c), field_token);
     int32_t scope = get_enum_type(c->tir, type).scope;
-    uint32_t *sym_ptr = htable_lookup(&c->global->type_scopes.ptr[scope], field_name);
+    uint32_t *sym_ptr = htable_lookup(&c->tir.global->type_scopes.ptr[scope], field_name);
 
     if (!sym_ptr) {
         type_error(c, node, type, 0, ERROR_UNDEFINED_TYPE_SCOPE);
         return null_term;
     }
 
-    TypeScopeSymbol sym = c->global->type_scope_symbols.ptr[*sym_ptr];
+    TypeScopeSymbol sym = c->tir.global->type_scope_symbols.ptr[*sym_ptr];
     return (TermId) {sym.field_index};
 }
 
@@ -1495,7 +1485,7 @@ static TermId analyze_struct_access(TypeContext *c, AstId node) {
         return null_term;
     }
 
-    TypeScopeSymbol sym = c->global->type_scope_symbols.ptr[field_sym];
+    TypeScopeSymbol sym = c->tir.global->type_scope_symbols.ptr[field_sym];
     TermId result_type = get_struct_type_field(c->tir, type, sym.field_index);
     return new_binary_inst(c, TIR_ACCESS, node, result_type, operand_value.id, sym.field_index);
 }
@@ -1918,7 +1908,7 @@ static TirId analyze_for(TypeContext *c, AstId node) {
 
 static void validate_exhaustive_enum_switch(TypeContext *c, AstId node, EnumType *type, int32_t *branches) {
     AstCall switch_ = get_ast_call(node, c->ast);
-    HashTable const *scope = &c->global->type_scopes.ptr[type->scope];
+    HashTable const *scope = &c->tir.global->type_scopes.ptr[type->scope];
     bool *seen_enum_values = arena_alloc(c->scratch, bool, scope->count);
     AstId else_case = null_ast;
 
