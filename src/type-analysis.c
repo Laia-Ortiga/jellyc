@@ -21,10 +21,6 @@
 #include <stdio.h>
 
 typedef struct {
-    Declarations declarations;
-} GlobalData;
-
-typedef struct {
     TermId *tir_refs;
     bool *notes_shown;  // Weather a note to fix an error has been shown already.
 } LocalData;
@@ -48,7 +44,6 @@ typedef struct {
     int32_t file;
     Locals *local_ast_refs;
 
-    GlobalData *global;
     LocalData *local;
     TirContext tir;
     TermId current_function_type;
@@ -471,14 +466,14 @@ static TermId analyze_function_decl(TypeContext *c, AstId node) {
     int length = snprintf(name_buffer, sizeof(name_buffer), "file%d_", c->file);
     TermId value = new_function(c->tir, type, ctx_push_double_str(c, (String) {length, name_buffer}, name));
 
-    if (equals(name, (String) Str("main"))) {
+    if (!c->tir.thread && equals(name, (String) Str("main"))) {
         if (f.param_count || !is_ast_null(f.ret)) {
             error(c, node, &(Diagnostic) {.kind = ERROR_MAIN_SIGNATURE});
         }
-        c->global->declarations.main = value;
+        c->tir.global->main = value;
     }
 
-    vec_push(&c->global->declarations.functions, value);
+    vec_push(&c->tir.global->functions, value);
     return value;
 }
 
@@ -609,7 +604,7 @@ static TermId analyze_struct(TypeContext *c, AstId node) {
     }
 
     TermId type = new_struct_type(c->tir, scope, ctx_push_str(c, name), s.type_param_count, s.field_count, field_types, c->options->target);
-    vec_push(&c->global->declarations.structs, type);
+    vec_push(&c->tir.global->structs, type);
     return type;
 }
 
@@ -639,7 +634,7 @@ static TermId analyze_extern_function(TypeContext *c, AstId node) {
     String name = id_token_to_string(ctx_source(c), token);
 
     TermId value = new_extern_function(c->tir, type, ctx_push_str(c, name));
-    vec_push(&c->global->declarations.extern_functions, value);
+    vec_push(&c->tir.global->extern_functions, value);
     return value;
 }
 
@@ -648,7 +643,7 @@ static TermId analyze_extern_mut(TypeContext *c, AstId node) {
     TermId type = expect_type(c, var_type);
     String name = id_token_to_string(ctx_source(c), get_rir_token(c, node));
     TermId value = new_extern_var(c->tir, type, ctx_push_str(c, name));
-    vec_push(&c->global->declarations.extern_vars, value);
+    vec_push(&c->tir.global->extern_vars, value);
     return value;
 }
 
@@ -2160,7 +2155,6 @@ static void analyze_def(TypeContext *c, DefId def) {
 }
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
-    GlobalData global = {0};
     TirDependencies global_tir = {0};
     init_tir_deps(&global_tir);
     TypeContext global_tc = {0};
@@ -2172,7 +2166,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     global_tc.scratch = &scratch;
     global_tc.ast_refs = input->ast_refs;
     global_tc.tir_refs = arena_alloc(&scratch, TermId, input->def_count);
-    global_tc.global = &global;
     global_tc.tir.global = &global_tir;
     LocalData *local_data = arena_alloc(&scratch, LocalData, input->def_count);
 
@@ -2205,7 +2198,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         local_tc.scratch = &thread_scratch;
         local_tc.ast_refs = global_tc.ast_refs;
         local_tc.tir_refs = global_tc.tir_refs;
-        local_tc.global = &global;
         local_tc.tir.global = &global_tir;
 
         #pragma omp for reduction (||:err)
@@ -2236,7 +2228,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     }
 
     return (TirOutput) {
-        .declarations = global.declarations,
         .global_deps = global_tir,
         .insts = tirs,
         .error = err,

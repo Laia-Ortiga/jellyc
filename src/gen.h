@@ -4,7 +4,6 @@
 #include "type-analysis.h"
 
 typedef struct {
-    Declarations declarations;
     TirDependencies global_deps;
     LocalTir *insts;
     MirResult *mir_result;

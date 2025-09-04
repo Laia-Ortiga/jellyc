@@ -410,12 +410,12 @@ int main(int argc, char **argv) {
         return -1;
     }
     if (options.print_debug) {
-        for (int32_t i = 0; i < tir_output.declarations.functions.len; i++) {
+        for (int32_t i = 0; i < tir_output.global_deps.functions.len; i++) {
             TirContext ctx = {
                 .global = &tir_output.global_deps,
                 .thread = &tir_output.insts[i],
             };
-            int32_t name = get_term_data(ctx, tir_output.declarations.functions.ptr[i])->b;
+            int32_t name = get_term_data(ctx, tir_output.global_deps.functions.ptr[i])->b;
             print_tir(ctx, &ctx.global->strtab.ptr[name], &tir_output.insts[i].insts, tir_output.insts[i].first);
         }
     }
@@ -441,13 +441,12 @@ int main(int argc, char **argv) {
         .sources = sources,
         .asts = asts,
         .ast_refs = ast_refs.ptr,
-        .functions = tir_output.declarations.functions.ptr,
+        .functions = tir_output.global_deps.functions.ptr,
         .global_deps = &tir_output.global_deps,
         .insts = tir_output.insts,
-        .function_count = tir_output.declarations.functions.len,
+        .function_count = tir_output.global_deps.functions.len,
     }, &permanent_arena, scratch_arena);
     GenInput gen_input = {
-        .declarations = tir_output.declarations,
         .global_deps = tir_output.global_deps,
         .insts = tir_output.insts,
         .mir_result = &mir_result,

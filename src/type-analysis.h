@@ -6,14 +6,6 @@
 #include "data/tir.h"
 
 typedef struct {
-    Vec(TermId) structs;
-    Vec(TermId) extern_vars;
-    Vec(TermId) extern_functions;
-    Vec(TermId) functions;
-    TermId main;
-} Declarations;
-
-typedef struct {
     Options *options;
     char **paths;
     String *sources;
@@ -34,7 +26,6 @@ typedef struct {
 } TirInput;
 
 typedef struct {
-    Declarations declarations;
     TirDependencies global_deps;
     LocalTir *insts;
     int error;

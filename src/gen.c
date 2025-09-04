@@ -92,10 +92,6 @@ static void gen_type_before(GenContext *ctx, TermId type) {
     switch (get_term_tag(ctx->tir, type)) {
         case TYPE_PRIMITIVE: {
             switch ((PrimitiveTerm) type.id) {
-                case TYPE_INVALID:
-                case TYPE_VOID:
-                case TERM_COUNT: break;
-
                 case TYPE_i8: fprintf(ctx->stream, "int8_t "); return;
                 case TYPE_i16: fprintf(ctx->stream, "int16_t "); return;
                 case TYPE_i32: fprintf(ctx->stream, "int32_t "); return;
@@ -112,6 +108,8 @@ static void gen_type_before(GenContext *ctx, TermId type) {
                 case TYPE_byte: fprintf(ctx->stream, "char "); return;
 
                 case TYPE_bool: fprintf(ctx->stream, "unsigned char "); return;
+
+                default: break;
             }
             break;
         }
@@ -899,35 +897,35 @@ void gen_c(GenInput *input, Target target) {
         .stream = stream,
     };
 
-    for (int32_t i = 0; i < input->declarations.structs.len; i++) {
-        TermId type = input->declarations.structs.ptr[i];
+    for (int32_t i = 0; i < input->global_deps.structs.len; i++) {
+        TermId type = input->global_deps.structs.ptr[i];
         gen_struct_decl(&ctx, type);
     }
 
-    for (int32_t i = 0; i < input->declarations.structs.len; i++) {
-        TermId type = input->declarations.structs.ptr[i];
+    for (int32_t i = 0; i < input->global_deps.structs.len; i++) {
+        TermId type = input->global_deps.structs.ptr[i];
         gen_struct(&ctx, type);
     }
 
-    for (int32_t i = 0; i < input->declarations.extern_vars.len; i++) {
-        TermId value = input->declarations.extern_vars.ptr[i];
+    for (int32_t i = 0; i < input->global_deps.extern_vars.len; i++) {
+        TermId value = input->global_deps.extern_vars.ptr[i];
         gen_extern_var(&ctx, value);
     }
 
-    for (int32_t i = 0; i < input->declarations.extern_functions.len; i++) {
-        TermId value = input->declarations.extern_functions.ptr[i];
+    for (int32_t i = 0; i < input->global_deps.extern_functions.len; i++) {
+        TermId value = input->global_deps.extern_functions.ptr[i];
         gen_extern_function(&ctx, value);
     }
 
-    for (int32_t i = 0; i < input->declarations.functions.len; i++) {
-        TermId value = input->declarations.functions.ptr[i];
-        gen_function_decl(&ctx, value, input->declarations.main.id == value.id);
+    for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
+        TermId value = input->global_deps.functions.ptr[i];
+        gen_function_decl(&ctx, value, input->global_deps.main.id == value.id);
     }
 
-    for (int32_t i = 0; i < input->declarations.functions.len; i++) {
+    for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
         ctx.tir.thread = &input->insts[i];
-        TermId value = input->declarations.functions.ptr[i];
-        gen_function(&ctx, input->mir_result->ends[i], input->mir_result->ends[i + 1], value, input->declarations.main.id == value.id);
+        TermId value = input->global_deps.functions.ptr[i];
+        gen_function(&ctx, input->mir_result->ends[i], input->mir_result->ends[i + 1], value, input->global_deps.main.id == value.id);
     }
 
     fclose(stream);

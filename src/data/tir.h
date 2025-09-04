@@ -47,6 +47,11 @@ typedef struct {
 typedef struct {
     StringBuffer strtab;
     TermList terms;
+    TermId main;
+    Vec(TermId) structs;
+    Vec(TermId) extern_vars;
+    Vec(TermId) extern_functions;
+    Vec(TermId) functions;
     Vec(TypeScopeSymbol) type_scope_symbols;
     Vec(HashTable) type_scopes;
 } TirDependencies;
