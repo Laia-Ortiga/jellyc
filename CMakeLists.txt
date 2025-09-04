@@ -17,7 +17,6 @@ set(SOURCE
     src/main.c
     src/parse.c
     src/print.c
-    src/role-analysis.c
     src/tir-analysis.c
     src/tir2mir.c
     src/type-analysis.c

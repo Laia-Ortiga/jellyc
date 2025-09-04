@@ -38,8 +38,3 @@ typedef struct {
 
 typedef Vec(AstRef) AstRefVec;
 typedef Vec(DefId) DefVec;
-
-typedef struct {
-    Role role;
-    AstId node;
-} LocalAstRef;

@@ -223,124 +223,6 @@ typedef enum {
 } SymbolKind;
 
 typedef enum {
-    ROLE_NOT_VISITED,
-    ROLE_VISITING,
-    ROLE_INVALID,
-    ROLE_MODULE,
-    ROLE_TERM,
-} Role;
-
-typedef enum {
-    RIR_ROOT,
-
-    // Global definitions
-
-    RIR_FUNCTION,
-    RIR_STRUCT,
-    RIR_ENUM,
-    RIR_NEWTYPE,
-    RIR_EXTERN_FUNCTION,
-    RIR_EXTERN_MUT,
-    RIR_CONST,
-
-    // Local definitions
-
-    RIR_PARAM,
-    RIR_LET,
-    RIR_MUT,
-
-    // Statements
-
-    RIR_VALUE_STATEMENT,
-    RIR_IF,
-    RIR_WHILE,
-    RIR_FOR_HELPER,
-    RIR_FOR,
-    RIR_SWITCH,
-    RIR_SWITCH_CASE,
-    RIR_BREAK,
-    RIR_CONTINUE,
-    RIR_RETURN,
-
-    // Types
-
-    RIR_ARRAY_TYPE,
-    RIR_ARRAY_TYPE_SUGAR,
-    RIR_MUTABLE_POINTER_TYPE,
-    RIR_SLICE_TYPE,
-    RIR_MUTABLE_SLICE_TYPE,
-    RIR_FUNCTION_TYPE,
-
-    // Unary operators
-
-    RIR_PLUS,
-    RIR_MINUS,
-    RIR_NOT,
-    RIR_ADDRESS,
-    RIR_DEREF,
-
-    // Binary operators
-
-    RIR_ADD,
-    RIR_SUB,
-    RIR_MUL,
-    RIR_DIV,
-    RIR_MOD,
-
-    RIR_AND,
-    RIR_OR,
-    RIR_XOR,
-    RIR_SHL,
-    RIR_SHR,
-
-    RIR_LOGIC_AND,
-    RIR_LOGIC_OR,
-
-    RIR_EQ,
-    RIR_NE,
-    RIR_LT,
-    RIR_GT,
-    RIR_LE,
-    RIR_GE,
-
-    RIR_ASSIGN,
-    RIR_ASSIGN_ADD,
-    RIR_ASSIGN_SUB,
-    RIR_ASSIGN_MUL,
-    RIR_ASSIGN_DIV,
-    RIR_ASSIGN_MOD,
-    RIR_ASSIGN_AND,
-    RIR_ASSIGN_OR,
-    RIR_ASSIGN_XOR,
-
-    RIR_CAST,
-
-    // Miscellaneous
-
-    RIR_CALL,
-
-    RIR_LIST,
-
-    RIR_INDEX,
-    RIR_SLICE,
-    RIR_INFERRED_SCOPE_ACCESS,
-    RIR_TYPE_ACCESS,
-
-    // Tree leaves
-
-    RIR_BUILTIN_ID,
-    RIR_GLOBAL_ID,
-    RIR_LOCAL_ID,
-
-    RIR_INT,
-    RIR_FLOAT,
-    RIR_CHAR,
-    RIR_STRING,
-    RIR_BOOL,
-    RIR_NULL,
-} RirTag;
-
-typedef enum {
     TYPE_INVALID,
 
     TERM_TYPE_START,
@@ -410,6 +292,7 @@ typedef enum {
     VAL_TEMPORARY,
 
     TERM_MACRO = 48,
+    TERM_MODULE = 64,
 } TermTag;
 
 #define get_term_category(tag) ((tag) >> 4)

@@ -1,12 +1,13 @@
 #pragma once
 
 #include "arena.h"
+#include "data/ast.h"
 #include "fwd.h"
-#include "role-analysis.h"
 #include "data/tir.h"
 
 typedef struct {
     Options *options;
+    int file_count;
     char **paths;
     String *sources;
     Ast *asts;
@@ -16,11 +17,7 @@ typedef struct {
     HashTable *global_scope;
     AstRef *ast_refs;
     int32_t def_count;
-    int32_t order_count;
 
-    Locals *local_ast_refs;
-    DefId *order;
-    Rir *rirs;
     DefId *functions;
     int32_t function_count;
 } TirInput;

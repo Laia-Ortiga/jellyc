@@ -45,6 +45,7 @@ typedef struct {
 } TypeScopeSymbol;
 
 typedef struct {
+    int32_t fixed_count;
     StringBuffer strtab;
     TermList terms;
     TermId main;
@@ -82,7 +83,7 @@ TermId new_array_type(TirContext ctx, TermId index, TermId element);
 TermId new_array_length_type(TirContext ctx, int64_t length);
 TermId new_ptr_type(TirContext ctx, TermTag tag, TermId elem);
 TermId new_multiptr_type(TirContext ctx, TermTag tag, TermId elem);
-TermId new_function_type(TirContext ctx, int32_t type_param_count, int32_t param_count, TermId const *params, TermId ret);
+TermId new_function_type(TirContext ctx, int32_t type_param_count, TermId const *type_params, int32_t param_count, TermId const *params, TermId ret);
 TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TermId const *fields, Target target);
 TermId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TermId repr);
 TermId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TermId type);
@@ -113,6 +114,7 @@ typedef struct {
 
 typedef struct {
     int32_t type_param_count;
+    TermId *type_params;
     int32_t param_count;
     TermId *params;
     TermId ret;
@@ -197,7 +199,6 @@ TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Are
 
 // Values
 
-void init_tir_deps(TirDependencies *deps);
 TermId new_int_constant(TirContext ctx, TermId type, int64_t x);
 TermId new_float_constant(TirContext ctx, TermId type, double x);
 TermId new_null_constant(TirContext ctx, TermId type);
@@ -205,7 +206,7 @@ TermId new_string_constant(TirContext ctx, TermId type, int32_t s);
 TermId new_function(TirContext ctx, TermId type, int32_t name);
 TermId new_extern_function(TirContext ctx, TermId type, int32_t name);
 TermId new_extern_var(TirContext ctx, TermId type, int32_t name);
-TermId new_variable(TirContext ctx, TermId type, bool mutable);
+TermId new_variable(TirContext ctx, TermId type, int32_t index, bool mutable);
 TermId new_temporary(TirContext ctx, TermId type, TirId tir_id);
 
 TermId get_value_type(TirContext ctx, TermId value);

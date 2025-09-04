@@ -9,7 +9,6 @@
 #include "lex.h"
 #include "parse.h"
 #include "print.h"
-#include "role-analysis.h"
 #include "tir-analysis.h"
 #include "tir2mir.h"
 #include "type-analysis.h"
@@ -22,6 +21,7 @@
 static void print_help(void) {
     fprintf(stderr, "Usage: jellyc [options] file...\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -multithread             Use multithreading.\n");
     fprintf(stderr, "  -help                    Display this information.\n");
     fprintf(stderr, "  -print-debug             Display debug information about the intermediate representations.\n");
     fprintf(stderr, "  -backend=<backend>       Specify the backend that will be used.\n");
@@ -366,30 +366,9 @@ int main(int argc, char **argv) {
         htable_free(&extern_symbols);
     }
 
-    Rir *rirs = arena_alloc(&permanent_arena, Rir, file_count);
-    for (int32_t i = 0; i < file_count; i++) {
-        rirs[i].tags = arena_alloc(&permanent_arena, unsigned char, asts[i].nodes.len);
-        rirs[i].data = arena_alloc(&permanent_arena, int32_t, asts[i].nodes.len);
-    }
-
-    RirTopInput rir_input = {0};
-    rir_input.file_count = file_count;
-    rir_input.paths = paths;
-    rir_input.sources = sources;
-    rir_input.asts = asts;
-    rir_input.files = files;
-    rir_input.module_table = &module_table;
-    rir_input.modules = modules;
-    rir_input.global_scope = &global_scope;
-    rir_input.rirs = rirs;
-    rir_input.ast_refs = ast_refs.ptr;
-    rir_input.def_count = ast_refs.len;
-    rir_input.functions = functions.ptr;
-    rir_input.function_count = functions.len;
-    RirTopOutput rir_output = analyze_roles(&rir_input, &permanent_arena, scratch_arena);
-
     TirInput tir_input = {0};
     tir_input.options = &options;
+    tir_input.file_count = file_count;
     tir_input.paths = paths;
     tir_input.sources = sources;
     tir_input.asts = asts;
@@ -399,14 +378,10 @@ int main(int argc, char **argv) {
     tir_input.global_scope = &global_scope;
     tir_input.ast_refs = ast_refs.ptr;
     tir_input.def_count = ast_refs.len;
-    tir_input.order_count = rir_output.count;
-    tir_input.local_ast_refs = rir_output.local_ast_refs;
-    tir_input.order = rir_output.order;
-    tir_input.rirs = rirs;
     tir_input.functions = functions.ptr;
     tir_input.function_count = functions.len;
     TirOutput tir_output = analyze_types(&tir_input, &permanent_arena, scratch_arena);
-    if (rir_output.error || tir_output.error) {
+    if (tir_output.error) {
         return -1;
     }
     if (options.print_debug) {
