@@ -616,7 +616,7 @@ static TermId analyze_import(Context *c, AstId node) {
         return null_term;
     }
 
-    TermId m = {TERM_COUNT + *module};
+    TermId m = {~*module};
     add_id(c, ref, m);
     return m;
 }
@@ -1691,8 +1691,8 @@ static TermId analyze_access(Context *c, AstId node) {
     String field_name = id_token_to_string(ctx_source(c), field_token);
     TermId operand_value = analyze_term(c, operand, null_term);
 
-    if (operand_value.id >= TERM_COUNT && operand_value.id < c->tir.global->fixed_count) {
-        int32_t module = operand_value.id - TERM_COUNT;
+    if (operand_value.id < 0) {
+        int32_t module = ~operand_value.id;
         uint32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
 
         if (!def_ptr) {
@@ -2401,7 +2401,6 @@ static TermId analyze_term(Context *c, AstId node, TermId hint) {
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     TirDependencies global_tir = {0};
-    global_tir.fixed_count = input->module_table->count + TERM_COUNT;
     Context global_tc = {0};
     global_tc.options = input->options;
     global_tc.paths = input->paths;

@@ -45,7 +45,6 @@ typedef struct {
 } TypeScopeSymbol;
 
 typedef struct {
-    int32_t fixed_count;
     StringBuffer strtab;
     TermList terms;
     TermId main;

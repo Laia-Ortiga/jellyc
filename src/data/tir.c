@@ -248,7 +248,7 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
         }
     }
 
-    TermId type = {ctx.global->terms.terms.len + ctx.global->fixed_count};
+    TermId type = {ctx.global->terms.terms.len + TERM_COUNT};
     if (ctx.thread) {
         type.id += ctx.thread->deps.terms.terms.len;
     }
@@ -327,7 +327,7 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
 }
 
 static TermId new_nominal_type(TirContext ctx, TermTag tag, TermData data) {
-    TermId type = {ctx.global->terms.terms.len + ctx.global->fixed_count};
+    TermId type = {ctx.global->terms.terms.len + TERM_COUNT};
     if (ctx.thread) {
         type.id += ctx.thread->deps.terms.terms.len;
     }
@@ -469,14 +469,14 @@ typedef struct {
 } TermIndex;
 
 static TermIndex get_term_index(TirContext ctx, TermId type) {
-    if (type.id - ctx.global->fixed_count < ctx.global->terms.terms.len) {
-        return (TermIndex) {ctx.global, type.id - ctx.global->fixed_count};
+    if (type.id - TERM_COUNT < ctx.global->terms.terms.len) {
+        return (TermIndex) {ctx.global, type.id - TERM_COUNT};
     }
-    return (TermIndex) {&ctx.thread->deps, type.id - ctx.global->fixed_count - ctx.global->terms.terms.len};
+    return (TermIndex) {&ctx.thread->deps, type.id - TERM_COUNT - ctx.global->terms.terms.len};
 }
 
 TermTag get_term_tag(TirContext ctx, TermId type) {
-    if (type.id < ctx.global->fixed_count) {
+    if (type.id < TERM_COUNT) {
         if (type.id == 0) {
             return TERM_ERROR;
         }
@@ -493,7 +493,7 @@ TermTag get_term_tag(TirContext ctx, TermId type) {
 }
 
 TermData const *get_term_data(TirContext ctx, TermId type) {
-    if (type.id < ctx.global->fixed_count) {
+    if (type.id < TERM_COUNT) {
         return NULL;
     }
     TermIndex i = get_term_index(ctx, type);
@@ -501,7 +501,7 @@ TermData const *get_term_data(TirContext ctx, TermId type) {
 }
 
 static int32_t *get_type_extra(TirContext ctx, TermId type) {
-    if (type.id < ctx.global->fixed_count) {
+    if (type.id < TERM_COUNT) {
         return NULL;
     }
     TermIndex i = get_term_index(ctx, type);
@@ -1349,12 +1349,12 @@ TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Are
 
 static TermId new_value(TirContext ctx, TermTag tag, TermData const *data) {
     if (!ctx.thread) {
-        TermId value = {ctx.global->terms.terms.len + ctx.global->fixed_count};
+        TermId value = {ctx.global->terms.terms.len + TERM_COUNT};
         sum_vec_push(&ctx.global->terms.terms, *data, tag);
         return value;
     }
 
-    TermId value = {ctx.global->terms.terms.len + ctx.global->fixed_count + ctx.thread->deps.terms.terms.len};
+    TermId value = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->deps.terms.terms.len};
     sum_vec_push(&ctx.thread->deps.terms.terms, *data, tag);
     return value;
 }
