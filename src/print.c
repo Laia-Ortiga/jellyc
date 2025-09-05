@@ -124,8 +124,17 @@ static void print_ast_newtype(AstPrinter *printer, AstId node) {
     printf("Newtype(\n");
     printer->depth++;
     AstNewtype n = get_ast_newtype(node, printer->ast);
+
     print_indent(printer->depth);
-    printf("%d\n", n.count);
+    printf("TypeParameters(\n");
+    printer->depth++;
+    for (int32_t i = 0; i < n.type_param_count; i++) {
+        print_ast_node(printer, n.type_params[i]);
+    }
+    printer->depth--;
+    print_indent(printer->depth);
+    printf(")\n");
+
     print_ast_node(printer, n.type);
     printer->depth--;
     print_indent(printer->depth);

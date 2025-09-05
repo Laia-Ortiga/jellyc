@@ -850,7 +850,7 @@ static TermId analyze_newtype(Context *c, AstId node) {
     TermId alias = expect_type(c, n.type);
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
-    TermId type = new_newtype_type(c->tir, ctx_push_str(c, name), n.count, alias);
+    TermId type = new_newtype_type(c->tir, ctx_push_str(c, name), n.type_param_count, alias);
     add_id(c, (AstRef) {node, c->file}, type);
     return type;
 }

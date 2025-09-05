@@ -4,7 +4,6 @@
 #include "arena.h"
 #include "data/ast.h"
 #include "diagnostic.h"
-#include "enums.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
@@ -522,7 +521,9 @@ static AstId parse_newtype(Parser *parser) {
     ArenaLinkedList type_parameters = parse_type_parameters(parser);
     expect(parser, TOK_ASSIGN);
     AstId inner = parse_expr(parser, PREC_NONE);
-    return add_node(AST_NEWTYPE, (AstData) {token, type_parameters.count, inner.private_field_id}, &parser->ast);
+    int32_t index = push_extra_array(&parser->ast, 1, &type_parameters.count);
+    push_extra(&parser->ast, type_parameters);
+    return add_node(AST_NEWTYPE, (AstData) {token, inner.private_field_id, index}, &parser->ast);
 }
 
 static AstId parse_function_type(Parser *parser, SourceIndex token) {

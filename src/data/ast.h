@@ -60,7 +60,8 @@ typedef struct {
 } AstEnum;
 
 typedef struct {
-    int32_t count;
+    int32_t type_param_count;
+    AstId const *type_params;
     AstId type;
 } AstNewtype;
 
@@ -155,9 +156,11 @@ static inline AstEnum get_ast_enum(AstId node, Ast const *ast) {
 }
 
 static inline AstNewtype get_ast_newtype(AstId node, Ast const *ast) {
+    int32_t extra = ast->nodes.datas[node.private_field_id].right;
     return (AstNewtype) {
-        .count = ast->nodes.datas[node.private_field_id].left,
-        .type = {ast->nodes.datas[node.private_field_id].right},
+        .type_param_count = ast->extra.ptr[extra],
+        .type_params = (AstId const *) &ast->extra.ptr[extra + 1],
+        .type = {ast->nodes.datas[node.private_field_id].left},
     };
 }
 
