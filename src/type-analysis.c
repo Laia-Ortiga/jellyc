@@ -2574,9 +2574,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             local_tc.ast = &input->asts[ref.file];
             local_tc.tir.thread = &tirs[i];
 
-            // Add null tir
-            new_inst_impl(&local_tc, TIR_NOP, null_ast, 0, 0);
-
             tirs[i].first = analyze_function(&local_tc, ref.node, value);
 
             if (local_tc.error) {
