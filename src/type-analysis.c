@@ -645,7 +645,11 @@ static TermId analyze_function_decl(Context *c, AstId node) {
     }
 
     TermId ret_type = analyze_return_type(c, f.ret);
-    TermId type = new_function_type(c->tir, f.param_count, param_types, ret_type);
+    TermId type = new_function_type(c->tir, &(FunctionType) {
+        .param_count = f.param_count,
+        .params = param_types,
+        .ret = ret_type,
+    });
 
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
@@ -765,7 +769,11 @@ static TermId analyze_enum(Context *c, AstId node) {
     HashTable table_init = htable_init();
     int32_t scope = c->tir.global->type_scopes.len;
     vec_push(&c->tir.global->type_scopes, table_init);
-    TermId type = new_enum_type(c->tir, scope, ctx_push_str(c, name), repr_type);
+    TermId type = new_enum_type(c->tir, &(EnumType) {
+        .scope = scope,
+        .name = ctx_push_str(c, name),
+        .repr = repr_type,
+    });
     HashTable *table = &c->tir.global->type_scopes.ptr[scope];
 
     for (int32_t i = 0; i < e.member_count; i++) {
@@ -846,22 +854,19 @@ static TermId analyze_struct(Context *c, AstId node) {
     }
 
     int32_t name_i = ctx_push_str(c, name);
-    TermId inner_type = new_struct_type(
-        c->tir,
-        scope,
-        name_i,
-        s.field_count,
-        field_types,
-        c->options->target
-    );
+    TermId inner_type = new_struct_type(c->tir, c->options->target, &(StructType) {
+        .scope = scope,
+        .name = name_i,
+        .field_count = s.field_count,
+        .fields = field_types,
+    });
 
-    inner_type = new_tagged_type(
-        c->tir,
-        name_i,
-        inner_type,
-        s.type_param_count,
-        type_param_types
-    );
+    inner_type = new_tagged_type(c->tir, &(TaggedType) {
+        .name = name_i,
+        .inner = inner_type,
+        .arg_count = s.type_param_count,
+        .args = type_param_types,
+    });
 
     TermId type = inner_type;
 
@@ -891,13 +896,12 @@ static TermId analyze_newtype(Context *c, AstId node) {
 
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
-    TermId type = new_tagged_type(
-        c->tir,
-        ctx_push_str(c, name),
-        inner,
-        n.type_param_count,
-        type_param_types
-    );
+    TermId type = new_tagged_type(c->tir, &(TaggedType) {
+        .name = ctx_push_str(c, name),
+        .inner = inner,
+        .arg_count = n.type_param_count,
+        .args = type_param_types,
+    });
 
     if (n.type_param_count) {
         type = new_generic(c->tir, type, n.type_param_count, type_param_types);
@@ -920,7 +924,11 @@ static TermId analyze_extern_function(Context *c, AstId node) {
         ret_type = expect_type(c, f.ret);
     }
 
-    TermId type = new_function_type(c->tir, f.param_count, param_types, ret_type);
+    TermId type = new_function_type(c->tir, &(FunctionType) {
+        .param_count = f.param_count,
+        .params = param_types,
+        .ret = ret_type,
+    });
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
 
@@ -994,7 +1002,11 @@ static TermId analyze_function_type(Context *c, AstId node) {
     }
 
     TermId ret = analyze_return_type(c, signature.operand);
-    return new_function_type(c->tir, signature.arg_count, params, ret);
+    return new_function_type(c->tir, &(FunctionType) {
+        .param_count = signature.arg_count,
+        .params = params,
+        .ret = ret,
+    });
 }
 
 static TermId analyze_array_type(Context *c, AstId node) {
@@ -1007,7 +1019,10 @@ static TermId analyze_array_type(Context *c, AstId node) {
         index = null_term;
     }
 
-    return new_array_type(c->tir, index, element);
+    return new_array_type(c->tir, &(ArrayType) {
+        .index = index,
+        .elem = element,
+    });
 }
 
 static TermId analyze_array_type_sugar(Context *c, AstId node) {
@@ -1016,7 +1031,10 @@ static TermId analyze_array_type_sugar(Context *c, AstId node) {
     int64_t len = 0;
     TermId index = try_get_int_const(c, length_result, &len) ? new_array_length_type(c->tir, len) : null_term;
     TermId element = expect_type(c, array.right);
-    return new_array_type(c->tir, index, element);
+    return new_array_type(c->tir, &(ArrayType) {
+        .index = index,
+        .elem = element,
+    });
 }
 
 static TermId analyze_id(Context *c, AstId node) {
@@ -1149,7 +1167,10 @@ static TermId analyze_string(Context *c, AstId node) {
         c->error = 1;
     }
 
-    TermId type = new_array_type(c->tir, new_array_length_type(c->tir, len), type_char);
+    TermId type = new_array_type(c->tir, &(ArrayType) {
+        .index = new_array_length_type(c->tir, len),
+        .elem = type_char,
+    });
     return new_string_constant(c->tir, type, index);
 }
 
@@ -2211,7 +2232,10 @@ static TermId analyze_list(Context *c, AstId node, TermId hint) {
         return null_term;
     }
 
-    TermId type = new_array_type(c->tir, new_array_length_type(c->tir, list.count), elem_type);
+    TermId type = new_array_type(c->tir, &(ArrayType) {
+        .index = new_array_length_type(c->tir, list.count),
+        .elem = elem_type,
+    });
     return new_binary_inst(c, TIR_NEW_ARRAY, node, type, push_extra(c, args_tir, list.count), list.count);
 }
 
