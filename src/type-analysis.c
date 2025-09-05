@@ -789,6 +789,7 @@ static TermId analyze_enum(Context *c, AstId node) {
 
 static TermId analyze_struct(Context *c, AstId node) {
     AstStruct s = get_ast_struct(node, c->ast);
+    push_scope(c);
 
     for (int32_t i = 0; i < s.type_param_count; i++) {
         SourceIndex token = get_ast_token(s.type_params[i], c->ast);
@@ -803,6 +804,7 @@ static TermId analyze_struct(Context *c, AstId node) {
         field_types[i] = expect_type(c, param_type);
     }
 
+    pop_scope(c);
     HashTable table = htable_init();
     int32_t index = 0;
 
