@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 // Types
@@ -23,19 +22,8 @@ typedef struct {
             TermId first;
             TermId second;
         } binary;
-        struct {
-            int32_t type_param_count;
-            TermId const *type_params;
-            int32_t param_count;
-            TermId const *params;
-            TermId ret;
-        } function;
-        struct {
-            TermId newtype;
-            TermId inner;
-            int32_t arg_count;
-            TermId const *args;
-        } tagged;
+        FunctionType function;
+        TaggedType tagged;
     };
 } StructuralType;
 
@@ -58,22 +46,11 @@ static StructuralType get_type_from_id(TirContext ctx, TermId type) {
         }
         case TYPE_FUNCTION: {
             FunctionType t = get_function_type(ctx, type);
-            return (StructuralType) {.tag = tag, .function = {
-                .type_param_count = t.type_param_count,
-                .type_params = t.type_params,
-                .param_count = t.param_count,
-                .params = t.params,
-                .ret = t.ret,
-            }};
+            return (StructuralType) {.tag = tag, .function = t};
         }
         case TYPE_TAGGED: {
             TaggedType t = get_tagged_type(ctx, type);
-            return (StructuralType) {.tag = tag, .tagged = {
-                .newtype = t.newtype,
-                .inner = t.inner,
-                .arg_count = t.arg_count,
-                .args = t.args,
-            }};
+            return (StructuralType) {.tag = tag, .tagged = t};
         }
         case TYPE_LINEAR: {
             return (StructuralType) {.tag = tag, .unary = get_linear_elem_type(ctx, type)};
@@ -90,8 +67,6 @@ static bool type_eq(StructuralType a, StructuralType b) {
     }
     switch (a.tag) {
         case TYPE_PRIMITIVE:
-        case TYPE_NEWTYPE:
-        case TYPE_STRUCT:
         case TYPE_ENUM:
         case TYPE_TYPE_PARAMETER: return false;
 
@@ -105,9 +80,6 @@ static bool type_eq(StructuralType a, StructuralType b) {
         case TYPE_LINEAR: return a.unary.id == b.unary.id;
 
         case TYPE_FUNCTION: {
-            if (a.function.type_param_count || b.function.type_param_count) {
-                return false;
-            }
             if (a.function.param_count != b.function.param_count) {
                 return false;
             }
@@ -119,7 +91,7 @@ static bool type_eq(StructuralType a, StructuralType b) {
             return a.function.ret.id == b.function.ret.id;
         }
         case TYPE_TAGGED: {
-            if (a.tagged.newtype.id != b.tagged.newtype.id) {
+            if (a.tagged.name != b.tagged.name) {
                 return false;
             }
             if (a.tagged.arg_count != b.tagged.arg_count) {
@@ -160,7 +132,6 @@ static int32_t hash_type(TirContext ctx, StructuralType type) {
             break;
         }
         case TYPE_FUNCTION: {
-            result = 31 * result + type.function.type_param_count;
             result = 31 * result + type.function.param_count;
             for (int32_t i = 0; i < type.function.param_count; i++) {
                 result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.function.params[i]));
@@ -169,7 +140,7 @@ static int32_t hash_type(TirContext ctx, StructuralType type) {
             break;
         }
         case TYPE_TAGGED: {
-            result = 31 * result + type.tagged.newtype.id;
+            result = 31 * result + type.tagged.name;
             result = 31 * result + type.tagged.arg_count;
             for (int32_t i = 0; i < type.tagged.arg_count; i++) {
                 result = 31 * result + hash_type(ctx, get_type_from_id(ctx, type.tagged.args[i]));
@@ -216,12 +187,16 @@ static void termset_resize(TermSet *set, TirContext ctx) {
     *set = new_set;
 }
 
-static TermList *ctx_types(TirContext ctx) {
-    return ctx.thread ? &ctx.thread->deps.terms : &ctx.global->terms;
+static TirDependencies *ctx_deps(TirContext ctx) {
+    return ctx.thread ? &ctx.thread->deps : ctx.global;
+}
+
+static TermList *ctx_terms(TirContext ctx) {
+    return &ctx_deps(ctx)->terms;
 }
 
 static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
-    TermSet *set = &ctx_types(ctx)->set;
+    TermSet *set = &ctx_terms(ctx)->set;
     if (set->capacity == 0) {
         *set = termset_init(64);
     } else if (set->count * 4 / set->capacity >= 3) {
@@ -255,7 +230,7 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
     set->ptr[slot] = type;
     set->count++;
 
-    TermList *types = ctx_types(ctx);
+    TermList *types = ctx_terms(ctx);
     switch (descriptor.tag) {
         default: {
             abort();
@@ -292,31 +267,27 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
         }
         case TYPE_FUNCTION: {
             int32_t index = types->extra.len;
-            vec_push(&types->extra, descriptor.function.type_param_count);
             vec_push(&types->extra, descriptor.function.ret.id);
             for (int32_t i = 0; i < descriptor.function.param_count; i++) {
                 vec_push(&types->extra, descriptor.function.params[i].id);
             }
-            for (int32_t i = 0; i < descriptor.function.type_param_count; i++) {
-                vec_push(&types->extra, descriptor.function.type_params[i].id);
-            }
             TermData data = {
-                .a = index,
-                .b = descriptor.function.param_count,
+                .a = descriptor.function.param_count,
+                .b = index,
             };
             sum_vec_push(&types->terms, data, descriptor.tag);
             break;
         }
         case TYPE_TAGGED: {
             int32_t index = types->extra.len;
-            vec_push(&types->extra, descriptor.tagged.newtype.id);
+            vec_push(&types->extra, descriptor.tagged.name);
             vec_push(&types->extra, descriptor.tagged.inner.id);
             for (int32_t i = 0; i < descriptor.tagged.arg_count; i++) {
                 vec_push(&types->extra, descriptor.tagged.args[i].id);
             }
             TermData data = {
-                .a = index,
-                .b = descriptor.tagged.arg_count,
+                .a = descriptor.tagged.arg_count,
+                .b = index,
             };
             sum_vec_push(&types->terms, data, descriptor.tag);
             break;
@@ -326,13 +297,18 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
     return type;
 }
 
-static TermId new_nominal_type(TirContext ctx, TermTag tag, TermData data) {
-    TermId type = {ctx.global->terms.terms.len + TERM_COUNT};
-    if (ctx.thread) {
-        type.id += ctx.thread->deps.terms.terms.len;
+static TermId new_term(TirContext ctx, TermTag tag, int32_t a, int32_t b) {
+    TermData data = {a, b};
+
+    if (!ctx.thread) {
+        TermId t = {ctx.global->terms.terms.len + TERM_COUNT};
+        sum_vec_push(&ctx.global->terms.terms, data, tag);
+        return t;
     }
-    sum_vec_push(&ctx_types(ctx)->terms, data, tag);
-    return type;
+
+    TermId t = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->deps.terms.terms.len};
+    sum_vec_push(&ctx.thread->deps.terms.terms, data, tag);
+    return t;
 }
 
 TermId new_array_type(TirContext ctx, TermId index, TermId element) {
@@ -352,10 +328,13 @@ TermId new_multiptr_type(TirContext ctx, TermTag tag, TermId elem) {
     return new_structural_type(ctx, (StructuralType) {.tag = tag, .binary = {elem, pointer}});
 }
 
-TermId new_function_type(TirContext ctx, int32_t type_param_count, TermId const *type_params, int32_t param_count, TermId const *params, TermId ret) {
+TermId new_function_type(
+    TirContext ctx,
+    int32_t param_count,
+    TermId *params,
+    TermId ret
+) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_FUNCTION, .function = {
-        .type_param_count = type_param_count,
-        .type_params = type_params,
         .param_count = param_count,
         .params = params,
         .ret = ret,
@@ -368,7 +347,6 @@ typedef struct {
     int32_t alignment;
     int32_t size;
     int32_t is_linear;
-    int32_t type_param_count;
 } StructTypeLayout;
 
 typedef struct {
@@ -391,8 +369,15 @@ static void init_struct_layout(StructTypeLayout *layout, TirContext ctx, int32_t
     layout->size = size;
 }
 
-TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type_param_count, int32_t field_count, TermId const *fields, Target target) {
-    TermList *types = ctx_types(ctx);
+TermId new_struct_type(
+    TirContext ctx,
+    int32_t scope,
+    int32_t name,
+    int32_t field_count,
+    TermId *fields,
+    Target target
+) {
+    TermList *types = ctx_terms(ctx);
     int32_t index = types->extra.len;
     int32_t *ptr = vec_grow(&types->extra, field_count + sizeof(StructTypeLayout) / sizeof(int32_t));
     StructTypeLayout *layout = (StructTypeLayout *) ptr;
@@ -400,48 +385,37 @@ TermId new_struct_type(TirContext ctx, int32_t scope, int32_t name, int32_t type
     layout->name = name;
     init_struct_layout(layout, ctx, field_count, fields, target);
     layout->is_linear = false;
-    layout->type_param_count = type_param_count;
     for (int32_t i = 0; i < field_count; i++) {
         ptr[i + sizeof(StructTypeLayout) / sizeof(int32_t)] = fields[i].id;
         if (!layout->is_linear && type_is_linear(ctx, fields[i])) {
             layout->is_linear = true;
         }
     }
-    TermData data = {
-        .a = index,
-        .b = field_count,
-    };
-    return new_nominal_type(ctx, TYPE_STRUCT, data);
+    return new_term(ctx, TYPE_STRUCT, field_count, index);
 }
 
-TermId new_enum_type(TirContext ctx, int32_t scope, int32_t name, TermId repr) {
-    TermList *types = ctx_types(ctx);
+TermId new_enum_type(
+    TirContext ctx,
+    int32_t scope,
+    int32_t name,
+    TermId repr
+) {
+    TermList *types = ctx_terms(ctx);
     int32_t index = types->extra.len;
     vec_push(&types->extra, scope);
     vec_push(&types->extra, name);
-    TermData data = {
-        .a = index,
-        .b = repr.id,
-    };
-    return new_nominal_type(ctx, TYPE_ENUM, data);
+    return new_term(ctx, TYPE_ENUM, repr.id, index);
 }
 
-TermId new_newtype_type(TirContext ctx, int32_t name, int32_t tags, TermId type) {
-    TermList *types = ctx_types(ctx);
-    int32_t index = types->extra.len;
-    NewtypeLayout *layout = (NewtypeLayout *) vec_grow(&types->extra, sizeof(NewtypeLayout) / sizeof(int32_t));
-    layout->tags = tags;
-    layout->name = name;
-    TermData data = {
-        .a = index,
-        .b = type.id,
-    };
-    return new_nominal_type(ctx, TYPE_NEWTYPE, data);
-}
-
-TermId new_tagged_type(TirContext ctx, TermId newtype, TermId inner, int32_t arg_count, TermId const *args) {
+TermId new_tagged_type(
+    TirContext ctx,
+    int32_t name,
+    TermId inner,
+    int32_t arg_count,
+    TermId *args
+) {
     return new_structural_type(ctx, (StructuralType) {.tag = TYPE_TAGGED, .tagged = {
-        .newtype = newtype,
+        .name = name,
         .inner = inner,
         .arg_count = arg_count,
         .args = args,
@@ -456,17 +430,20 @@ TermId new_linear_type(TirContext ctx, TermId elem) {
 }
 
 TermId new_type_parameter(TirContext ctx, int32_t i, int32_t name) {
-    TermData data = {
-        .a = i,
-        .b = name,
-    };
-    return new_nominal_type(ctx, TYPE_TYPE_PARAMETER, data);
+    return new_term(ctx, TYPE_TYPE_PARAMETER, i, name);
 }
 
 typedef struct {
     TirDependencies *deps;
     int32_t index;
 } TermIndex;
+
+static TirDependencies *get_term_deps(TirContext ctx, TermId type) {
+    if (type.id - TERM_COUNT < ctx.global->terms.terms.len) {
+        return ctx.global;
+    }
+    return &ctx.thread->deps;
+}
 
 static TermIndex get_term_index(TirContext ctx, TermId type) {
     if (type.id - TERM_COUNT < ctx.global->terms.terms.len) {
@@ -480,10 +457,10 @@ TermTag get_term_tag(TirContext ctx, TermId type) {
         if (type.id == 0) {
             return TERM_ERROR;
         }
-        if (type.id >= TERM_TYPE_START && type.id <= TERM_TYPE_END) {
+        if (type.id >= BUILTIN_TYPE_START && type.id <= BUILTIN_TYPE_END) {
             return TYPE_PRIMITIVE;
         }
-        if (type.id >= TERM_MACRO_START && type.id <= TERM_MACRO_END) {
+        if (type.id >= BUILTIN_MACRO_START && type.id <= BUILTIN_MACRO_END) {
             return TERM_MACRO;
         }
         return TERM_MODULE;
@@ -505,7 +482,7 @@ static int32_t *get_type_extra(TirContext ctx, TermId type) {
         return NULL;
     }
     TermIndex i = get_term_index(ctx, type);
-    return &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].a];
+    return &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
 }
 
 TermId remove_any_pointer(TirContext ctx, TermId type) {
@@ -599,7 +576,6 @@ bool is_aggregate_type(TirContext ctx, TermId type) {
         case TYPE_TYPE_PARAMETER: return true;
 
         case TYPE_TAGGED: return is_aggregate_type(ctx, get_tagged_type(ctx, type).inner);
-        case TYPE_NEWTYPE: return is_aggregate_type(ctx, get_newtype_type(ctx, type).type);
         case TYPE_LINEAR: return is_aggregate_type(ctx, get_linear_elem_type(ctx, type));
 
         default: return false;
@@ -755,11 +731,9 @@ FunctionType get_function_type(TirContext ctx, TermId type) {
     TermData const *data = get_term_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     FunctionType function = {
-        .type_param_count = extra[0],
-        .type_params = (TermId *) &extra[2] + data->b,
-        .param_count = data->b,
-        .params = (TermId *) &extra[2],
-        .ret = {extra[1]},
+        .param_count = data->a,
+        .params = (TermId *) &extra[1],
+        .ret = {extra[0]},
     };
     return function;
 }
@@ -769,11 +743,11 @@ TermId get_function_type_param(TirContext ctx, TermId type, int32_t index) {
         return null_term;
     }
 
-    TermData const *data = get_term_data(ctx, type);
-    if (index >= data->b) {
+    FunctionType f = get_function_type(ctx, type);
+    if (index >= f.param_count) {
         return null_term;
     }
-    return (TermId) {get_type_extra(ctx, type)[index + 2]};
+    return f.params[index];
 }
 
 StructType get_struct_type(TirContext ctx, TermId type) {
@@ -789,8 +763,8 @@ StructType get_struct_type(TirContext ctx, TermId type) {
         .name = layout->name,
         .alignment = layout->alignment,
         .size = layout->size,
-        .type_param_count = layout->type_param_count,
-        .field_count = data->b,
+        .field_count = data->a,
+        .fields = (TermId *) &extra[sizeof(StructTypeLayout) / sizeof(int32_t)],
         .is_linear = layout->is_linear,
     };
     return s;
@@ -801,11 +775,11 @@ TermId get_struct_type_field(TirContext ctx, TermId type, int32_t index) {
         return null_term;
     }
 
-    TermData const *data = get_term_data(ctx, type);
-    if (index >= data->b) {
+    StructType s = get_struct_type(ctx, type);
+    if (index >= s.field_count) {
         return null_term;
     }
-    return (TermId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
+    return s.fields[index];
 }
 
 TermId get_any_struct_type_field(TirContext ctx, TermId type, int32_t index) {
@@ -821,11 +795,7 @@ TermId get_any_struct_type_field(TirContext ctx, TermId type, int32_t index) {
         return null_term;
     }
 
-    TermData const *data = get_term_data(ctx, type);
-    if (index >= data->b) {
-        return null_term;
-    }
-    return (TermId) {get_type_extra(ctx, type)[index + sizeof(StructTypeLayout) / sizeof(int32_t)]};
+    return get_struct_type_field(ctx, type, index);
 }
 
 EnumType get_enum_type(TirContext ctx, TermId type) {
@@ -838,24 +808,9 @@ EnumType get_enum_type(TirContext ctx, TermId type) {
     EnumType e = {
         .scope = extra[0],
         .name = extra[1],
-        .repr = {data->b},
+        .repr = {data->a},
     };
     return e;
-}
-
-NewtypeType get_newtype_type(TirContext ctx, TermId type) {
-    if (get_term_tag(ctx, type) != TYPE_NEWTYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(ctx, type);
-    int32_t *extra = get_type_extra(ctx, type);
-    NewtypeType n = {
-        .tags = extra[0],
-        .name = extra[1],
-        .type = {data->b},
-    };
-    return n;
 }
 
 TaggedType get_tagged_type(TirContext ctx, TermId type) {
@@ -866,9 +821,9 @@ TaggedType get_tagged_type(TirContext ctx, TermId type) {
     TermData const *data = get_term_data(ctx, type);
     int32_t *extra = get_type_extra(ctx, type);
     TaggedType t = {
-        .newtype = {extra[0]},
+        .name = extra[0],
         .inner = {extra[1]},
-        .arg_count = data->b,
+        .arg_count = data->a,
         .args = (TermId *) &extra[2],
     };
     return t;
@@ -879,11 +834,29 @@ TermId get_tagged_type_arg(TirContext ctx, TermId type, int32_t index) {
         return null_term;
     }
 
-    TermData const *data = get_term_data(ctx, type);
-    if (index >= data->b) {
+    TaggedType t = get_tagged_type(ctx, type);
+    if (index >= t.arg_count) {
         return null_term;
     }
-    return (TermId) {get_type_extra(ctx, type)[index + 2]};
+    return t.args[index];
+}
+
+GenericTerm get_generic_term(TirContext ctx, TermId term) {
+    if (get_term_tag(ctx, term) != TERM_GENERIC) {
+        return (GenericTerm) {
+            .inner = term,
+            .type_count = 0,
+            .types = NULL,
+        };
+    }
+
+    TermData const *data = get_term_data(ctx, term);
+    int32_t *extra = get_type_extra(ctx, term);
+    return (GenericTerm) {
+        .inner = {data->a},
+        .type_count = extra[0],
+        .types = (TermId *) &extra[1],
+    };
 }
 
 int32_t sizeof_pointer(Target target) {
@@ -930,7 +903,6 @@ int32_t alignof_type(TirContext ctx, TermId type, Target target) {
         case TYPE_ARRAY_LENGTH: return sizeof_pointer(target);
         case TYPE_STRUCT: return get_struct_type(ctx, type).alignment;
         case TYPE_ENUM: return alignof_type(ctx, get_enum_type(ctx, type).repr, target);
-        case TYPE_NEWTYPE: return alignof_type(ctx, get_newtype_type(ctx, type).type, target);
         case TYPE_TAGGED: return alignof_type(ctx, get_tagged_type(ctx, type).inner, target);
         case TYPE_LINEAR: return alignof_type(ctx, get_linear_elem_type(ctx, type), target);
         case TYPE_TYPE_PARAMETER: return -1;
@@ -956,7 +928,6 @@ int64_t sizeof_type(TirContext ctx, TermId type, Target target) {
         case TYPE_ARRAY_LENGTH: return sizeof_pointer(target);
         case TYPE_STRUCT: return get_struct_type(ctx, type).size;
         case TYPE_ENUM: return sizeof_type(ctx, get_enum_type(ctx, type).repr, target);
-        case TYPE_NEWTYPE: return sizeof_type(ctx, get_newtype_type(ctx, type).type, target);
         case TYPE_TAGGED: return sizeof_type(ctx, get_tagged_type(ctx, type).inner, target);
         case TYPE_LINEAR: return sizeof_type(ctx, get_linear_elem_type(ctx, type), target);
         case TYPE_TYPE_PARAMETER: return -1;
@@ -1014,18 +985,7 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
         }
         case TYPE_FUNCTION: {
             FunctionType f = get_function_type(ctx, type);
-            fprintf(file, "function ");
-            if (f.type_param_count) {
-                fprintf(file, "[");
-                for (int32_t j = 0; j < f.type_param_count; j++) {
-                    if (j != 0) {
-                        fprintf(file, ", ");
-                    }
-                    fprintf(file, "T#%d", j);
-                }
-                fprintf(file, "]");
-            }
-            fprintf(file, "(");
+            fprintf(file, "function (");
             for (int32_t j = 0; j < f.param_count; j++) {
                 if (j != 0) {
                     fprintf(file, ", ");
@@ -1040,30 +1000,25 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
             }
             return;
         }
-        case TYPE_STRUCT: {
-            fprintf(file, "%s", ctx.global->strtab.ptr + get_struct_type(ctx, type).name);
-            return;
-        }
         case TYPE_ENUM: {
-            fprintf(file, "%s", ctx.global->strtab.ptr + get_enum_type(ctx, type).name);
-            return;
-        }
-        case TYPE_NEWTYPE: {
-            fprintf(file, "%s", ctx.global->strtab.ptr + get_newtype_type(ctx, type).name);
+            fprintf(file, "%s", get_term_deps(ctx, type)->strtab.ptr + get_enum_type(ctx, type).name);
             return;
         }
         case TYPE_TAGGED: {
             TaggedType t = get_tagged_type(ctx, type);
-            print_type(file, ctx, t.newtype);
-            fprintf(file, "[");
-            for (int32_t j = 0; j < t.arg_count; j++) {
-                if (j != 0) {
-                    fprintf(file, ", ");
+            fprintf(file, "%s", get_term_deps(ctx, type)->strtab.ptr + t.name);
+
+            if (t.arg_count) {
+                fprintf(file, "[");
+                for (int32_t j = 0; j < t.arg_count; j++) {
+                    if (j != 0) {
+                        fprintf(file, ", ");
+                    }
+                    TermId arg = get_tagged_type_arg(ctx, type, j);
+                    print_type(file, ctx, arg);
                 }
-                TermId arg = get_tagged_type_arg(ctx, type, j);
-                print_type(file, ctx, arg);
+                fprintf(file, "]");
             }
-            fprintf(file, "]");
             return;
         }
         case TYPE_LINEAR: {
@@ -1074,7 +1029,8 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
         }
         case TYPE_TYPE_PARAMETER: {
             TermData const *data = get_term_data(ctx, type);
-            fprintf(file, "T#%d", data->a);
+            char const *s = &get_term_deps(ctx, type)->strtab.ptr[data->b];
+            fputs(s, file);
             return;
         }
         default: {
@@ -1218,9 +1174,6 @@ int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId 
         case TYPE_FUNCTION: {
             FunctionType param_f = get_function_type(ctx, param);
             FunctionType arg_f = get_function_type(ctx, arg);
-            if (param_f.type_param_count != arg_f.type_param_count) {
-                return 0;
-            }
             if (param_f.param_count != arg_f.param_count) {
                 return 0;
             }
@@ -1234,10 +1187,10 @@ int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId 
         case TYPE_TAGGED: {
             TaggedType param_t = get_tagged_type(ctx, param);
             TaggedType arg_t = get_tagged_type(ctx, arg);
-            if (param_t.arg_count != arg_t.arg_count) {
+            if (param_t.name != arg_t.name) {
                 return 0;
             }
-            if (!match_type_parameters(ctx, results, param_t.inner, arg_t.inner)) {
+            if (param_t.arg_count != arg_t.arg_count) {
                 return 0;
             }
             for (int32_t i = 0; i < param_t.arg_count; i++) {
@@ -1247,7 +1200,6 @@ int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId 
             }
             return 1;
         }
-        case TYPE_NEWTYPE:
         case TYPE_STRUCT:
         case TYPE_ENUM:
         case TYPE_TYPE_PARAMETER: {
@@ -1260,7 +1212,7 @@ int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId 
     return 0;
 }
 
-TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Arena scratch) {
+TermId replace_type_parameters(TirContext ctx, TermId const *args, TermId generic, Arena scratch) {
     switch (get_term_tag(ctx, generic)) {
         case TYPE_PRIMITIVE: {
             return generic;
@@ -1302,14 +1254,11 @@ TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Are
         }
         case TYPE_FUNCTION: {
             FunctionType f = get_function_type(ctx, generic);
-            if (f.type_param_count) {
-                return generic;
-            }
             TermId *params = arena_alloc(&scratch, TermId, f.param_count);
             for (int32_t i = 0; i < f.param_count; i++) {
                 params[i] = replace_type_parameters(ctx, args, get_function_type_param(ctx, generic, i), scratch);
             }
-            return new_function_type(ctx, 0, NULL, f.param_count, params, replace_type_parameters(ctx, args, f.ret, scratch));
+            return new_function_type(ctx, f.param_count, params, replace_type_parameters(ctx, args, f.ret, scratch));
         }
         case TYPE_TAGGED: {
             TaggedType t = get_tagged_type(ctx, generic);
@@ -1317,9 +1266,9 @@ TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Are
             for (int32_t i = 0; i < t.arg_count; i++) {
                 tags[i] = replace_type_parameters(ctx, args, get_tagged_type_arg(ctx, generic, i), scratch);
             }
-            return new_tagged_type(ctx, t.newtype, t.inner, t.arg_count, tags);
+            TermId inner = replace_type_parameters(ctx, args, t.inner, scratch);
+            return new_tagged_type(ctx, t.name, inner, t.arg_count, tags);
         }
-        case TYPE_NEWTYPE:
         case TYPE_STRUCT:
         case TYPE_ENUM: {
             return generic;
@@ -1332,74 +1281,70 @@ TermId replace_type_parameters(TirContext ctx, TermId *args, TermId generic, Are
 
 // Values
 
-static TermId new_value(TirContext ctx, TermTag tag, TermData const *data) {
-    if (!ctx.thread) {
-        TermId value = {ctx.global->terms.terms.len + TERM_COUNT};
-        sum_vec_push(&ctx.global->terms.terms, *data, tag);
-        return value;
-    }
-
-    TermId value = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->deps.terms.terms.len};
-    sum_vec_push(&ctx.thread->deps.terms.terms, *data, tag);
-    return value;
-}
-
 TermId new_int_constant(TirContext ctx, TermId type, int64_t x) {
-    TermList *values = ctx_types(ctx);
+    TermList *terms = ctx_terms(ctx);
     uint32_t low, high;
     store_i64(x, &low, &high);
-    vec_push(&values->extra, low);
-    vec_push(&values->extra, high);
-    TermData value = {
-        .a = type.id,
-        .b = values->extra.len - 2,
-    };
-    return new_value(ctx, VAL_CONST_INT, &value);
+    vec_push(&terms->extra, low);
+    vec_push(&terms->extra, high);
+    return new_term(ctx, VAL_CONST_INT, type.id, terms->extra.len - 2);
 }
 
 TermId new_float_constant(TirContext ctx, TermId type, double x) {
-    TermList *values = ctx_types(ctx);
+    TermList *terms = ctx_terms(ctx);
     uint32_t low, high;
     store_f64(x, &low, &high);
-    vec_push(&values->extra, low);
-    vec_push(&values->extra, high);
-    TermData value = {
-        .a = type.id,
-        .b = values->extra.len - 2,
-    };
-    return new_value(ctx, VAL_CONST_FLOAT, &value);
+    vec_push(&terms->extra, low);
+    vec_push(&terms->extra, high);
+    return new_term(ctx, VAL_CONST_FLOAT, type.id, terms->extra.len - 2);
 }
 
 TermId new_null_constant(TirContext ctx, TermId type) {
-    TermData value = {
-        .a = type.id,
-        .b = 0,
-    };
-    return new_value(ctx, VAL_CONST_NULL, &value);
+    return new_term(ctx, VAL_CONST_NULL, type.id, 0);
 }
 
 TermId new_string_constant(TirContext ctx, TermId type, int32_t s) {
-    return new_value(ctx, VAL_STRING, &(TermData) {.a = type.id, .b = s});
+    return new_term(ctx, VAL_STRING, type.id, s);
 }
 
 TermId new_function(TirContext ctx, TermId type, int32_t name) {
-    return new_value(ctx, VAL_FUNCTION, &(TermData) {.a = type.id, .b = name});
+    return new_term(ctx, VAL_FUNCTION, type.id, name);
 }
 
 TermId new_extern_function(TirContext ctx, TermId type, int32_t name) {
-    return new_value(ctx, VAL_EXTERN_FUNCTION, &(TermData) {.a = type.id, .b = name});
+    return new_term(ctx, VAL_EXTERN_FUNCTION, type.id, name);
 }
 
 TermId new_extern_var(TirContext ctx, TermId type, int32_t name) {
-    return new_value(ctx, VAL_EXTERN_VAR, &(TermData) {.a = type.id, .b = name});
+    return new_term(ctx, VAL_EXTERN_VAR, type.id, name);
 }
 
 TermId new_variable(TirContext ctx, TermId type, int32_t index, bool mutable) {
-    return new_value(ctx, mutable ? VAL_MUTABLE_VARIABLE : VAL_VARIABLE, &(TermData) {.a = type.id, .b = index});
+    return new_term(
+        ctx,
+        mutable ? VAL_MUTABLE_VARIABLE : VAL_VARIABLE,
+        type.id,
+        index
+    );
 }
 
 TermId new_temporary(TirContext ctx, TermId type, TirId tir_id) {
-    return new_value(ctx, VAL_TEMPORARY, &(TermData) {.a = type.id, .b = tir_id.id});
+    return new_term(ctx, VAL_TEMPORARY, type.id, tir_id.id);
+}
+
+TermId new_generic(
+    TirContext ctx,
+    TermId inner,
+    int32_t type_count,
+    TermId *types
+) {
+    TermList *terms = ctx_terms(ctx);
+    int32_t extra = terms->extra.len;
+    vec_push(&terms->extra, type_count);
+    for (int32_t i = 0; i < type_count; i++) {
+        vec_push(&terms->extra, types[i].id);
+    }
+    return new_term(ctx, TERM_GENERIC, inner.id, extra);
 }
 
 TermId get_value_type(TirContext ctx, TermId value) {

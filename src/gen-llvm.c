@@ -80,10 +80,6 @@ static void gen_type(GenContext *ctx, TermId type) {
             gen_type(ctx, get_enum_type(ctx->tir, type).repr);
             return;
         }
-        case TYPE_NEWTYPE: {
-            gen_type(ctx, get_newtype_type(ctx->tir, type).type);
-            return;
-        }
         case TYPE_TAGGED: {
             gen_type(ctx, get_tagged_type(ctx->tir, type).inner);
             return;
@@ -793,14 +789,15 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
 }
 
 static void gen_struct(GenContext *ctx, TermId type) {
-    StructType s = get_struct_type(ctx->tir, type);
-    fprintf(ctx->stream, "%%_%s = type { ", ctx->tir.global->strtab.ptr + s.name);
+    TaggedType t = get_tagged_type(ctx->tir, type);
+    StructType s = get_struct_type(ctx->tir, t.inner);
+    fprintf(ctx->stream, "%%_%s = type { ", ctx->tir.global->strtab.ptr + t.name);
 
     for (int32_t i = 0; i < s.field_count; i++) {
         if (i != 0) {
             fprintf(ctx->stream, ", ");
         }
-        TermId field_type = get_struct_type_field(ctx->tir, type, i);
+        TermId field_type = s.fields[i];
         gen_type(ctx, field_type);
     }
 

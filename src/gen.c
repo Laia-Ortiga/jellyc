@@ -153,10 +153,6 @@ static void gen_type_before(GenContext *ctx, TermId type) {
             gen_type_before(ctx, get_enum_type(ctx->tir, type).repr);
             return;
         }
-        case TYPE_NEWTYPE: {
-            gen_type_before(ctx, get_newtype_type(ctx->tir, type).type);
-            return;
-        }
         case TYPE_TAGGED: {
             gen_type_before(ctx, get_tagged_type(ctx->tir, type).inner);
             return;
@@ -212,10 +208,6 @@ static void gen_type_after(GenContext *ctx, TermId type) {
         }
         case TYPE_ENUM: {
             gen_type_after(ctx, get_enum_type(ctx->tir, type).repr);
-            return;
-        }
-        case TYPE_NEWTYPE: {
-            gen_type_after(ctx, get_newtype_type(ctx->tir, type).type);
             return;
         }
         case TYPE_TAGGED: {
@@ -854,15 +846,17 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
 }
 
 static void gen_struct_decl(GenContext *ctx, TermId type) {
-    fprintf(ctx->stream, "struct _S%s;\n", ctx->tir.global->strtab.ptr + get_struct_type(ctx->tir, type).name);
+    TaggedType t = get_tagged_type(ctx->tir, type);
+    fprintf(ctx->stream, "struct _S%s;\n", ctx->tir.global->strtab.ptr + t.name);
 }
 
 static void gen_struct(GenContext *ctx, TermId type) {
-    StructType s = get_struct_type(ctx->tir, type);
-    fprintf(ctx->stream, "struct _S%s {\n", ctx->tir.global->strtab.ptr + s.name);
+    TaggedType t = get_tagged_type(ctx->tir, type);
+    StructType s = get_struct_type(ctx->tir, t.inner);
+    fprintf(ctx->stream, "struct _S%s {\n", ctx->tir.global->strtab.ptr + t.name);
 
     for (int32_t i = 0; i < s.field_count; i++) {
-        TermId field_type = get_struct_type_field(ctx->tir, type, i);
+        TermId field_type = s.fields[i];
         fprintf(ctx->stream, "    ");
         gen_type_before(ctx, field_type);
         fprintf(ctx->stream, "_%d", i);

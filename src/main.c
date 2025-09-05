@@ -353,8 +353,8 @@ int main(int argc, char **argv) {
     HashTable global_scope = htable_init();
     #define TYPE(type) htable_try_insert(&global_scope, (String) Str(#type), TYPE_##type);
     #include "simple-types"
-    htable_try_insert(&global_scope, (String) Str("`Size"), TYPE_SIZE_TAG);
-    htable_try_insert(&global_scope, (String) Str("`Alignment"), TYPE_ALIGNMENT_TAG);
+    htable_try_insert(&global_scope, (String) Str("`Size"), BUILTIN_SIZE);
+    htable_try_insert(&global_scope, (String) Str("`Alignment"), BUILTIN_ALIGNMENT);
     htable_try_insert(&global_scope, (String) Str("`align_of"), BUILTIN_ALIGNOF);
     htable_try_insert(&global_scope, (String) Str("`size_of"), BUILTIN_SIZEOF);
     htable_try_insert(&global_scope, (String) Str("`zero_extend"), BUILTIN_ZERO_EXTEND);

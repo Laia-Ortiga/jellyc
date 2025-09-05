@@ -251,7 +251,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         }
         case ERROR_TAGGED_TYPE_WRONG_COUNT: {
-            int32_t param_count = get_newtype_type(diagnostic->type_error.ctx, diagnostic->type_error.type).tags;
+            int32_t param_count = get_generic_term(diagnostic->type_error.ctx, diagnostic->type_error.type).type_count;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,

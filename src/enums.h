@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits.h>
+#include <stdbool.h>
 
 typedef enum {
     BACKEND_C,
@@ -227,33 +228,34 @@ typedef enum {
 typedef enum {
     TYPE_INVALID,
 
-    TERM_TYPE_START = INT_MIN,
-    TYPE_VOID = TERM_TYPE_START,
+    BUILTIN_TYPE_START = INT_MIN,
+    TYPE_VOID = BUILTIN_TYPE_START,
     #define TYPE(type) TYPE_##type,
     #include "simple-types"
-    TERM_TYPE_END,
+    BUILTIN_TYPE_END,
 
-    TERM_MACRO_START = TERM_TYPE_END,
-    BUILTIN_ALIGNOF = TERM_MACRO_START,
+    BUILTIN_MACRO_START = BUILTIN_TYPE_END,
+    BUILTIN_ALIGNOF = BUILTIN_MACRO_START,
     BUILTIN_SIZEOF,
     BUILTIN_ZERO_EXTEND,
     BUILTIN_SLICE,
     BUILTIN_AFFINE,
     BUILTIN_ARRAY_LENGTH_TYPE,
-    TERM_MACRO_END,
+    BUILTIN_MACRO_END,
 
-    BUILTIN_TERM_END = TERM_MACRO_END,
+    BUILTIN_TERM_END = BUILTIN_MACRO_END,
 
     TERM_COUNT = 1,
-    TYPE_SIZE_TAG = TERM_COUNT,
-    TYPE_ALIGNMENT_TAG,
+    BUILTIN_SIZE = TERM_COUNT,
+    BUILTIN_ALIGNMENT,
     TERM_GLOBAL_COUNT,
 } PrimitiveTerm;
 
 typedef enum {
     TERM_ERROR,
 
-    TYPE_PRIMITIVE = 16,
+    TERM_TYPE_START,
+    TYPE_PRIMITIVE = TERM_TYPE_START,
     TYPE_ARRAY,
     TYPE_ARRAY_LENGTH,
     TYPE_PTR,
@@ -262,14 +264,15 @@ typedef enum {
     TYPE_MULTIPTR_MUT,
     TYPE_FUNCTION,
     TYPE_TAGGED,
-    TYPE_NEWTYPE,
     TYPE_STRUCT,
     TYPE_ENUM,
     TYPE_LINEAR,
     TYPE_TYPE_PARAMETER,
+    TERM_TYPE_END,
 
     // index is unused
-    VAL_FUNCTION = 32,
+    TERM_VALUE_START = TERM_TYPE_END,
+    VAL_FUNCTION = TERM_VALUE_START,
 
     // index points to the name of the function
     VAL_EXTERN_FUNCTION,
@@ -296,13 +299,23 @@ typedef enum {
     // index is the instruction index
     VAL_TEMPORARY,
 
-    TERM_MACRO = 48,
-    TERM_MODULE = 64,
+    TERM_VALUE_END,
+
+    TERM_MACRO = TERM_VALUE_END,
+    TERM_MODULE,
+
+    // a is the inner term
+    // b points to the number of type parameters followed by the types
+    TERM_GENERIC,
 } TermTag;
 
-#define get_term_category(tag) ((tag) >> 4)
-#define is_term_type(tag) (get_term_category(tag) == 1)
-#define is_term_value(tag) (get_term_category(tag) == 2)
+static inline bool is_term_type(TermTag tag) {
+    return tag >= TERM_TYPE_START && tag < TERM_TYPE_END;
+}
+
+static inline bool is_term_value(TermTag tag) {
+    return tag >= TERM_VALUE_START && tag < TERM_VALUE_END;
+}
 
 typedef enum {
     VALUE_INVALID,
