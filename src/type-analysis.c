@@ -1694,7 +1694,7 @@ static TermId analyze_access(Context *c, AstId node) {
     String field_name = id_token_to_string(ctx_source(c), field_token);
     TermId operand_value = analyze_term(c, operand, null_term);
 
-    if (operand_value.id < 0) {
+    if (operand_value.id >= BUILTIN_TERM_END && operand_value.id < 0) {
         int32_t module = ~operand_value.id;
         uint32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
 
