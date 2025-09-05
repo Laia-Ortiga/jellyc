@@ -847,7 +847,19 @@ static TermId analyze_struct(Context *c, AstId node) {
 
 static TermId analyze_newtype(Context *c, AstId node) {
     AstNewtype n = get_ast_newtype(node, c->ast);
+    push_scope(c);
+
+    TermId *type_param_types = arena_alloc(c->scratch, TermId, n.type_param_count);
+    for (int32_t i = 0; i < n.type_param_count; i++) {
+        SourceIndex token = get_ast_token(n.type_params[i], c->ast);
+        String name = id_token_to_string(ctx_source(c), token);
+        type_param_types[i] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
+        add_id(c, (AstRef) {n.type_params[i], c->file}, type_param_types[i]);
+    }
+
     TermId alias = expect_type(c, n.type);
+    pop_scope(c);
+
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
     TermId type = new_newtype_type(c->tir, ctx_push_str(c, name), n.type_param_count, alias);
@@ -1239,12 +1251,17 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
     return false;
 }
 
+static TermId get_internal_term(Context *c, PrimitiveTerm p) {
+    return c->tir_refs[p - TERM_COUNT];
+}
+
 static TermId analyze_alignof(Context *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
     TermId operand_type = expect_type(c, get_call_arg(&call, 0));
     int32_t i = alignof_type(c->tir, operand_type, c->options->target);
     expect_arg_count(c, node, 1);
     if (i >= 1) {
+        TermId type_alignment_tag = get_internal_term(c, TYPE_ALIGNMENT_TAG);
         TermId type = new_tagged_type(c->tir, type_alignment_tag, type_isize, 1, &operand_type);
         return new_int_constant(c->tir, type, i);
     }
@@ -1258,6 +1275,7 @@ static TermId analyze_sizeof(Context *c, AstId node) {
     int64_t i = sizeof_type(c->tir, operand_type, c->options->target);
     expect_arg_count(c, node, 1);
     if (i >= 1) {
+        TermId type_size_tag = get_internal_term(c, TYPE_SIZE_TAG);
         TermId type = new_tagged_type(c->tir, type_size_tag, type_isize, 1, &operand_type);
         return new_int_constant(c->tir, type, i);
     }
