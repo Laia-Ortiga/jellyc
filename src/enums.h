@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits.h>
+
 typedef enum {
     BACKEND_C,
     BACKEND_LLVM,
@@ -225,7 +227,7 @@ typedef enum {
 typedef enum {
     TYPE_INVALID,
 
-    TERM_TYPE_START,
+    TERM_TYPE_START = INT_MIN,
     TYPE_VOID = TERM_TYPE_START,
     TYPE_SIZE_TAG,
     TYPE_ALIGNMENT_TAG,
@@ -242,7 +244,7 @@ typedef enum {
     BUILTIN_ARRAY_LENGTH_TYPE,
     TERM_MACRO_END,
 
-    TERM_COUNT = TERM_MACRO_END,
+    TERM_COUNT = 1,
 } PrimitiveTerm;
 
 typedef enum {
