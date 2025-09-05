@@ -36,18 +36,12 @@ static bool is_id_char(int c) {
 }
 
 static int peek(Lexer *lexer) {
-    if (lexer->cursor.index == lexer->source.len) {
-        return -1;
-    }
-
     return (unsigned char) lexer->source.ptr[lexer->cursor.index];
 }
 
 static int consume(Lexer *lexer) {
     int c = peek(lexer);
-    if (lexer->cursor.index < lexer->source.len) {
-        lexer->cursor.index++;
-    }
+    lexer->cursor.index++;
     return c;
 }
 
@@ -62,7 +56,7 @@ static bool accept(Lexer *lexer, int c) {
 static void comment(Lexer *lexer) {
     for (;;) {
         int c = peek(lexer);
-        if (c == -1 || c == '\n') {
+        if (c == 0 || c == '\n') {
             break;
         }
         consume(lexer);
@@ -77,7 +71,7 @@ static TokenTag lit_string(Lexer *lexer, char terminator) {
             consume(lexer);
             break;
         }
-        if (c == -1 || c == '\n') {
+        if (c == 0 || c == '\n') {
             break;
         }
         escape = !escape && c == '\\';
@@ -195,7 +189,7 @@ Token next_token(Lexer *lexer) {
         SourceIndex start = lexer->cursor;
         int c = consume(lexer);
         switch (c) {
-            case -1: return (Token) {.tag = TOK_SENTINEL, .start = start, .end = start};
+            case 0: return (Token) {.tag = TOK_SENTINEL, .start = start, .end = start};
             case '\t': break;
             case '\n': found_newline = true; break;
             case ' ': break;

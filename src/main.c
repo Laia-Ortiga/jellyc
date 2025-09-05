@@ -80,10 +80,11 @@ static String read_file(char const *path) {
     fseek(file, 0, SEEK_SET);
 
     if (length >= 0) {
-        char *data = malloc(length);
+        char *data = malloc(length + 1);
 
         if (data) {
             if (fread(data, 1, (size_t) length, file) == (size_t) length) {
+                data[length] = 0;
                 buffer.ptr = data;
                 buffer.len = length;
             } else {
