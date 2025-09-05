@@ -38,7 +38,7 @@ static int32_t find_entry(HashTable const *table, String key) {
     int32_t *key_lengths = get_key_lengths(table);
     char const **keys = get_keys(table);
     for (;;) {
-        if (!keys[index]) {
+        if (!key_lengths[index]) {
             return -1;
         }
         if (equals((String) {key_lengths[index], keys[index]}, key)) {
@@ -61,7 +61,7 @@ static void htable_init_capacity(HashTable *table, int32_t capacity) {
     if (!table->data) {
         abort();
     }
-    memset(get_keys(table), 0, capacity * sizeof(char const *));
+    memset(get_key_lengths(table), 0, capacity * sizeof(char const *));
 }
 
 HashTable htable_init(void) {
@@ -76,12 +76,13 @@ void htable_free(HashTable *table) {
 
 void htable_insert_entry(HashTable *table, String key, int32_t value) {
     int32_t index = hash(key) & (table->capacity - 1);
+    int32_t *key_lengths = get_key_lengths(table);
     char const **keys = get_keys(table);
-    while (keys[index]) {
+    while (key_lengths[index]) {
         index = (index + 1) & (table->capacity - 1);
     }
     keys[index] = key.ptr;
-    get_key_lengths(table)[index] = key.len;
+    key_lengths[index] = key.len;
     get_values(table)[index] = value;
 }
 
@@ -93,7 +94,7 @@ static void htable_resize(HashTable *table) {
     char const **keys = get_keys(table);
     int32_t *values = get_values(table);
     for (int32_t i = 0; i < table->capacity; i++) {
-        if (keys[i]) {
+        if (key_lengths[i]) {
             htable_insert_entry(&new_table, (String) {key_lengths[i], keys[i]}, values[i]);
         }
     }
@@ -110,7 +111,7 @@ int64_t htable_try_insert(HashTable *table, String key, int32_t value) {
     int32_t *key_lengths = get_key_lengths(table);
     char const **keys = get_keys(table);
     int32_t *values = get_values(table);
-    while (keys[index]) {
+    while (key_lengths[index]) {
         if (equals((String) {key_lengths[index], keys[index]}, key)) {
             return values[index];
         }
