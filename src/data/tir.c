@@ -687,8 +687,6 @@ static int64_t sizeof_primitive(TermId type, Target target) {
         case TYPE_i64:
         case TYPE_f64: return 8;
 
-        case TYPE_SIZE_TAG:
-        case TYPE_ALIGNMENT_TAG:
         case TYPE_isize: return sizeof_pointer(target);
         default: break;
     }
@@ -846,15 +844,6 @@ EnumType get_enum_type(TirContext ctx, TermId type) {
 }
 
 NewtypeType get_newtype_type(TirContext ctx, TermId type) {
-    if (type.id == TYPE_SIZE_TAG || type.id == TYPE_ALIGNMENT_TAG) {
-        NewtypeType n = {
-            .tags = 1,
-            .name = 0,
-            .type = type_isize,
-        };
-        return n;
-    }
-
     if (get_term_tag(ctx, type) != TYPE_NEWTYPE) {
         abort();
     }
@@ -925,8 +914,6 @@ int32_t alignof_type(TirContext ctx, TermId type, Target target) {
                 case TYPE_i64:
                 case TYPE_f64: return 8;
 
-                case TYPE_SIZE_TAG:
-                case TYPE_ALIGNMENT_TAG:
                 case TYPE_isize: return sizeof_pointer(target);
 
                 default: break;
@@ -985,8 +972,6 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
             switch ((PrimitiveTerm) type.id) {
                 case TYPE_INVALID: fprintf(file, "{error}"); return;
                 case TYPE_VOID: fprintf(file, "void"); return;
-                case TYPE_SIZE_TAG: fprintf(file, "`Size"); return;
-                case TYPE_ALIGNMENT_TAG: fprintf(file, "`Alignment"); return;
 
                 #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;
                 #include "simple-types"

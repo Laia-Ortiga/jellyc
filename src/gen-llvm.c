@@ -37,8 +37,6 @@ static void gen_type(GenContext *ctx, TermId type) {
                 case TYPE_i32: fprintf(ctx->stream, "i32"); return;
                 case TYPE_i64: fprintf(ctx->stream, "i64"); return;
 
-                case TYPE_SIZE_TAG:
-                case TYPE_ALIGNMENT_TAG:
                 case TYPE_isize: fprintf(ctx->stream, "i%d", sizeof_pointer(ctx->target) * 8); return;
 
                 case TYPE_f32: fprintf(ctx->stream, "float"); return;

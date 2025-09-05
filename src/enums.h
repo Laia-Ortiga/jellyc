@@ -229,8 +229,6 @@ typedef enum {
 
     TERM_TYPE_START = INT_MIN,
     TYPE_VOID = TERM_TYPE_START,
-    TYPE_SIZE_TAG,
-    TYPE_ALIGNMENT_TAG,
     #define TYPE(type) TYPE_##type,
     #include "simple-types"
     TERM_TYPE_END,
@@ -245,6 +243,9 @@ typedef enum {
     TERM_MACRO_END,
 
     TERM_COUNT = 1,
+    TYPE_SIZE_TAG = TERM_COUNT,
+    TYPE_ALIGNMENT_TAG,
+    TERM_GLOBAL_COUNT,
 } PrimitiveTerm;
 
 typedef enum {

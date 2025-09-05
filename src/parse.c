@@ -4,6 +4,7 @@
 #include "arena.h"
 #include "data/ast.h"
 #include "diagnostic.h"
+#include "enums.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
@@ -98,6 +99,7 @@ typedef struct {
     Token lookahead;
     Ast ast;
     Arena scratch;
+    bool internal;
     bool error;
 } Parser;
 
@@ -192,13 +194,21 @@ static SourceIndex expect(Parser *parser, TokenTag tag) {
     return consume(parser).start;
 }
 
+static SourceIndex expect_id(Parser *parser) {
+    if (parser->lookahead.tag != TOK_ID && (!parser->internal || parser->lookahead.tag != TOK_BUILTIN_ID)) {
+        error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_EXPECTED_TOKEN, .expected_token = TOK_ID});
+    }
+
+    return consume(parser).start;
+}
+
 static ArenaLinkedList parse_type_parameters(Parser *parser) {
     ArenaLinkedList params = {0};
     if (!accept(parser, TOK_SQUAREL)) {
         return params;
     }
     while (parser->lookahead.tag != TOK_SQUARER) {
-        SourceIndex token = expect(parser, TOK_ID);
+        SourceIndex token = expect_id(parser);
         AstId node = add_leaf_ast(AST_PARAM, token, &parser->ast);
         push(parser, &params, node);
         if (!accept(parser, TOK_COMMA)) {
@@ -213,7 +223,7 @@ static ArenaLinkedList parse_parameters(Parser *parser) {
     expect(parser, TOK_ROUNDL);
     ArenaLinkedList params = {0};
     while (parser->lookahead.tag != TOK_ROUNDR) {
-        SourceIndex token = expect(parser, TOK_ID);
+        SourceIndex token = expect_id(parser);
         AstId type_node = parse_expr(parser, PREC_NONE);
         AstId node = add_unary_ast(AST_PARAM, token, type_node, &parser->ast);
         push(parser, &params, node);
@@ -258,7 +268,7 @@ static ArenaLinkedList parse_enum_members(Parser *parser) {
 
 static AstId parse_var(Parser *parser, AstTag tag) {
     consume(parser);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = expect_id(parser);
     expect(parser, TOK_ASSIGN);
     AstId init = parse_expr(parser, PREC_NONE);
     return add_unary_ast(tag, token, init, &parser->ast);
@@ -460,7 +470,7 @@ static AstId parse_extern(Parser *parser) {
 
 static AstId parse_function(Parser *parser) {
     expect(parser, TOK_KW_function);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = expect_id(parser);
     ArenaLinkedList type_parameters = parse_type_parameters(parser);
     ArenaLinkedList parameters = parse_parameters(parser);
 
@@ -484,7 +494,7 @@ static AstId parse_function(Parser *parser) {
 
 static AstId parse_struct(Parser *parser) {
     expect(parser, TOK_KW_struct);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = expect_id(parser);
     ArenaLinkedList type_parameters = parse_type_parameters(parser);
     ArenaLinkedList fields = parse_fields(parser);
     int32_t extra[] = {
@@ -498,7 +508,7 @@ static AstId parse_struct(Parser *parser) {
 
 static AstId parse_enum(Parser *parser) {
     expect(parser, TOK_KW_enum);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = expect_id(parser);
     AstId enum_type = parse_expr(parser, PREC_NONE);
     ArenaLinkedList members = parse_enum_members(parser);
     int32_t index = push_extra_array(&parser->ast, 1, &members.count);
@@ -508,7 +518,7 @@ static AstId parse_enum(Parser *parser) {
 
 static AstId parse_newtype(Parser *parser) {
     expect(parser, TOK_KW_newtype);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = expect_id(parser);
     ArenaLinkedList type_parameters = parse_type_parameters(parser);
     expect(parser, TOK_ASSIGN);
     AstId inner = parse_expr(parser, PREC_NONE);
@@ -845,7 +855,13 @@ static AstId parse_expr(Parser *parser, Precedence prec) {
 
 static void parse_root(Parser *parser) {
     expect(parser, TOK_KW_module);
-    SourceIndex token = expect(parser, TOK_ID);
+    SourceIndex token = parser->lookahead.start;
+
+    if (accept(parser, TOK_KW_module)) {
+        parser->internal = true;
+    } else {
+        expect(parser, TOK_ID);
+    }
 
     add_unary_ast(AST_ROOT, token, null_ast, &parser->ast);
     ArenaLinkedList defs = {0};

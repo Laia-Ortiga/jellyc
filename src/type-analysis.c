@@ -100,7 +100,10 @@ static Symbol lookup(Context *c, int32_t file, String name) {
 
     uint32_t *builtin_def = htable_lookup(c->global_scope, name);
     if (builtin_def) {
-        return (Symbol) {.kind = SYM_BUILTIN, .global = {*builtin_def}};
+        if ((int32_t) *builtin_def >= TERM_COUNT) {
+            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
+        }
+        return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
     }
 
     return (Symbol) {0};

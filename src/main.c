@@ -3,6 +3,7 @@
 #include "data/ast.h"
 #include "data/tir.h"
 #include "diagnostic.h"
+#include "enums.h"
 #include "fwd.h"
 #include "gen.h"
 #include "hash.h"
@@ -144,7 +145,10 @@ static Symbol lookup(GlobalScopeBuilder *b, int32_t file, String name) {
 
     uint32_t *builtin_def = htable_lookup(b->global_scope, name);
     if (builtin_def) {
-        return (Symbol) {.kind = SYM_BUILTIN, .global = {*builtin_def}};
+        if ((int32_t) *builtin_def >= TERM_COUNT) {
+            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
+        }
+        return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
     }
 
     return (Symbol) {0};
@@ -200,6 +204,11 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
+        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.id < TERM_GLOBAL_COUNT - TERM_COUNT) {
+            // Defined in "lib/internal.jel".
+            vec_push(b->ast_refs, def);
+            return 0;
+        }
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
         if (prev_sym.kind == SYM_GLOBAL) {
             AstRef prev_ref = b->ast_refs->ptr[prev_sym.global.id];
@@ -222,6 +231,8 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     }
     return 0;
 }
+
+#include "internal.h"
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -266,17 +277,26 @@ int main(int argc, char **argv) {
         }
     }
 
-    int file_count = argc - o;
-    char **paths = argv + o;
-
     Arena permanent_arena = new_arena(64 << 20);
     Arena scratch_arena = new_arena(64 << 20);
 
     if (init_lex_module()) {
         abort();
     }
+
+    int file_count = argc - o + 1;
+    char **paths = arena_alloc(&permanent_arena, char *, file_count);
+    paths[0] = "internal.jel";
+
+    for (int i = 0; i < file_count - 1; i++) {
+        paths[i + 1] = argv[o + i];
+    }
+
     String *sources = arena_alloc(&permanent_arena, String, file_count);
-    for (int i = 0; i < file_count; i++) {
+    sources[0].len = internal_jel_len;
+    sources[0].ptr = (char *) internal_jel;
+
+    for (int i = 1; i < file_count; i++) {
         String source = read_file(paths[i]);
         sources[i] = source;
         if (!source.len) {

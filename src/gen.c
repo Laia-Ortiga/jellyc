@@ -97,8 +97,6 @@ static void gen_type_before(GenContext *ctx, TermId type) {
                 case TYPE_i32: fprintf(ctx->stream, "int32_t "); return;
                 case TYPE_i64: fprintf(ctx->stream, "int64_t "); return;
 
-                case TYPE_SIZE_TAG:
-                case TYPE_ALIGNMENT_TAG:
                 case TYPE_isize: fprintf(ctx->stream, "int%d_t ", sizeof_pointer(ctx->target) * 8); return;
 
                 case TYPE_f32: fprintf(ctx->stream, "float "); return;
