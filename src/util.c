@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void sum_vec_reserve(void *vec, int32_t count, size_t size) {
+void sum_vec_reserve(void *vec, int32_t count, ptrdiff_t size) {
     SumVec(char) *internal = vec;
     int32_t old_cap = internal->cap;
 
@@ -58,7 +58,7 @@ ptrdiff_t push_str(StringBuffer *buffer, String s) {
 
 #undef vec_grow
 
-void *vec_grow(void *vec, int32_t count, size_t size) {
+void *vec_grow(void *vec, int32_t count, ptrdiff_t size) {
     Vec(char) *internal = vec;
 
     if (internal->len + count > internal->cap) {

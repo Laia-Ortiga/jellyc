@@ -29,8 +29,8 @@ static inline String substring(String s, ptrdiff_t start, ptrdiff_t end) {
 
 typedef Vec(char) StringBuffer;
 
-void sum_vec_reserve(void *vec, int32_t count, size_t size);
-void *vec_grow(void *vec, int32_t count, size_t size);
+void sum_vec_reserve(void *vec, int32_t count, ptrdiff_t size);
+void *vec_grow(void *vec, int32_t count, ptrdiff_t size);
 ptrdiff_t push_str(StringBuffer *buffer, String s);
 
 

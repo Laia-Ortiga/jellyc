@@ -6,12 +6,12 @@
 #include <stdint.h>
 
 typedef struct {
-    size_t capacity;
-    size_t count;
+    int32_t capacity;
+    int32_t count;
     void *data;
 } HashTable;
 
 HashTable htable_init(void);
 void htable_free(HashTable *table);
-int64_t htable_try_insert(HashTable *table, String key, uint32_t value);
-uint32_t *htable_lookup(HashTable const *table, String key);
+int64_t htable_try_insert(HashTable *table, String key, int32_t value);
+int32_t *htable_lookup(HashTable const *table, String key);

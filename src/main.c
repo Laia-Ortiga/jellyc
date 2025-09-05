@@ -125,26 +125,26 @@ static String get_string_from_location(SourceLoc const *loc) {
 }
 
 static Symbol lookup(GlobalScopeBuilder *b, int32_t file, String name) {
-    uint32_t *file_def = htable_lookup(&b->files[file].scope, name);
+    int32_t *file_def = htable_lookup(&b->files[file].scope, name);
     if (file_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
     }
 
     int32_t module = b->files[file].module;
 
-    uint32_t *private_def = htable_lookup(&b->modules[module].private_scope, name);
+    int32_t *private_def = htable_lookup(&b->modules[module].private_scope, name);
     if (private_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
     }
 
-    uint32_t *public_def = htable_lookup(&b->modules[module].public_scope, name);
+    int32_t *public_def = htable_lookup(&b->modules[module].public_scope, name);
     if (public_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
     }
 
-    uint32_t *builtin_def = htable_lookup(b->global_scope, name);
+    int32_t *builtin_def = htable_lookup(b->global_scope, name);
     if (builtin_def) {
-        if ((int32_t) *builtin_def >= TERM_COUNT) {
+        if (*builtin_def >= TERM_COUNT) {
             return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
         }
         return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
@@ -192,7 +192,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     SourceLoc loc = get_ast_location(b, def);
     String name = get_string_from_location(&loc);
 
-    uint32_t *prev_extern_sym = is_extern ? htable_lookup(b->extern_symbols, name) : NULL;
+    int32_t *prev_extern_sym = is_extern ? htable_lookup(b->extern_symbols, name) : NULL;
     if (prev_extern_sym) {
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_EXTERN_DEFINITION});
         AstRef prev_ref = b->ast_refs->ptr[*prev_extern_sym];

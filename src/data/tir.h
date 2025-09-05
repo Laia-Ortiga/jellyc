@@ -9,8 +9,8 @@
 #include <stdio.h>
 
 typedef struct {
-    size_t capacity;
-    size_t count;
+    int32_t capacity;
+    int32_t count;
     TermId *ptr;
 } TermSet;
 

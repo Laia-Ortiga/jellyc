@@ -138,8 +138,8 @@ static bool type_eq(StructuralType a, StructuralType b) {
     }
 }
 
-static size_t hash_type(TirContext ctx, StructuralType type) {
-    size_t result = 17;
+static int32_t hash_type(TirContext ctx, StructuralType type) {
+    int32_t result = 17;
     result = 31 * result + type.tag;
     switch (type.tag) {
         case TYPE_ARRAY: {
@@ -184,7 +184,7 @@ static size_t hash_type(TirContext ctx, StructuralType type) {
     return result;
 }
 
-static TermSet termset_init(size_t capacity) {
+static TermSet termset_init(int32_t capacity) {
     TermId *ptr = calloc(capacity, sizeof(*ptr));
     if (!ptr) {
         abort();
@@ -197,7 +197,7 @@ static TermSet termset_init(size_t capacity) {
 }
 
 static void termset_insert_entry(TermSet *set, TermId key, TirContext ctx) {
-    size_t index = hash_type(ctx, get_type_from_id(ctx, key)) & (set->capacity - 1);
+    int32_t index = hash_type(ctx, get_type_from_id(ctx, key)) & (set->capacity - 1);
     while (set->ptr[index].id) {
         index = (index + 1) & (set->capacity - 1);
     }
@@ -207,7 +207,7 @@ static void termset_insert_entry(TermSet *set, TermId key, TirContext ctx) {
 static void termset_resize(TermSet *set, TirContext ctx) {
     TermSet new_set = termset_init(set->capacity * 2);
     new_set.count = set->count;
-    for (size_t i = 0; i < set->capacity; i++) {
+    for (int32_t i = 0; i < set->capacity; i++) {
         if (set->ptr[i].id) {
             termset_insert_entry(&new_set, set->ptr[i], ctx);
         }
@@ -228,8 +228,8 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
         termset_resize(set, ctx);
     }
 
-    size_t hash = hash_type(ctx, descriptor);
-    size_t slot = hash & (set->capacity - 1);
+    int32_t hash = hash_type(ctx, descriptor);
+    int32_t slot = hash & (set->capacity - 1);
     while (set->ptr[slot].id) {
         if (type_eq(get_type_from_id(ctx, set->ptr[slot]), descriptor)) {
             return set->ptr[slot];
@@ -239,7 +239,7 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
 
     if (ctx.thread) {
         TermSet *global_set = &ctx.global->terms.set;
-        size_t global_slot = hash & (global_set->capacity - 1);
+        int32_t global_slot = hash & (global_set->capacity - 1);
         while (global_set->ptr[global_slot].id) {
             if (type_eq(get_type_from_id(ctx, global_set->ptr[global_slot]), descriptor)) {
                 return global_set->ptr[global_slot];

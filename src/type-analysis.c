@@ -81,26 +81,26 @@ static void pop_scope(Context *c) {
 }
 
 static Symbol lookup(Context *c, int32_t file, String name) {
-    uint32_t *file_def = htable_lookup(&c->files[file].scope, name);
+    int32_t *file_def = htable_lookup(&c->files[file].scope, name);
     if (file_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
     }
 
     int32_t module = c->files[file].module;
 
-    uint32_t *private_def = htable_lookup(&c->modules[module].private_scope, name);
+    int32_t *private_def = htable_lookup(&c->modules[module].private_scope, name);
     if (private_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
     }
 
-    uint32_t *public_def = htable_lookup(&c->modules[module].public_scope, name);
+    int32_t *public_def = htable_lookup(&c->modules[module].public_scope, name);
     if (public_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
     }
 
-    uint32_t *builtin_def = htable_lookup(c->global_scope, name);
+    int32_t *builtin_def = htable_lookup(c->global_scope, name);
     if (builtin_def) {
-        if ((int32_t) *builtin_def >= TERM_COUNT) {
+        if (*builtin_def >= TERM_COUNT) {
             return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
         }
         return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
@@ -130,7 +130,7 @@ static void diagnostic(Context *c, AstRef ref, ErrorKind kind) {
 
 static LocalId lookup_local(Context *c, String name) {
     for (Scope *scope = c->scope; scope; scope = scope->parent) {
-        uint32_t *symbol = htable_lookup(&scope->table, name);
+        int32_t *symbol = htable_lookup(&scope->table, name);
         if (symbol) {
             return (LocalId) {*symbol};
         }
@@ -237,7 +237,7 @@ static String ctx_source(Context const *c) {
     return c->sources[c->file];
 }
 
-static SourceLoc ctx_init_loc(Context const *c, SourceIndex start, size_t len) {
+static SourceLoc ctx_init_loc(Context const *c, SourceIndex start, ptrdiff_t len) {
     SourceLoc loc = {
         .path = c->paths[c->file],
         .source = c->sources[c->file],
@@ -612,7 +612,7 @@ static TermId analyze_return_type(Context *c, AstId node) {
 static TermId analyze_import(Context *c, AstId node) {
     AstRef ref = {node, c->file};
     String name = get_id_source(c, ref);
-    uint32_t *module = htable_lookup(c->module_table, name);
+    int32_t *module = htable_lookup(c->module_table, name);
 
     if (!module) {
         diagnostic(c, ref, ERROR_UNDEFINED_MODULE);
@@ -998,7 +998,7 @@ static TermId analyze_id(Context *c, AstId node) {
             diagnostic(c, ref, ERROR_UNDEFINED_NAME);
 
             // Check module names for hints.
-            uint32_t *m = htable_lookup(c->module_table, name);
+            int32_t *m = htable_lookup(c->module_table, name);
             if (m && !c->module_import_notes[*m]) {
                 SourceLoc loc = get_ast_location(c, (AstRef) {ref.node, ref.file});
                 print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_FORGOT_IMPORT});
@@ -1637,7 +1637,7 @@ static TermId implicit_pointer_deref(Context *c, AstId node, TermId value) {
 
 static int32_t find_field(Context *c, TermId type, String name) {
     int32_t scope = get_struct_type(c->tir, type).scope;
-    uint32_t *sym = htable_lookup(&c->tir.global->type_scopes.ptr[scope], name);
+    int32_t *sym = htable_lookup(&c->tir.global->type_scopes.ptr[scope], name);
 
     if (!sym) {
         return -1;
@@ -1650,7 +1650,7 @@ static TermId resolve_enum_member(Context *c, AstId node, TermId type) {
     SourceIndex field_token = get_ast_token(node, c->ast);
     String field_name = id_token_to_string(ctx_source(c), field_token);
     int32_t scope = get_enum_type(c->tir, type).scope;
-    uint32_t *sym_ptr = htable_lookup(&c->tir.global->type_scopes.ptr[scope], field_name);
+    int32_t *sym_ptr = htable_lookup(&c->tir.global->type_scopes.ptr[scope], field_name);
 
     if (!sym_ptr) {
         type_error(c, node, type, 0, ERROR_UNDEFINED_TYPE_SCOPE);
@@ -1716,7 +1716,7 @@ static TermId analyze_access(Context *c, AstId node) {
 
     if (operand_value.id >= BUILTIN_TERM_END && operand_value.id < 0) {
         int32_t module = ~operand_value.id;
-        uint32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
+        int32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
 
         if (!def_ptr) {
             diagnostic(c, (AstRef) {operand, c->file}, ERROR_UNDEFINED_NAME_FROM_MODULE);
@@ -2242,7 +2242,7 @@ static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *ty
     }
 
     bool has_all = true;
-    for (size_t i = 0; i < scope->count; i++) {
+    for (int32_t i = 0; i < scope->count; i++) {
         if (!seen_enum_values[i]) {
             has_all = false;
             break;
