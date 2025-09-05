@@ -1724,6 +1724,11 @@ static TermId analyze_access(Context *c, AstId node) {
         return analyze_enum_member(c, node);
     }
 
+    if (!is_term_value(tag)) {
+        diagnostic(c, (AstRef) {node, c->file}, ERROR_ACCESS_OPERAND_ROLE);
+        return null_term;
+    }
+
     operand_value = implicit_pointer_deref(c, node, operand_value);
     TermId operand_type = get_value_type(c->tir, operand_value);
     TermId type = remove_tags(c->tir, operand_type);
@@ -2026,6 +2031,11 @@ static TermId analyze_index(Context *c, AstId node, TermId hint) {
 
     if (is_term_type(get_term_tag(c->tir, operand_value))) {
         return analyze_tagged_type(c, node, operand_value);
+    }
+
+    if (!is_term_value(get_term_tag(c->tir, operand_value))) {
+        // TODO error
+        return null_term;
     }
 
     operand_value = implicit_pointer_deref(c, node, operand_value);
