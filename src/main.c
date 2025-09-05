@@ -22,7 +22,6 @@
 static void print_help(void) {
     fprintf(stderr, "Usage: jellyc [options] file...\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -multithread             Use multithreading.\n");
     fprintf(stderr, "  -help                    Display this information.\n");
     fprintf(stderr, "  -print-debug             Display debug information about the intermediate representations.\n");
     fprintf(stderr, "  -backend=<backend>       Specify the backend that will be used.\n");
@@ -205,7 +204,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
         if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.id < TERM_GLOBAL_COUNT - TERM_COUNT) {
-            // Defined in "lib/internal.jel".
+            // Defined in "internal.jel".
             vec_push(b->ast_refs, def);
             return 0;
         }
