@@ -228,8 +228,8 @@ static void gen_extern_var(GenContext *ctx, TermId value) {
     TermId type = get_value_type(ctx->tir, value);
     fprintf(ctx->stream, "extern ");
     gen_type_before(ctx, type);
-    int32_t name = get_term_data(ctx->tir, value)->b;
-    fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
+    char const *name = get_value_str(ctx->tir, value);
+    fprintf(ctx->stream, "%s", name);
     gen_type_after(ctx, type);
     fprintf(ctx->stream, ";\n");
 }
@@ -251,8 +251,8 @@ static void gen_extern_function(GenContext *ctx, TermId value) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_term_data(ctx->tir, value)->b;
-    fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
+    char const *name = get_value_str(ctx->tir, value);
+    fprintf(ctx->stream, "%s", name);
     gen_params(ctx, type);
 
     if (ret_type.id != TYPE_VOID) {
@@ -290,8 +290,8 @@ static void gen_function_decl(GenContext *ctx, TermId value, bool is_main) {
         fprintf(ctx->stream, "void ");
     }
 
-    int32_t name = get_term_data(ctx->tir, value)->b;
-    fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
+    char const *name = get_value_str(ctx->tir, value);
+    fprintf(ctx->stream, "%s", name);
     gen_params(ctx, type);
 
     if (ret_type.id != TYPE_VOID) {
@@ -377,8 +377,6 @@ static void gen_string(GenContext *ctx, char const *str) {
 }
 
 static void gen_value(GenContext *ctx, TermId value) {
-    TermData const *data = get_term_data(ctx->tir, value);
-
     switch (get_term_tag(ctx->tir, value)) {
         default: {
             abort();
@@ -386,7 +384,8 @@ static void gen_value(GenContext *ctx, TermId value) {
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
-            fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[data->b]);
+            char const *name = get_value_str(ctx->tir, value);
+            fprintf(ctx->stream, "%s", name);
             break;
         }
         case VAL_STRING: {
@@ -814,8 +813,8 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
             fprintf(ctx->stream, "void ");
         }
 
-        int32_t name = get_term_data(ctx->tir, value)->b;
-        fprintf(ctx->stream, "%s", &ctx->tir.global->strtab.ptr[name]);
+        char const *name = get_value_str(ctx->tir, value);
+        fprintf(ctx->stream, "%s", name);
         gen_params(ctx, type);
 
         if (ret_type.id != TYPE_VOID) {

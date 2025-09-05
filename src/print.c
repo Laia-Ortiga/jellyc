@@ -352,8 +352,8 @@ static void print_tir_value(TirPrinter *printer, TermId value) {
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
             print_indent(printer->depth);
-            int32_t s = get_term_data(printer->context, value)->b;
-            printf("%s\n", &printer->context.global->strtab.ptr[s]);
+            char const *name = get_value_str(printer->context, value);
+            printf("%s\n", name);
             break;
         }
         case VAL_CONST_INT: {
@@ -380,13 +380,13 @@ static void print_tir_value(TirPrinter *printer, TermId value) {
         case VAL_MUTABLE_VARIABLE: {
             print_indent(printer->depth);
             printf("variable_%d: ", get_term_data(printer->context, value)->b);
-            print_type(stdout, printer->context, (TermId) {get_term_data(printer->context, value)->a});
+            print_type(stdout, printer->context, get_value_type(printer->context, value));
             printf("\n");
             break;
         }
         case VAL_TEMPORARY: {
             TirId tir_id = {get_term_data(printer->context, value)->b};
-            TermId type = {get_term_data(printer->context, value)->a};
+            TermId type = get_value_type(printer->context, value);
             print_tir_node(printer, tir_id, type);
             break;
         }

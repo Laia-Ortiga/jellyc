@@ -1031,9 +1031,8 @@ void print_type(FILE *file, TirContext ctx, TermId type) {
             return;
         }
         case TYPE_TYPE_PARAMETER: {
-            TermData const *data = get_term_data(ctx, type);
-            char const *s = &get_term_deps(ctx, type)->strtab.ptr[data->b];
-            fputs(s, file);
+            char const *name = get_value_str(ctx, type);
+            fputs(name, file);
             return;
         }
         default: {

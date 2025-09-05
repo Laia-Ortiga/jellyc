@@ -132,8 +132,8 @@ static void gen_ret_type(GenContext *ctx, TermId type) {
 
 static void gen_extern_var(GenContext *ctx, TermId value) {
     TermId type = get_value_type(ctx->tir, value);
-    int32_t name = get_term_data(ctx->tir, value)->b;
-    fprintf(ctx->stream, "@%s = external global ", &ctx->tir.global->strtab.ptr[name]);
+    char const *name = get_value_str(ctx->tir, value);
+    fprintf(ctx->stream, "@%s = external global ", name);
     gen_type(ctx, type);
     fprintf(ctx->stream, ", align %d\n", alignof_type(ctx->tir, type, ctx->target));
 }
@@ -143,8 +143,8 @@ static void gen_extern_function(GenContext *ctx, TermId value) {
     TermId ret_type = get_function_type(ctx->tir, type).ret;
     fprintf(ctx->stream, "declare ");
     gen_ret_type(ctx, ret_type);
-    int32_t name = get_term_data(ctx->tir, value)->b;
-    fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
+    char const *name = get_value_str(ctx->tir, value);
+    fprintf(ctx->stream, " @%s", name);
     gen_params(ctx, type);
     fprintf(ctx->stream, "\n");
 }
@@ -253,8 +253,8 @@ static void gen_value(GenContext *ctx, TermId value) {
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
-            TermData const *data = get_term_data(ctx->tir, value);
-            fprintf(ctx->stream, "@%s", &ctx->tir.global->strtab.ptr[data->b]);
+            char const *name = get_value_str(ctx->tir, value);
+            fprintf(ctx->stream, "@%s", name);
             break;
         }
         case VAL_STRING: {
@@ -757,8 +757,8 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Te
     } else {
         fprintf(ctx->stream, "define private ");
         gen_ret_type(ctx, ret_type);
-        int32_t name = get_term_data(ctx->tir, value)->b;
-        fprintf(ctx->stream, " @%s", &ctx->tir.global->strtab.ptr[name]);
+        char const *name = get_value_str(ctx->tir, value);
+        fprintf(ctx->stream, " @%s", name);
     }
     gen_params(ctx, type);
     fprintf(ctx->stream, " {\n");

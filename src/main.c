@@ -410,8 +410,8 @@ int main(int argc, char **argv) {
                 .global = &tir_output.global_deps,
                 .thread = &tir_output.insts[i],
             };
-            int32_t name = get_term_data(ctx, tir_output.global_deps.functions.ptr[i])->b;
-            print_tir(ctx, &ctx.global->strtab.ptr[name], &tir_output.insts[i].insts, tir_output.insts[i].first);
+            char const *name = get_value_str(ctx, tir_output.global_deps.functions.ptr[i]);
+            print_tir(ctx, name, &tir_output.insts[i].insts, tir_output.insts[i].first);
         }
     }
     err = check_substructural_types(
