@@ -1345,8 +1345,8 @@ static TermId analyze_linear(Context *c, AstId node) {
 }
 
 static TermId analyze_array_length_type(Context *c, AstId node) {
-    AstBinary call = get_ast_binary(node, c->ast);
-    TermId operand_value = expect_value_type(c, call.right, type_isize);
+    AstCall call = get_ast_call(node, c->ast);
+    TermId operand_value = expect_value_type(c, get_call_arg(&call, 0), type_isize);
     expect_arg_count(c, node, 1);
 
     int64_t i = 0;
