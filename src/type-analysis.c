@@ -1324,7 +1324,12 @@ static TermId analyze_alignof(Context *c, AstId node) {
     if (i >= 1) {
         TermId type_alignment_tag = get_internal_term(c, BUILTIN_ALIGNMENT);
         type_alignment_tag = get_generic_term(c->tir, type_alignment_tag).inner;
-        TermId type = replace_type_parameters(c->tir, &operand_type, type_alignment_tag, *c->scratch);
+        TermId type = replace_type_parameters(type_alignment_tag, &(ReplaceTypeInfo) {
+            .ctx = c->tir,
+            .args = &operand_type,
+            .scratch = *c->scratch,
+            .target = c->options->target,
+        });
         return new_int_constant(c->tir, type, i);
     }
     type_error(c, node, operand_type, 0, ERROR_TYPE_UNKNOWN_TYPE_ALIGNMENT);
@@ -1339,7 +1344,12 @@ static TermId analyze_sizeof(Context *c, AstId node) {
     if (i >= 1) {
         TermId type_size_tag = get_internal_term(c, BUILTIN_SIZE);
         type_size_tag = get_generic_term(c->tir, type_size_tag).inner;
-        TermId type = replace_type_parameters(c->tir, &operand_type, type_size_tag, *c->scratch);
+        TermId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
+            .ctx = c->tir,
+            .args = &operand_type,
+            .scratch = *c->scratch,
+            .target = c->options->target,
+        });
         return new_int_constant(c->tir, type, i);
     }
     type_error(c, node, operand_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
@@ -1968,7 +1978,12 @@ static TermId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
     if (type_args_inferred && term->type_count) {
         for (int32_t i = 0; i < call.arg_count; i++) {
             TermId field_type = get_struct_type_field(c->tir, inner, i);
-            field_type = replace_type_parameters(c->tir, type_args, field_type, *c->scratch);
+            field_type = replace_type_parameters(field_type, &(ReplaceTypeInfo) {
+                .ctx = c->tir,
+                .args = type_args,
+                .scratch = *c->scratch,
+                .target = c->options->target,
+            });
             args_tir[i] = apply_implicit_conversion(c, call.args[i], args_tir[i], field_type);
         }
     }
@@ -1985,7 +2000,12 @@ static TermId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
 
     TermId type = term->inner;
     if (term->type_count) {
-        type = replace_type_parameters(c->tir, type_args, term->inner, *c->scratch);
+        type = replace_type_parameters(term->inner, &(ReplaceTypeInfo) {
+            .ctx = c->tir,
+            .args = type_args,
+            .scratch = *c->scratch,
+            .target = c->options->target,
+        });
     }
     return new_binary_inst(c, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
 }
@@ -2044,7 +2064,12 @@ static TermId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
     if (type_args_inferred && term->type_count) {
         for (int32_t i = 0; i < call.arg_count; i++) {
             TermId param_type = get_function_type_param(c->tir, operand_type, i);
-            param_type = replace_type_parameters(c->tir, type_args, param_type, *c->scratch);
+            param_type = replace_type_parameters(param_type, &(ReplaceTypeInfo) {
+                .ctx = c->tir,
+                .args = type_args,
+                .scratch = *c->scratch,
+                .target = c->options->target,
+            });
             args_tir[i] = apply_implicit_conversion(c, call.args[i], args_tir[i], param_type);
         }
     }
@@ -2061,7 +2086,12 @@ static TermId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
 
     TermId result_type = func_type.ret;
     if (term->type_count) {
-        result_type = replace_type_parameters(c->tir, type_args, func_type.ret, *c->scratch);
+        result_type = replace_type_parameters(func_type.ret, &(ReplaceTypeInfo) {
+            .ctx = c->tir,
+            .args = type_args,
+            .scratch = *c->scratch,
+            .target = c->options->target,
+        });
     }
 
     return new_binary_inst(
@@ -2105,7 +2135,12 @@ static TermId analyze_tagged_type(Context *c, AstId node, TermId term) {
         type_error(c, call.operand, g.inner, call.arg_count, ERROR_ARGUMENT_COUNT);
         return null_term;
     }
-    return replace_type_parameters(c->tir, arg_types, g.inner, *c->scratch);
+    return replace_type_parameters(g.inner, &(ReplaceTypeInfo) {
+        .ctx = c->tir,
+        .args = arg_types,
+        .scratch = *c->scratch,
+        .target = c->options->target,
+    });
 }
 
 static TermId analyze_index(Context *c, AstId node, TermId hint) {

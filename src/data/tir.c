@@ -1214,74 +1214,82 @@ int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId 
     return 0;
 }
 
-TermId replace_type_parameters(TirContext ctx, TermId const *args, TermId generic, Arena scratch) {
-    switch (get_term_tag(ctx, generic)) {
-        case TYPE_PRIMITIVE: {
+TermId replace_type_parameters(TermId generic, ReplaceTypeInfo *info) {
+    switch (get_term_tag(info->ctx, generic)) {
+        case TYPE_PRIMITIVE:
+        case TYPE_ARRAY_LENGTH:
+        case TYPE_ENUM: {
             return generic;
         }
         case TYPE_TYPE_PARAMETER: {
-            int32_t index = get_term_data(ctx, generic)->a;
-            return args[index];
+            int32_t index = get_term_data(info->ctx, generic)->a;
+            return info->args[index];
         }
         case TYPE_ARRAY: {
-            ArrayType array = get_array_type(ctx, generic);
-            return new_array_type(ctx, &(ArrayType) {
-                .index = replace_type_parameters(ctx, args, array.index, scratch),
-                .elem = replace_type_parameters(ctx, args, array.elem, scratch),
+            ArrayType array = get_array_type(info->ctx, generic);
+            return new_array_type(info->ctx, &(ArrayType) {
+                .index = replace_type_parameters(array.index, info),
+                .elem = replace_type_parameters(array.elem, info),
             });
         }
-        case TYPE_ARRAY_LENGTH: {
-            return generic;
-        }
         case TYPE_PTR: {
-            TermId elem = {get_term_data(ctx, generic)->a};
-            return new_ptr_type(ctx, TYPE_PTR, replace_type_parameters(ctx, args, elem, scratch));
+            TermId elem = {get_term_data(info->ctx, generic)->a};
+            return new_ptr_type(info->ctx, TYPE_PTR, replace_type_parameters(elem, info));
         }
         case TYPE_PTR_MUT: {
-            TermId elem = {get_term_data(ctx, generic)->a};
-            return new_ptr_type(ctx, TYPE_PTR_MUT, replace_type_parameters(ctx, args, elem, scratch));
+            TermId elem = {get_term_data(info->ctx, generic)->a};
+            return new_ptr_type(info->ctx, TYPE_PTR_MUT, replace_type_parameters(elem, info));
         }
         case TYPE_MULTIPTR: {
-            TermId elem = {get_term_data(ctx, generic)->a};
-            return new_multiptr_type(ctx, TYPE_MULTIPTR, replace_type_parameters(ctx, args, elem, scratch));
+            TermId elem = {get_term_data(info->ctx, generic)->a};
+            return new_multiptr_type(info->ctx, TYPE_MULTIPTR, replace_type_parameters(elem, info));
         }
         case TYPE_MULTIPTR_MUT: {
-            TermId elem = {get_term_data(ctx, generic)->a};
-            return new_multiptr_type(ctx, TYPE_MULTIPTR_MUT, replace_type_parameters(ctx, args, elem, scratch));
+            TermId elem = {get_term_data(info->ctx, generic)->a};
+            return new_multiptr_type(info->ctx, TYPE_MULTIPTR_MUT, replace_type_parameters(elem, info));
         }
         case TYPE_LINEAR: {
-            TermId elem = {get_term_data(ctx, generic)->a};
-            return new_linear_type(ctx, replace_type_parameters(ctx, args, elem, scratch));
+            TermId elem = {get_term_data(info->ctx, generic)->a};
+            return new_linear_type(info->ctx, replace_type_parameters(elem, info));
         }
         case TYPE_FUNCTION: {
-            FunctionType f = get_function_type(ctx, generic);
-            TermId *params = arena_alloc(&scratch, TermId, f.param_count);
+            FunctionType f = get_function_type(info->ctx, generic);
+            TermId *params = arena_alloc(&info->scratch, TermId, f.param_count);
             for (int32_t i = 0; i < f.param_count; i++) {
-                params[i] = replace_type_parameters(ctx, args, get_function_type_param(ctx, generic, i), scratch);
+                params[i] = replace_type_parameters(get_function_type_param(info->ctx, generic, i), info);
             }
-            return new_function_type(ctx, &(FunctionType) {
+            return new_function_type(info->ctx, &(FunctionType) {
                 .param_count = f.param_count,
                 .params = params,
-                .ret = replace_type_parameters(ctx, args, f.ret, scratch),
+                .ret = replace_type_parameters(f.ret, info),
             });
         }
         case TYPE_TAGGED: {
-            TaggedType t = get_tagged_type(ctx, generic);
-            TermId *tags = arena_alloc(&scratch, TermId, t.arg_count);
+            TaggedType t = get_tagged_type(info->ctx, generic);
+            TermId *tags = arena_alloc(&info->scratch, TermId, t.arg_count);
             for (int32_t i = 0; i < t.arg_count; i++) {
-                tags[i] = replace_type_parameters(ctx, args, get_tagged_type_arg(ctx, generic, i), scratch);
+                tags[i] = replace_type_parameters(get_tagged_type_arg(info->ctx, generic, i), info);
             }
-            TermId inner = replace_type_parameters(ctx, args, t.inner, scratch);
-            return new_tagged_type(ctx, &(TaggedType) {
+            TermId inner = replace_type_parameters(t.inner, info);
+            return new_tagged_type(info->ctx, &(TaggedType) {
                 .name = t.name,
                 .inner = inner,
                 .arg_count = t.arg_count,
                 .args = tags,
             });
         }
-        case TYPE_STRUCT:
-        case TYPE_ENUM: {
-            return generic;
+        case TYPE_STRUCT: {
+            StructType t = get_struct_type(info->ctx, generic);
+            TermId *fields = arena_alloc(&info->scratch, TermId, t.field_count);
+            for (int32_t i = 0; i < t.field_count; i++) {
+                fields[i] = replace_type_parameters(get_struct_type_field(info->ctx, generic, i), info);
+            }
+            return new_struct_type(info->ctx, info->target, &(StructType) {
+                .name = t.name,
+                .scope = t.scope,
+                .field_count = t.field_count,
+                .fields = t.fields,
+            });
         }
         default: {
             abort();

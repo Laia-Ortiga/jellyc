@@ -1,6 +1,7 @@
 #pragma once
 
 #include "arena.h"
+#include "enums.h"
 #include "fwd.h"
 
 #include <stdbool.h>
@@ -184,12 +185,15 @@ typedef struct TypeMatcher {
 
 int match_types(TirContext ctx, TermId *results, int32_t count, TermId *types, TypeMatcher *matchers);
 int match_type_parameters(TirContext ctx, TermId *results, TermId param, TermId arg);
-TermId replace_type_parameters(
-    TirContext ctx,
-    TermId const *args,
-    TermId generic,
-    Arena scratch
-);
+
+typedef struct {
+    TirContext ctx;
+    TermId const *args;
+    Arena scratch;
+    Target target;
+} ReplaceTypeInfo;
+
+TermId replace_type_parameters(TermId generic, ReplaceTypeInfo *info);
 
 #define match_ignore 0
 #define match_array(I, E, EXTRA) ((TypeMatcher) {.match_type = TYPE_MATCH_ARRAY, .extra = (EXTRA), .inner = (TypeMatcher[]) {(I), (E)}})
