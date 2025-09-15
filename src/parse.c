@@ -417,10 +417,8 @@ static AstId parse_block(Parser *parser) {
                 break;
             }
             default: {
-                SourceIndex token = parser->lookahead.start;
                 AstId expr = parse_expr(parser, PREC_NONE);
-                AstId node = add_unary_ast(AST_EXPRESSION_STATEMENT, token, expr, &parser->ast);
-                push(parser, &stmts, node);
+                push(parser, &stmts, expr);
                 break;
             }
         }

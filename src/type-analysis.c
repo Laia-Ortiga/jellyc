@@ -639,9 +639,7 @@ typedef struct {
     int32_t length;
 } TirBlock;
 
-static TirId analyze_return(Context *c, AstId node) {
-    AstId operand = get_ast_unary(node, c->ast);
-
+static TirId analyze_return(Context *c, AstId operand) {
     if (!c->current_function_type.id) {
         compiler_error("return statement outside of function");
     }
@@ -657,13 +655,13 @@ static TirId analyze_return(Context *c, AstId node) {
         }
 
         TirId operand_value = expect_value_type(c, operand, operand_hint);
-        return new_unary_tir(c->tir, TIR_RETURN, node, null_tir, operand_value);
+        return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, operand_value);
     } else {
         if (func_type.ret.id != TYPE_VOID) {
             error(c, operand, &(Diagnostic) {.kind = ERROR_RETURN_MISSING_VALUE});
         }
 
-        return new_unary_tir(c->tir, TIR_RETURN, node, null_tir, null_tir);
+        return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, null_tir);
     }
 }
 
@@ -674,11 +672,7 @@ static TirBlock analyze_block(Context *c, AstId block, TirId hint) {
     for (int32_t i = 0; i < list.count; i++) {
         TirId tir = null_tir;
         if (i == list.count - 1 && hint.id && hint.id != TYPE_VOID) {
-            if (get_ast_tag(list.nodes[i], c->ast) == AST_EXPRESSION_STATEMENT) {
-                tir = analyze_return(c, list.nodes[i]);
-            } else {
-                diagnostic(c, (AstRef) {list.nodes[i], c->file}, ERROR_EXPECTED_VALUE);
-            }
+            tir = analyze_return(c, list.nodes[i]);
         } else {
             tir = analyze_term(c, list.nodes[i], null_tir);
         }
@@ -2197,10 +2191,6 @@ static TirId analyze_continue(Context *c, AstId node) {
     return new_instr(c->tir, TIR_CONTINUE, node, ptype(VOID), 0, 0);
 }
 
-static TirId analyze_value_statement(Context *c, AstId node) {
-    return analyze_term(c, get_ast_unary(node, c->ast), null_tir);
-}
-
 static TirId analyze_term(Context *c, AstId node, TirId hint) {
     switch (get_ast_tag(node, c->ast)) {
         case AST_ARRAY_TYPE: return analyze_array_type(c, node);
@@ -2266,8 +2256,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_FOR: return analyze_for(c, node);
         case AST_BREAK: return analyze_break(c, node);
         case AST_CONTINUE: return analyze_continue(c, node);
-        case AST_RETURN: return analyze_return(c, node);
-        case AST_EXPRESSION_STATEMENT: return analyze_value_statement(c, node);
+        case AST_RETURN: return analyze_return(c, get_ast_unary(node, c->ast));
 
         case AST_IMPORT: return analyze_import(c, node);
         case AST_FUNCTION: return analyze_function_decl(c, node);

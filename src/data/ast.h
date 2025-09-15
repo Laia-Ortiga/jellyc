@@ -29,7 +29,6 @@ typedef enum {
 
     // Statements
 
-    AST_EXPRESSION_STATEMENT,
     AST_IF,
     AST_WHILE,
     AST_FOR,

@@ -303,7 +303,6 @@ static void print_ast_node(AstPrinter *printer, AstId node) {
         case AST_SLICE: print_ast_call(printer, "Slice", node); break;
         case AST_LIST: print_ast_list(printer, "List", node); break;
         case AST_BLOCK: print_ast_list(printer, "Block", node); break;
-        case AST_EXPRESSION_STATEMENT: print_ast_node(printer, get_ast_unary(node, printer->ast)); break;
         case AST_IF: print_ast_if(printer, node); break;
         case AST_WHILE: print_ast_binary(printer, "While", node); break;
         case AST_FOR_HELPER: break;
