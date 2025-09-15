@@ -253,49 +253,49 @@ typedef enum {
 } PrimitiveTerm;
 
 typedef enum {
-    TERM_ERROR,
+    TIR_ERROR,
 
-    TERM_TYPE_START,
-    TYPE_PRIMITIVE = TERM_TYPE_START,
-    TYPE_ARRAY,
-    TYPE_ARRAY_LENGTH,
-    TYPE_PTR,
-    TYPE_PTR_MUT,
-    TYPE_MULTIPTR,
-    TYPE_MULTIPTR_MUT,
-    TYPE_FUNCTION,
-    TYPE_TAGGED,
-    TYPE_STRUCT,
-    TYPE_ENUM,
-    TYPE_LINEAR,
-    TYPE_TYPE_PARAMETER,
-    TERM_TYPE_END,
+    TIR_TYPE_START,
+    TIR_PRIMITIVE_TYPE = TIR_TYPE_START,
+    TIR_ARRAY_TYPE,
+    TIR_ARRAY_LENGTH_TYPE,
+    TIR_PTR_TYPE,
+    TIR_MUT_PTR_TYPE,
+    TIR_SLICE_TYPE,
+    TIR_MUT_SLICE_TYPE,
+    TIR_FUNCTION_TYPE,
+    TIR_TAGGED_TYPE,
+    TIR_STRUCT_TYPE,
+    TIR_ENUM_TYPE,
+    TIR_LINEAR_TYPE,
+    TIR_TYPE_PARAMETER,
+    TIR_TYPE_END,
 
     // index is unused
-    TERM_VALUE_START = TERM_TYPE_END,
-    VAL_FUNCTION = TERM_VALUE_START,
+    TIR_VALUE_START = TIR_TYPE_END,
+    TIR_FUNCTION = TIR_VALUE_START,
 
     // index points to the name of the function
-    VAL_EXTERN_FUNCTION,
+    TIR_EXTERN_FUNCTION,
 
     // index points to the name of the var
-    VAL_EXTERN_VAR,
+    TIR_EXTERN_VAR,
 
     // index points to the 64-bit value in extra
-    VAL_CONST_INT,
+    TIR_CONST_INT,
 
     // index points to the 64-bit value in extra
-    VAL_CONST_FLOAT,
+    TIR_CONST_FLOAT,
 
     // index is unused
-    VAL_CONST_NULL,
+    TIR_CONST_NULL,
 
     // index points to the string
-    VAL_STRING,
+    TIR_STRING,
 
     // index is the variable index
-    VAL_VARIABLE,
-    VAL_MUTABLE_VARIABLE,
+    TIR_VARIABLE,
+    TIR_MUTABLE_VARIABLE,
 
     TIR_LET,
     TIR_MUT,
@@ -361,22 +361,22 @@ typedef enum {
     TIR_CONTINUE,
     TIR_RETURN,
 
-    TERM_VALUE_END,
+    TIR_VALUE_END,
 
-    TERM_MACRO = TERM_VALUE_END,
-    TERM_MODULE,
+    TIR_MACRO = TIR_VALUE_END,
+    TIR_MODULE,
 
     // a is the inner term
     // b points to the number of type parameters followed by the types
-    TERM_GENERIC,
-} TermTag;
+    TIR_GENERIC,
+} TirTag;
 
-static inline bool is_term_type(TermTag tag) {
-    return tag >= TERM_TYPE_START && tag < TERM_TYPE_END;
+static inline bool is_tir_type(TirTag tag) {
+    return tag >= TIR_TYPE_START && tag < TIR_TYPE_END;
 }
 
-static inline bool is_term_value(TermTag tag) {
-    return tag >= TERM_VALUE_START && tag < TERM_VALUE_END;
+static inline bool is_tir_value(TirTag tag) {
+    return tag >= TIR_VALUE_START && tag < TIR_VALUE_END;
 }
 
 typedef enum {

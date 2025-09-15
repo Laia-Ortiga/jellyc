@@ -337,17 +337,17 @@ typedef struct {
     int depth;
 } TirPrinter;
 
-static void print_tir_node(TirPrinter *printer, TermId tir_id);
+static void print_tir_node(TirPrinter *printer, TirId tir_id);
 
 static void print_tir_leaf_statement(TirPrinter *printer, char const *name) {
     print_indent(printer->depth);
     printf("%s\n", name);
 }
 
-static void print_tir_let(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_let(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
     int32_t var_id = data->b;
-    TermId init = {data->c};
+    TirId init = {data->c};
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
@@ -359,9 +359,9 @@ static void print_tir_let(TirPrinter *printer, char const *name, TermId tir_id) 
     printf(")\n");
 }
 
-static void print_tir_unary_value(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_unary_value(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
@@ -369,14 +369,14 @@ static void print_tir_unary_value(TirPrinter *printer, char const *name, TermId 
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
-static void print_tir_binary_value(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_binary_value(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId left = {data->b};
-    TermId right = {data->c};
+    TirId left = {data->b};
+    TirId right = {data->c};
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
@@ -385,13 +385,13 @@ static void print_tir_binary_value(TirPrinter *printer, char const *name, TermId
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
-static void print_tir_return(TirPrinter *printer, TermId tir_id) {
+static void print_tir_return(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     print_indent(printer->depth);
     printf("return(\n");
     printer->depth++;
@@ -403,9 +403,9 @@ static void print_tir_return(TirPrinter *printer, TermId tir_id) {
     printf(")\n");
 }
 
-static void print_tir_access(TirPrinter *printer, TermId tir_id) {
+static void print_tir_access(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     int32_t index = data->c;
     print_indent(printer->depth);
     printf("access(\n");
@@ -416,22 +416,22 @@ static void print_tir_access(TirPrinter *printer, TermId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
-static void print_tir_call(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_call(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     int32_t args = data->c;
-    TermId function_type = get_value_type(printer->context, operand);
+    TirId function_type = get_value_type(printer->context, operand);
     int32_t arg_count = get_function_type(printer->context, function_type).param_count;
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
     print_tir_node(printer, operand);
     for (int32_t i = 0; i < arg_count; i++) {
-        TermId arg = {get_term_extra(printer->context, args + i)};
+        TirId arg = {get_term_extra(printer->context, args + i)};
         print_tir_node(printer, arg);
     }
     printer->depth--;
@@ -439,17 +439,17 @@ static void print_tir_call(TirPrinter *printer, char const *name, TermId tir_id)
     printf(")");
     if (get_value_type(printer->context, tir_id).id != TYPE_VOID) {
         printf(": ");
-        print_type(stdout, printer->context, (TermId) {data->a});
+        print_type(stdout, printer->context, (TirId) {data->a});
     }
     printf("\n");
 }
 
-static void print_tir_slice(TirPrinter *printer, TermId tir_id) {
+static void print_tir_slice(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     int32_t index = data->c;
-    TermId low = {get_term_extra(printer->context, index)};
-    TermId high = {get_term_extra(printer->context, index + 1)};
+    TirId low = {get_term_extra(printer->context, index)};
+    TirId high = {get_term_extra(printer->context, index + 1)};
     print_indent(printer->depth);
     printf("slice(\n");
     printer->depth++;
@@ -459,11 +459,11 @@ static void print_tir_slice(TirPrinter *printer, TermId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
-static void print_tir_new_type(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_new_type(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
     int32_t args = data->b;
     int32_t arg_count = data->c;
@@ -471,20 +471,20 @@ static void print_tir_new_type(TirPrinter *printer, char const *name, TermId tir
     printf("%s(\n", name);
     printer->depth++;
     for (int32_t i = 0; i < arg_count; i++) {
-        TermId arg = {get_term_extra(printer->context, args + i)};
+        TirId arg = {get_term_extra(printer->context, args + i)};
         print_tir_node(printer, arg);
     }
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
-static void print_tir_assignment(TirPrinter *printer, char const *name, TermId tir_id) {
+static void print_tir_assignment(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId left = {data->b};
-    TermId right = {data->c};
+    TirId left = {data->b};
+    TirId right = {data->c};
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
@@ -495,9 +495,9 @@ static void print_tir_assignment(TirPrinter *printer, char const *name, TermId t
     printf(")\n");
 }
 
-static void print_tir_switch(TirPrinter *printer, TermId tir_id) {
+static void print_tir_switch(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId switch_ = {data->b};
+    TirId switch_ = {data->b};
     int32_t extra = data->c;
     int32_t branches = get_term_extra(printer->context, extra);
     int32_t branch_count = get_term_extra(printer->context, extra + 1);
@@ -509,8 +509,8 @@ static void print_tir_switch(TirPrinter *printer, TermId tir_id) {
         print_indent(printer->depth);
         printf("case(\n");
         printer->depth++;
-        TermId pattern = {get_term_extra(printer->context, branches + i * 2)};
-        TermId value = {get_term_extra(printer->context, branches + i * 2 + 1)};
+        TirId pattern = {get_term_extra(printer->context, branches + i * 2)};
+        TirId value = {get_term_extra(printer->context, branches + i * 2 + 1)};
         if (pattern.id) {
             print_tir_node(printer, pattern);
         } else {
@@ -526,7 +526,7 @@ static void print_tir_switch(TirPrinter *printer, TermId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TermId) {data->a});
+    print_type(stdout, printer->context, (TirId) {data->a});
     printf("\n");
 }
 
@@ -535,7 +535,7 @@ static void print_tir_block(TirPrinter *printer, int32_t block, int32_t length) 
     printf("block(\n");
     printer->depth++;
     for (int32_t i = 0; i < length; i++) {
-        TermId statement = {get_term_extra(printer->context, block + i)};
+        TirId statement = {get_term_extra(printer->context, block + i)};
         print_tir_node(printer, statement);
     }
     printer->depth--;
@@ -543,9 +543,9 @@ static void print_tir_block(TirPrinter *printer, int32_t block, int32_t length) 
     printf(")\n");
 }
 
-static void print_tir_if(TirPrinter *printer, TermId tir_id) {
+static void print_tir_if(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId condition = {data->b};
+    TirId condition = {data->b};
     int32_t extra = data->c;
     int32_t true_block = get_term_extra(printer->context, extra);
     int32_t true_block_length = get_term_extra(printer->context, extra + 1);
@@ -562,11 +562,11 @@ static void print_tir_if(TirPrinter *printer, TermId tir_id) {
     printf(")\n");
 }
 
-static void print_tir_for(TirPrinter *printer, TermId tir_id) {
+static void print_tir_for(TirPrinter *printer, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    TermId condition = {data->b};
+    TirId condition = {data->b};
     int32_t extra = data->c;
-    TermId next = {get_term_extra(printer->context, extra)};
+    TirId next = {get_term_extra(printer->context, extra)};
     int32_t block = get_term_extra(printer->context, extra + 1);
     int32_t block_length = get_term_extra(printer->context, extra + 2);
     print_indent(printer->depth);
@@ -582,43 +582,43 @@ static void print_tir_for(TirPrinter *printer, TermId tir_id) {
     printf(")\n");
 }
 
-static void print_tir_node(TirPrinter *printer, TermId tir_id) {
+static void print_tir_node(TirPrinter *printer, TirId tir_id) {
     switch (get_term_tag(printer->context, tir_id)) {
         default: {
             print_indent(printer->depth);
             printf("(error)\n");
             break;
         }
-        case VAL_FUNCTION:
-        case VAL_EXTERN_FUNCTION:
-        case VAL_EXTERN_VAR: {
+        case TIR_FUNCTION:
+        case TIR_EXTERN_FUNCTION:
+        case TIR_EXTERN_VAR: {
             print_indent(printer->depth);
             char const *name = get_value_str(printer->context, tir_id);
             printf("%s\n", name);
             break;
         }
-        case VAL_CONST_INT: {
+        case TIR_CONST_INT: {
             print_indent(printer->depth);
             printf("%ld\n", get_value_int(printer->context, tir_id));
             break;
         }
-        case VAL_CONST_FLOAT: {
+        case TIR_CONST_FLOAT: {
             print_indent(printer->depth);
             printf("%f\n", get_value_float(printer->context, tir_id));
             break;
         }
-        case VAL_CONST_NULL: {
+        case TIR_CONST_NULL: {
             print_indent(printer->depth);
             printf("null\n");
             break;
         }
-        case VAL_STRING: {
+        case TIR_STRING: {
             print_indent(printer->depth);
             printf("\"%s\"\n", get_value_str(printer->context, tir_id));
             break;
         }
-        case VAL_VARIABLE:
-        case VAL_MUTABLE_VARIABLE: {
+        case TIR_VARIABLE:
+        case TIR_MUTABLE_VARIABLE: {
             print_indent(printer->depth);
             printf("variable_%d: ", get_term_data(printer->context, tir_id)->b);
             print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
@@ -694,7 +694,7 @@ void print_tir(
     printf("Tir(%s) {\n", name);
     printer.depth++;
     for (int32_t i = 0; i < length; i++) {
-        TermId statement = {get_term_extra(context, first + i)};
+        TirId statement = {get_term_extra(context, first + i)};
         print_tir_node(&printer, statement);
     }
     printf("}\n");

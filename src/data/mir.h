@@ -16,7 +16,7 @@ typedef struct {
 } MirAccess;
 
 typedef struct {
-    TermId type;
+    TirId type;
     union {
         // Used for values.
         struct {
@@ -27,7 +27,7 @@ typedef struct {
         MirBinary binary;
         MirAccess mir_const;
         MirId unary;
-        TermId tir_value;
+        TirId tir_value;
     };
 } MirData;
 
@@ -52,7 +52,7 @@ static inline MirTag get_mir_tag(Mir *mir, MirId mir_id) {
     return mir->mir.tags[mir_id.private_field_id];
 }
 
-static inline TermId get_mir_type(Mir *mir, MirId mir_id) {
+static inline TirId get_mir_type(Mir *mir, MirId mir_id) {
     return mir->mir.datas[mir_id.private_field_id].type;
 }
 
@@ -74,7 +74,7 @@ static inline MirAccess get_mir_access(Mir *mir, MirId mir_id) {
     return mir->mir.datas[mir_id.private_field_id].mir_const;
 }
 
-static inline TermId get_mir_tir_value(Mir *mir, MirId mir_id) {
+static inline TirId get_mir_tir_value(Mir *mir, MirId mir_id) {
     return mir->mir.datas[mir_id.private_field_id].tir_value;
 }
 

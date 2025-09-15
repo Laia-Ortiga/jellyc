@@ -54,9 +54,9 @@ static void error(LinearChecker *ctx, AstId node, ErrorKind kind) {
     ctx->error = 1;
 }
 
-static void check_node(LinearChecker *ctx, TermId node, ExpectedValue expected_category);
+static void check_node(LinearChecker *ctx, TirId node, ExpectedValue expected_category);
 
-static void check_value(LinearChecker *ctx, TermId node, ExpectedValue expected_category) {
+static void check_value(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
     if (expected_category == RVALUE && !type_is_linear(ctx->tir_ctx, get_value_type(ctx->tir_ctx, node))) {
         return;
     }
@@ -64,41 +64,41 @@ static void check_value(LinearChecker *ctx, TermId node, ExpectedValue expected_
     check_node(ctx, node, expected_category);
 }
 
-static void check_let(LinearChecker *ctx, TermId node) {
+static void check_let(LinearChecker *ctx, TirId node) {
     int32_t var = get_term_data(ctx->tir_ctx, node)->b;
     ctx->var_states[var] = VAR_NOT_CONSUMED;
     ctx->var_refs[var] = get_term_data(ctx->tir_ctx, node)->node;
     ctx->var_states_top++;
-    TermId init = {get_term_data(ctx->tir_ctx, node)->c};
+    TirId init = {get_term_data(ctx->tir_ctx, node)->c};
     check_value(ctx, init, RVALUE);
 }
 
-static void check_unary_arit(LinearChecker *ctx, TermId node) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_unary_arit(LinearChecker *ctx, TirId node) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     check_value(ctx, operand, RVALUE);
 }
 
-static void check_address(LinearChecker *ctx, TermId node) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_address(LinearChecker *ctx, TirId node) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     check_value(ctx, operand, STATEMENT);
 }
 
-static void check_deref(LinearChecker *ctx, TermId node) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_deref(LinearChecker *ctx, TirId node) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     check_value(ctx, operand, RVALUE);
 }
 
-static void check_binary_arit(LinearChecker *ctx, TermId node) {
-    TermId left = {get_term_data(ctx->tir_ctx, node)->b};
-    TermId right = {get_term_data(ctx->tir_ctx, node)->c};
+static void check_binary_arit(LinearChecker *ctx, TirId node) {
+    TirId left = {get_term_data(ctx->tir_ctx, node)->b};
+    TirId right = {get_term_data(ctx->tir_ctx, node)->c};
     check_value(ctx, left, RVALUE);
     check_value(ctx, right, RVALUE);
 }
 
-static void check_assign(LinearChecker *ctx, TermId node) {
-    TermId left = {get_term_data(ctx->tir_ctx, node)->b};
-    TermId right = {get_term_data(ctx->tir_ctx, node)->c};
-    TermId type = get_value_type(ctx->tir_ctx, left);
+static void check_assign(LinearChecker *ctx, TirId node) {
+    TirId left = {get_term_data(ctx->tir_ctx, node)->b};
+    TirId right = {get_term_data(ctx->tir_ctx, node)->c};
+    TirId type = get_value_type(ctx->tir_ctx, left);
     if (type_is_linear(ctx->tir_ctx, type)) {
         AstId ast_id = get_term_data(ctx->tir_ctx, node)->node;
         error(ctx, ast_id, ERROR_LINEAR_ASSIGNMENT);
@@ -107,11 +107,11 @@ static void check_assign(LinearChecker *ctx, TermId node) {
     check_value(ctx, left, RVALUE);
 }
 
-static void check_access(LinearChecker *ctx, TermId node, ExpectedValue expected_category) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_access(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     int32_t index = get_term_data(ctx->tir_ctx, node)->c;
-    TermId type = get_value_type(ctx->tir_ctx, operand);
-    TermId result_type = get_struct_type_field(ctx->tir_ctx, type, index);
+    TirId type = get_value_type(ctx->tir_ctx, operand);
+    TirId result_type = get_struct_type_field(ctx->tir_ctx, type, index);
     if (expected_category == RVALUE && !type_is_linear(ctx->tir_ctx, result_type)) {
         // If you are accessing a field that is not affine, no need to consume it.
         check_value(ctx, operand, LVALUE);
@@ -120,47 +120,47 @@ static void check_access(LinearChecker *ctx, TermId node, ExpectedValue expected
     }
 }
 
-static void check_call(LinearChecker *ctx, TermId node) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_call(LinearChecker *ctx, TirId node) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     int32_t args = get_term_data(ctx->tir_ctx, node)->c;
-    TermId type = get_value_type(ctx->tir_ctx, operand);
+    TirId type = get_value_type(ctx->tir_ctx, operand);
     int32_t arg_count = get_function_type(ctx->tir_ctx, type).param_count;
     for (int32_t i = 0; i < arg_count; i++) {
-        TermId arg = {get_term_extra(ctx->tir_ctx, args + i)};
+        TirId arg = {get_term_extra(ctx->tir_ctx, args + i)};
         check_value(ctx, arg, RVALUE);
     }
     check_value(ctx, operand, RVALUE);
 }
 
-static void check_index(LinearChecker *ctx, TermId node, ExpectedValue expected_category) {
-    TermId left = {get_term_data(ctx->tir_ctx, node)->b};
-    TermId right = {get_term_data(ctx->tir_ctx, node)->c};
+static void check_index(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
+    TirId left = {get_term_data(ctx->tir_ctx, node)->b};
+    TirId right = {get_term_data(ctx->tir_ctx, node)->c};
     check_value(ctx, right, RVALUE);
     check_value(ctx, left, expected_category);
 }
 
-static void check_slice(LinearChecker *ctx, TermId node, ExpectedValue expected_category) {
+static void check_slice(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
     TermData const *data = get_term_data(ctx->tir_ctx, node);
-    TermId operand = {data->b};
+    TirId operand = {data->b};
     int32_t index = data->c;
-    TermId low = {get_term_extra(ctx->tir_ctx, index)};
-    TermId high = {get_term_extra(ctx->tir_ctx, index + 1)};
+    TirId low = {get_term_extra(ctx->tir_ctx, index)};
+    TirId high = {get_term_extra(ctx->tir_ctx, index + 1)};
     check_value(ctx, low, RVALUE);
     check_value(ctx, high, RVALUE);
     check_value(ctx, operand, expected_category);
 }
 
-static void check_new_type(LinearChecker *ctx, TermId node) {
+static void check_new_type(LinearChecker *ctx, TirId node) {
     int32_t args = get_term_data(ctx->tir_ctx, node)->b;
     int32_t arg_count = get_term_data(ctx->tir_ctx, node)->c;
     for (int32_t i = 0; i < arg_count; i++) {
-        TermId arg = {get_term_extra(ctx->tir_ctx, args + i)};
+        TirId arg = {get_term_extra(ctx->tir_ctx, args + i)};
         check_value(ctx, arg, RVALUE);
     }
 }
 
-static void check_return(LinearChecker *ctx, TermId node) {
-    TermId operand = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_return(LinearChecker *ctx, TirId node) {
+    TirId operand = {get_term_data(ctx->tir_ctx, node)->b};
     if (operand.id) {
         check_value(ctx, operand, RVALUE);
     }
@@ -172,8 +172,8 @@ static VariableState *copy_state(LinearChecker *ctx) {
     return state;
 }
 
-static void check_if(LinearChecker *ctx, TermId node) {
-    TermId condition = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_if(LinearChecker *ctx, TirId node) {
+    TirId condition = {get_term_data(ctx->tir_ctx, node)->b};
     int32_t extra = get_term_data(ctx->tir_ctx, node)->c;
     int32_t true_block = get_term_extra(ctx->tir_ctx, extra);
     int32_t true_block_length = get_term_extra(ctx->tir_ctx, extra + 1);
@@ -185,7 +185,7 @@ static void check_if(LinearChecker *ctx, TermId node) {
     VariableState *enter_state = copy_state(&true_ctx);
 
     for (int32_t i = 0; i < true_block_length; i++) {
-        TermId statement = {get_term_extra(ctx->tir_ctx, true_block + i)};
+        TirId statement = {get_term_extra(ctx->tir_ctx, true_block + i)};
         check_node(&true_ctx, statement, STATEMENT);
     }
 
@@ -193,7 +193,7 @@ static void check_if(LinearChecker *ctx, TermId node) {
     false_ctx.var_states = enter_state;
 
     for (int32_t i = 0; i < false_block_length; i++) {
-        TermId statement = {get_term_extra(ctx->tir_ctx, false_block + i)};
+        TirId statement = {get_term_extra(ctx->tir_ctx, false_block + i)};
         check_node(&false_ctx, statement, STATEMENT);
     }
 
@@ -204,8 +204,8 @@ static void check_if(LinearChecker *ctx, TermId node) {
     }
 }
 
-static void check_switch(LinearChecker *ctx, TermId node) {
-    TermId switch_ = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_switch(LinearChecker *ctx, TirId node) {
+    TirId switch_ = {get_term_data(ctx->tir_ctx, node)->b};
     int32_t extra = get_term_data(ctx->tir_ctx, node)->c;
     int32_t branches = get_term_extra(ctx->tir_ctx, extra);
     int32_t branch_count = get_term_extra(ctx->tir_ctx, extra + 1);
@@ -213,7 +213,7 @@ static void check_switch(LinearChecker *ctx, TermId node) {
 
     // First, check all patterns
     for (int32_t i = 0; i < branch_count; i++) {
-        TermId pattern = {get_term_extra(ctx->tir_ctx, branches + i * 2)};
+        TirId pattern = {get_term_extra(ctx->tir_ctx, branches + i * 2)};
 
         if (pattern.id) {
             check_value(ctx, pattern, RVALUE);
@@ -225,7 +225,7 @@ static void check_switch(LinearChecker *ctx, TermId node) {
 
     // Then, check each branch for discrepancies
     for (int32_t j = 0; j < branch_count; j++) {
-        TermId value = {get_term_extra(ctx->tir_ctx, branches + j * 2 + 1)};
+        TirId value = {get_term_extra(ctx->tir_ctx, branches + j * 2 + 1)};
 
         if (j != 0) {
             LinearChecker pattern_ctx = *ctx;
@@ -244,10 +244,10 @@ static void check_switch(LinearChecker *ctx, TermId node) {
     }
 }
 
-static void check_loop(LinearChecker *ctx, TermId node) {
-    TermId condition = {get_term_data(ctx->tir_ctx, node)->b};
+static void check_loop(LinearChecker *ctx, TirId node) {
+    TirId condition = {get_term_data(ctx->tir_ctx, node)->b};
     int32_t extra = get_term_data(ctx->tir_ctx, node)->c;
-    TermId next = {get_term_extra(ctx->tir_ctx, extra)};
+    TirId next = {get_term_extra(ctx->tir_ctx, extra)};
     int32_t block = get_term_extra(ctx->tir_ctx, extra + 1);
     int32_t block_length = get_term_extra(ctx->tir_ctx, extra + 2);
 
@@ -256,7 +256,7 @@ static void check_loop(LinearChecker *ctx, TermId node) {
     ctx->var_states_loop_top = ctx->var_states_top;
 
     for (int32_t i = 0; i < block_length; i++) {
-        TermId statement = {get_term_extra(ctx->tir_ctx, block + i)};
+        TirId statement = {get_term_extra(ctx->tir_ctx, block + i)};
         check_node(ctx, statement, STATEMENT);
     }
 
@@ -269,27 +269,27 @@ static void check_loop(LinearChecker *ctx, TermId node) {
 
 static void check_function(LinearChecker *ctx, int32_t block, int32_t block_length) {
     for (int32_t i = 0; i < block_length; i++) {
-        TermId statement = {get_term_extra(ctx->tir_ctx, block + i)};
+        TirId statement = {get_term_extra(ctx->tir_ctx, block + i)};
         check_node(ctx, statement, STATEMENT);
     }
 }
 
-static void check_node(LinearChecker *ctx, TermId node, ExpectedValue expected_category) {
+static void check_node(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
     switch (get_term_tag(ctx->tir_ctx, node)) {
         default: {
             abort();
         }
-        case VAL_FUNCTION:
-        case VAL_EXTERN_FUNCTION:
-        case VAL_EXTERN_VAR:
-        case VAL_CONST_INT:
-        case VAL_CONST_FLOAT:
-        case VAL_CONST_NULL:
-        case VAL_STRING: {
+        case TIR_FUNCTION:
+        case TIR_EXTERN_FUNCTION:
+        case TIR_EXTERN_VAR:
+        case TIR_CONST_INT:
+        case TIR_CONST_FLOAT:
+        case TIR_CONST_NULL:
+        case TIR_STRING: {
             break;
         }
-        case VAL_VARIABLE:
-        case VAL_MUTABLE_VARIABLE: {
+        case TIR_VARIABLE:
+        case TIR_MUTABLE_VARIABLE: {
             int32_t var = get_term_data(ctx->tir_ctx, node)->b;
             AstId ast_id = ctx->var_refs[var];
             switch (ctx->var_states[var]) {
