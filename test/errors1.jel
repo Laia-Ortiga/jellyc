@@ -15,7 +15,7 @@ function main(should_not_be_here i32) {
     c = 6
     [i32 -> i32]
     *3
-    3 as bool
+    <bool> 3
     `slice[3, 9]
     i32.a
     X.second

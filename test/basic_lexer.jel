@@ -225,7 +225,7 @@ function mem_eq(a @char, b @char) -> bool {
     if a.length != b.length {
         return false
     }
-    for i = 0 as isize; i < a.length; i += 1 {
+    for i = <isize> 0; i < a.length; i += 1 {
         if a[i] != b[i] {
             return false
         }
@@ -283,12 +283,12 @@ function id(lexer *mut Lexer) -> Token {
         consume(lexer)
     }
     let str = &lexer.source[start:lexer.cursor]
-    let kind = switch {
+    let kind = <TokenKind> switch {
         mem_eq(str, &"function") -> .kw_function,
         mem_eq(str, &"let") -> .kw_let,
         mem_eq(str, &"return") -> .kw_return,
         else -> .id,
-    } as TokenKind
+    }
     Token(kind, start, lexer.cursor - start)
 }
 
@@ -310,7 +310,7 @@ function read_file(path *char) -> @mut char {
     libc.fseek(file, 0, 2)
     let length = libc.ftell(file)
     libc.fseek(file, 0, 0)
-    let buffer = libc.malloc(length + 1) as *mut char
+    let buffer = <*mut char> libc.malloc(length + 1)
 
     if buffer == null {
         return `slice[0, null]

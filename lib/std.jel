@@ -7,7 +7,7 @@ public function print_char(c char) {
 }
 
 public function print_str(s @char) {
-    for i = 0 as isize; i < s.length; i += 1 {
+    for i = <isize> 0; i < s.length; i += 1 {
         print_char(s[i])
     }
 }
@@ -16,7 +16,7 @@ function print_int_rec(x i64) {
     if x / 10 != 0 {
         print_int_rec(x / 10)
     }
-    print_char((x % 10) as char + '0')
+    print_char(<char> (x % 10) + '0')
 }
 
 public function print_int(x i64) {
@@ -25,7 +25,7 @@ public function print_int(x i64) {
         if x / -10 != 0 {
             print_int_rec(x / -10)
         }
-        print_char(-(x % 10) as char + '0')
+        print_char(<char> -(x % 10) + '0')
     } else {
         print_int_rec(x)
     }

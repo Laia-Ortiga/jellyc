@@ -34,7 +34,7 @@ function f2(hi TokenTag) {
 }
 
 function f3() -> [:3]i32 {
-    [2 >> 1.3 as i32, 4, 5]
+    [2 >> <i32> 1.3, 4, 5]
 }
 
 function f(hi X) {

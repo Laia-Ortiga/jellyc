@@ -184,6 +184,7 @@ Lexer new_lexer(String source) {
 }
 
 Token next_token(Lexer *lexer) {
+    SourceIndex origin = lexer->cursor;
     bool found_newline = false;
     for (;;) {
         SourceIndex start = lexer->cursor;
@@ -216,7 +217,15 @@ Token next_token(Lexer *lexer) {
             case '=': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_EQ : TOK_ASSIGN, .start = start, .end = lexer->cursor};
             case '!': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_NE : TOK_NOT, .start = start, .end = lexer->cursor};
             case '<': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_LE : accept(lexer, '<') ? TOK_SHL : TOK_LT, .start = start, .end = lexer->cursor};
-            case '>': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_GE : accept(lexer, '>') ? TOK_SHR : TOK_GT, .start = start, .end = lexer->cursor};
+            case '>': return (Token) {
+                .comes_after_newline = found_newline,
+                .tag = accept(lexer, '=') ? TOK_GE
+                    : accept(lexer, '>') ? TOK_SHR
+                    : origin.index == start.index ? TOK_ANGLER
+                    : TOK_GT,
+                .start = start,
+                .end = lexer->cursor
+            };
             case '\'': lit_string(lexer, '\''); return (Token) {.comes_after_newline = found_newline, .tag = TOK_CHAR, .start = start, .end = lexer->cursor};
             case '"': lit_string(lexer, '"'); return (Token) {.comes_after_newline = found_newline, .tag = TOK_STRING, .start = start, .end = lexer->cursor};
             case '`': return (Token) {.comes_after_newline = found_newline, .tag = builtin_id(lexer), .start = start, .end = lexer->cursor};

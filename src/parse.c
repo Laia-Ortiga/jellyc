@@ -728,6 +728,12 @@ static AstId parse_prefix(Parser *parser) {
         case TOK_SQUAREL: {
             return parse_list(parser, token.start);
         }
+        case TOK_LT: {
+            AstId type = parse_expr(parser, PREC_NONE);
+            expect(parser, TOK_ANGLER);
+            AstId expr = parse_expr(parser, PREC_AS);
+            return add_binary_ast(AST_CAST, token.start, expr, type, &parser->ast);
+        }
         case TOK_KW_function: {
             return parse_function_type(parser, token.start);
         }

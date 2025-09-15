@@ -69,9 +69,9 @@ function init_view_matrix(cam Camera) -> [:16]f32 {
 }
 
 function init_proj_matrix(aspect f32) -> [:16]f32 {
-    let tan_fov2 = 1.0 as f32
-    let near = 0.125 as f32
-    let far = 1024.0 as f32
+    let tan_fov2 = <f32> 1.0
+    let near = <f32> 0.125
+    let far = <f32> 1024.0
     [
         1.0 / (aspect * tan_fov2),
         0.0,
@@ -96,8 +96,8 @@ function init_proj_matrix(aspect f32) -> [:16]f32 {
 }
 
 function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
-    let ambient = 0.25 as f32
-    let diffuse = 0.75 as f32
+    let ambient = <f32> 0.25
+    let diffuse = <f32> 0.75
     UniformBlock(
         init_view_matrix(cam),
         init_proj_matrix(aspect),
@@ -109,21 +109,21 @@ function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
 }
 
 function key_callback(window *mut byte, key i32, scancode i32, action i32, mods i32) {
-    let magnitude = 0.15 as f32
-    let speed = switch action {
+    let magnitude = <f32> 0.15
+    let speed = <f32> switch action {
         GLFW_RELEASE -> -magnitude,
         GLFW_PRESS -> magnitude,
         else -> 0.0,
-    } as f32
-    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    }
+    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
     let state = &scene.cam_state
     switch key {
-        'A' as i32          -> state.speed.x = state.speed.x - speed,
-        'D' as i32          -> state.speed.x = state.speed.x + speed,
-        'W' as i32          -> state.speed.z = state.speed.z - speed,
-        'S' as i32          -> state.speed.z = state.speed.z + speed,
+        <i32> 'A'           -> state.speed.x = state.speed.x - speed,
+        <i32> 'D'           -> state.speed.x = state.speed.x + speed,
+        <i32> 'W'           -> state.speed.z = state.speed.z - speed,
+        <i32> 'S'           -> state.speed.z = state.speed.z + speed,
         GLFW_KEY_LEFT_SHIFT -> state.speed.y = state.speed.y - speed,
-        ' ' as i32          -> state.speed.y = state.speed.y + speed,
+        <i32> ' '           -> state.speed.y = state.speed.y + speed,
     }
 }
 
@@ -132,7 +132,7 @@ function mouse_button_callback(window *mut byte, button i32, action i32, mods i3
         return
     }
 
-    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
     if action == GLFW_PRESS {
         glfwGetCursorPos(window, &scene.cam_state.last_x, &scene.cam_state.last_y)
     }
@@ -140,17 +140,17 @@ function mouse_button_callback(window *mut byte, button i32, action i32, mods i3
 }
 
 function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
-    let scene = glfwGetWindowUserPointer(window) as *mut Scene
+    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
     if !scene.cam_state.rotating {
         return
     }
 
-    let factor = 0.005 as f32
-    scene.cam_state.target.pitch = scene.cam_state.target.pitch - (y - scene.cam_state.last_y) as f32 * factor
-    scene.cam_state.target.yaw = scene.cam_state.target.yaw - (x - scene.cam_state.last_x) as f32 * factor
+    let factor = <f32> 0.005
+    scene.cam_state.target.pitch = scene.cam_state.target.pitch - <f32> (y - scene.cam_state.last_y) * factor
+    scene.cam_state.target.yaw = scene.cam_state.target.yaw - <f32> (x - scene.cam_state.last_x) * factor
     scene.cam_state.last_x = x
     scene.cam_state.last_y = y
-    let limit = (3.14 / 3.0) as f32
+    let limit = <f32> (3.14 / 3.0)
     scene.cam_state.target.pitch = libc.fminf(libc.fmaxf(scene.cam_state.target.pitch, -limit), limit)
 }
 
@@ -174,8 +174,8 @@ function main() {
         return
     }
 
-    let width = 1280 as i32
-    let height = 720 as i32
+    let width = <i32> 1280
+    let height = <i32> 720
 
     let window = glfwCreateWindow(width, height, &"Test"[0], null, null)
     if window == null {
@@ -204,7 +204,7 @@ function main() {
     let sky = init_sky()
     let terrain = init_terrain(13337)
     let colors = [
-        0.2 as f32, 0.6, 0.8,
+        <f32> 0.2, 0.6, 0.8,
         0.9, 0.8, 0.3,
         0.2, 0.5, 0.65,
     ]
