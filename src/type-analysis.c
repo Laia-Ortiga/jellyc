@@ -546,19 +546,6 @@ static TirId expect_value_type(Context *c, AstId node, TirId wanted_type) {
     return apply_implicit_conversion(c, node, result, wanted_type);
 }
 
-typedef struct {
-    enum {
-        CONSTANT_INVALID,
-        CONSTANT_INT,
-        CONSTANT_FLOAT,
-    } type;
-
-    union {
-        int64_t i;
-        double f;
-    };
-} Constant;
-
 static bool try_get_int_const(Context *c, TirId value, int64_t *i) {
     if (get_term_tag(c->tir, value) == TIR_CONST_INT) {
         *i = get_value_int(c->tir, value);
