@@ -5,7 +5,6 @@
 #include "data/ast.h"
 #include "data/tir.h"
 #include "diagnostic.h"
-#include "enums.h"
 #include "fwd.h"
 #include "hash.h"
 #include "lex.h"

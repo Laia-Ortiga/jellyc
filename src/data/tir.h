@@ -1,14 +1,149 @@
 #pragma once
 
 #include "arena.h"
-#include "enums.h"
 #include "ast.h"
+#include "fwd.h"
 #include "hash.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+
+typedef enum {
+    TIR_ERROR,
+
+    TIR_TYPE_START,
+    TIR_PRIMITIVE_TYPE = TIR_TYPE_START,
+    TIR_ARRAY_TYPE,
+    TIR_ARRAY_LENGTH_TYPE,
+    TIR_PTR_TYPE,
+    TIR_MUT_PTR_TYPE,
+    TIR_SLICE_TYPE,
+    TIR_MUT_SLICE_TYPE,
+    TIR_FUNCTION_TYPE,
+    TIR_TAGGED_TYPE,
+    TIR_STRUCT_TYPE,
+    TIR_ENUM_TYPE,
+    TIR_LINEAR_TYPE,
+    TIR_TYPE_PARAMETER,
+    TIR_TYPE_END,
+
+    // index is unused
+    TIR_VALUE_START = TIR_TYPE_END,
+    TIR_FUNCTION = TIR_VALUE_START,
+
+    // index points to the name of the function
+    TIR_EXTERN_FUNCTION,
+
+    // index points to the name of the var
+    TIR_EXTERN_VAR,
+
+    // index points to the 64-bit value in extra
+    TIR_CONST_INT,
+
+    // index points to the 64-bit value in extra
+    TIR_CONST_FLOAT,
+
+    // index is unused
+    TIR_CONST_NULL,
+
+    // index points to the string
+    TIR_STRING,
+
+    // index is the variable index
+    TIR_VARIABLE,
+    TIR_MUTABLE_VARIABLE,
+
+    TIR_LET,
+    TIR_MUT,
+
+    TIR_PLUS,
+    TIR_MINUS,
+    TIR_NOT,
+    TIR_DEREF,
+    TIR_ADDRESS,
+    TIR_ADDRESS_OF_TEMPORARY,
+
+    TIR_ADD,
+    TIR_SUB,
+    TIR_MUL,
+    TIR_DIV,
+    TIR_MOD,
+
+    TIR_AND,
+    TIR_OR,
+    TIR_XOR,
+    TIR_SHL,
+    TIR_SHR,
+
+    TIR_EQ,
+    TIR_NE,
+    TIR_LT,
+    TIR_GT,
+    TIR_LE,
+    TIR_GE,
+
+    TIR_ASSIGN,
+    TIR_ASSIGN_ADD,
+    TIR_ASSIGN_SUB,
+    TIR_ASSIGN_MUL,
+    TIR_ASSIGN_DIV,
+    TIR_ASSIGN_MOD,
+    TIR_ASSIGN_AND,
+    TIR_ASSIGN_OR,
+    TIR_ASSIGN_XOR,
+
+    TIR_ITOF,
+    TIR_ITRUNC,
+    TIR_SEXT,
+    TIR_ZEXT,
+    TIR_FTOI,
+    TIR_FTRUNC,
+    TIR_FEXT,
+    TIR_PTR_CAST,
+    TIR_NOP,
+    TIR_ARRAY_TO_SLICE,
+
+    TIR_CALL,
+    TIR_INDEX,
+    TIR_SLICE,
+    TIR_ACCESS,
+    TIR_NEW_STRUCT,
+    TIR_NEW_ARRAY,
+
+    TIR_IF,
+    TIR_SWITCH,
+    TIR_LOOP,
+    TIR_BREAK,
+    TIR_CONTINUE,
+    TIR_RETURN,
+
+    TIR_VALUE_END,
+
+    TIR_MACRO = TIR_VALUE_END,
+    TIR_MODULE,
+
+    // a is the inner term
+    // b points to the number of type parameters followed by the types
+    TIR_GENERIC,
+} TirTag;
+
+static inline bool is_tir_type(TirTag tag) {
+    return tag >= TIR_TYPE_START && tag < TIR_TYPE_END;
+}
+
+static inline bool is_tir_value(TirTag tag) {
+    return tag >= TIR_VALUE_START && tag < TIR_VALUE_END;
+}
+
+typedef enum {
+    VALUE_INVALID,
+    VALUE_TEMPORARY,
+    VALUE_PLACE,
+    VALUE_MUTABLE_PLACE,
+    VALUE_MULTIVALUE,
+} ValueCategory;
 
 typedef struct {
     int32_t id;

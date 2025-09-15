@@ -2,7 +2,6 @@
 
 #include "adt.h"
 #include "arena.h"
-#include "enums.h"
 #include "util.h"
 
 #include <stdbool.h>

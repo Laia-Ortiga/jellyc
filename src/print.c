@@ -1,7 +1,6 @@
 #include "print.h"
 
 #include "adt.h"
-#include "enums.h"
 #include "data/ast.h"
 #include "data/tir.h"
 #include "lex.h"

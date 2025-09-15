@@ -4,7 +4,6 @@
 #include "arena.h"
 #include "data/ast.h"
 #include "diagnostic.h"
-#include "enums.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
