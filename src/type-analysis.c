@@ -355,20 +355,18 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
 
     error(c, node, &(Diagnostic) {.kind = ERROR_EXPECTED_MUTABLE_PLACE});
 
-    /* TODO
-    if (get_rir_tag(node, c->rir) == AST_LOCAL_ID) {
-        LocalId local = {get_rir_data(node, c->rir)};
-        LocalAstRef ref = c->local_ast_refs[c->file].ptr[local.id];
-        Ast *nodes = &c->asts[c->file];
+    if (get_term_tag(c->tir, result) == TIR_VARIABLE) {
+        int32_t var_index = get_term_data(c->tir, result)->b;
+        AstTag tag = get_ast_tag(get_term_data(c->tir, result)->node, c->ast);
 
-        if (!c->local->notes_shown[local.id] && get_ast_tag(ref.node, nodes) == AST_LET) {
-            c->local->notes_shown[local.id] = true;
-            SourceIndex token = get_ast_token(ref.node, nodes);
+        if (!c->locals.ptr[var_index].notes_shown && tag == AST_LET) {
+            c->locals.ptr[var_index].notes_shown = true;
+            SourceIndex token = get_ast_token(get_term_data(c->tir, result)->node, c->ast);
             String name = id_token_to_string(ctx_source(c), token);
             SourceLoc note = ctx_init_loc(c, token, name.len);
             print_diagnostic(&note, &(Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
         }
-    }*/
+    }
 
     return null_tir;
 }
