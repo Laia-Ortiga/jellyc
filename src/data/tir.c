@@ -27,6 +27,19 @@ typedef struct {
     };
 } StructuralType;
 
+static TirId get_type_elem(TirContext c, TirId type) {
+    switch (get_term_tag(c, type)) {
+        case TIR_ARRAY_TYPE:
+        case TIR_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE:
+        case TIR_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE:
+        case TIR_LINEAR_TYPE: return (TirId) {get_term_data(c, type)->a};
+
+        default: return null_tir;
+    }
+}
+
 static StructuralType get_type_from_id(TirContext c, TirId type) {
     TirTag tag = get_term_tag(c, type);
     switch (tag) {
@@ -46,7 +59,7 @@ static StructuralType get_type_from_id(TirContext c, TirId type) {
         case TIR_MUT_SLICE_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .unary = remove_any_pointer(c, type),
+                .unary = get_type_elem(c, type),
             };
         }
         case TIR_FUNCTION_TYPE: {
@@ -516,7 +529,7 @@ TirId remove_any_pointer(TirContext c, TirId type) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
         default: return null_tir;
     }
@@ -525,7 +538,7 @@ TirId remove_any_pointer(TirContext c, TirId type) {
 TirId remove_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_MUT_PTR_TYPE: return get_type_elem(c, type);
 
         default: return null_tir;
     }
@@ -534,7 +547,7 @@ TirId remove_pointer(TirContext c, TirId type) {
 TirId remove_slice(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
         default: return null_tir;
     }
@@ -542,16 +555,16 @@ TirId remove_slice(TirContext c, TirId type) {
 
 TirId replace_slice_with_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_SLICE_TYPE: return new_ptr_type(c, (TirId) {get_term_data(c, type)->a});
-        case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, (TirId) {get_term_data(c, type)->a});
+        case TIR_SLICE_TYPE: return new_ptr_type(c, get_type_elem(c, type));
+        case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, get_type_elem(c, type));
         default: return null_tir;
     }
 }
 
 TirId replace_pointer_with_slice(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_PTR_TYPE: return new_slice_type(c, (TirId) {get_term_data(c, type)->a});
-        case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, (TirId) {get_term_data(c, type)->a});
+        case TIR_PTR_TYPE: return new_slice_type(c, get_type_elem(c, type));
+        case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, get_type_elem(c, type));
         default: return null_tir;
     }
 }
@@ -562,7 +575,7 @@ TirId remove_c_pointer_like(TirContext c, TirId type) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
         default: return null_tir;
     }
@@ -572,7 +585,7 @@ TirId remove_array_like(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_ARRAY_TYPE:
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
         default: return null_tir;
     }
@@ -738,7 +751,7 @@ TirId get_linear_elem_type(TirContext c, TirId type) {
         abort();
     }
 
-    return (TirId) {get_term_data(c, type)->a};
+    return get_type_elem(c, type);
 }
 
 int32_t get_type_parameter_index(TirContext c, TirId type) {
@@ -988,22 +1001,22 @@ void print_type(FILE *file, TirContext c, TirId type) {
         }
         case TIR_PTR_TYPE: {
             fprintf(file, "*");
-            print_type(file, c, remove_any_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_MUT_PTR_TYPE: {
             fprintf(file, "*mut ");
-            print_type(file, c, remove_any_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_SLICE_TYPE: {
             fprintf(file, "@");
-            print_type(file, c, remove_any_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_MUT_SLICE_TYPE: {
             fprintf(file, "@mut ");
-            print_type(file, c, remove_any_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_FUNCTION_TYPE: {
@@ -1189,8 +1202,8 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
         case TIR_LINEAR_TYPE: {
-            TirId param_elem = {get_term_data(c, param)->a};
-            TirId arg_elem = {get_term_data(c, arg)->a};
+            TirId param_elem = get_type_elem(c, param);
+            TirId arg_elem = get_type_elem(c, arg);
             return match_type_parameters(c, results, param_elem, arg_elem);
         }
         case TIR_FUNCTION_TYPE: {
@@ -1253,23 +1266,23 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             });
         }
         case TIR_PTR_TYPE: {
-            TirId elem = {get_term_data(info->c, generic)->a};
+            TirId elem = get_type_elem(info->c, generic);
             return new_ptr_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_MUT_PTR_TYPE: {
-            TirId elem = {get_term_data(info->c, generic)->a};
+            TirId elem = get_type_elem(info->c, generic);
             return new_mut_ptr_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_SLICE_TYPE: {
-            TirId elem = {get_term_data(info->c, generic)->a};
+            TirId elem = get_type_elem(info->c, generic);
             return new_slice_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_MUT_SLICE_TYPE: {
-            TirId elem = {get_term_data(info->c, generic)->a};
+            TirId elem = get_type_elem(info->c, generic);
             return new_mut_slice_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_LINEAR_TYPE: {
-            TirId elem = {get_term_data(info->c, generic)->a};
+            TirId elem = get_type_elem(info->c, generic);
             return new_linear_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_FUNCTION_TYPE: {

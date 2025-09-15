@@ -367,7 +367,7 @@ static void print_tir_unary_value(TirPrinter *printer, char const *name, TirId t
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
@@ -383,7 +383,7 @@ static void print_tir_binary_value(TirPrinter *printer, char const *name, TirId 
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
@@ -414,7 +414,7 @@ static void print_tir_access(TirPrinter *printer, TirId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
@@ -437,7 +437,7 @@ static void print_tir_call(TirPrinter *printer, char const *name, TirId tir_id) 
     printf(")");
     if (get_value_type(printer->context, tir_id).id != TYPE_VOID) {
         printf(": ");
-        print_type(stdout, printer->context, (TirId) {data->a});
+        print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     }
     printf("\n");
 }
@@ -457,7 +457,7 @@ static void print_tir_slice(TirPrinter *printer, TirId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
@@ -475,7 +475,7 @@ static void print_tir_new_type(TirPrinter *printer, char const *name, TirId tir_
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
@@ -524,7 +524,7 @@ static void print_tir_switch(TirPrinter *printer, TirId tir_id) {
     printer->depth--;
     print_indent(printer->depth);
     printf("): ");
-    print_type(stdout, printer->context, (TirId) {data->a});
+    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
     printf("\n");
 }
 
