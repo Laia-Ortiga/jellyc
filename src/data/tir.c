@@ -203,7 +203,7 @@ static void termset_resize(TermSet *set, TirContext ctx) {
 }
 
 static TirDependencies *ctx_deps(TirContext ctx) {
-    return ctx.thread ? &ctx.thread->deps : ctx.global;
+    return ctx.thread ? ctx.thread : ctx.global;
 }
 
 static TermList *ctx_terms(TirContext ctx) {
@@ -240,7 +240,7 @@ static TirId new_structural_type(TirContext ctx, StructuralType descriptor) {
 
     TirId type = {ctx.global->terms.terms.len + TERM_COUNT};
     if (ctx.thread) {
-        type.id += ctx.thread->deps.terms.terms.len;
+        type.id += ctx.thread->terms.terms.len;
     }
     set->ptr[slot] = type;
     set->count++;
@@ -319,8 +319,8 @@ static TirId new_tir(TirContext ctx, TirTag tag, TermData data) {
         return t;
     }
 
-    TirId t = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->deps.terms.terms.len};
-    sum_vec_push(&ctx.thread->deps.terms.terms, data, tag);
+    TirId t = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->terms.terms.len};
+    sum_vec_push(&ctx.thread->terms.terms, data, tag);
     return t;
 }
 
@@ -450,14 +450,14 @@ static TirDependencies *get_term_deps(TirContext ctx, TirId type) {
     if (type.id - TERM_COUNT < ctx.global->terms.terms.len) {
         return ctx.global;
     }
-    return &ctx.thread->deps;
+    return ctx.thread;
 }
 
 static TermIndex get_term_index(TirContext ctx, TirId type) {
     if (type.id - TERM_COUNT < ctx.global->terms.terms.len) {
         return (TermIndex) {ctx.global, type.id - TERM_COUNT};
     }
-    return (TermIndex) {&ctx.thread->deps, type.id - TERM_COUNT - ctx.global->terms.terms.len};
+    return (TermIndex) {ctx.thread, type.id - TERM_COUNT - ctx.global->terms.terms.len};
 }
 
 TirTag get_term_tag(TirContext ctx, TirId type) {
@@ -486,7 +486,7 @@ TermData const *get_term_data(TirContext ctx, TirId type) {
 }
 
 int32_t get_term_extra(TirContext ctx, int32_t index) {
-    return ctx.thread->deps.terms.extra.ptr[index];
+    return ctx.thread->terms.extra.ptr[index];
 }
 
 static int32_t *get_type_extra(TirContext ctx, TirId type) {

@@ -593,7 +593,7 @@ MirResult tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         Context c = {0};
         c.mir = mir;
         c.tir.global = input->global_deps;
-        c.tir.thread = &input->insts[i];
+        c.tir.thread = &input->insts[i].deps;
         c.scratch = scratch;
         c.variable_to_mir_map = arena_alloc(&c.scratch, MirId, input->insts[i].local_count);
         ends[i] = c.mir.mir.len;

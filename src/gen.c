@@ -908,7 +908,7 @@ void gen_c(GenInput *input, Target target) {
     }
 
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
-        ctx.tir.thread = &input->insts[i];
+        ctx.tir.thread = &input->insts[i].deps;
         TirId value = input->global_deps.functions.ptr[i];
         gen_function(&ctx, input->mir_result->ends[i], input->mir_result->ends[i + 1], value, input->global_deps.main.id == value.id);
     }

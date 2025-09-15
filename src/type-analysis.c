@@ -61,6 +61,7 @@ typedef struct {
 
     TirContext tir;
     LocalTir *local_tirs;
+    LocalTir *local_tir;
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
@@ -202,8 +203,8 @@ static void add_id(Context *c, AstRef ref, TirId term) {
 }
 
 static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
-    int32_t index = c->tir.thread->deps.terms.extra.len;
-    int32_t *result = vec_grow(&c->tir.thread->deps.terms.extra, count);
+    int32_t index = c->tir.thread->terms.extra.len;
+    int32_t *result = vec_grow(&c->tir.thread->terms.extra, count);
     for (int32_t i = 0; i < count; i++) {
         result[i] = values[i];
     }
@@ -284,8 +285,8 @@ static int32_t ctx_push_str(Context const *c, String s) {
     char null = '\0';
 
     if (c->tir.thread) {
-        int32_t index = push_str(&c->tir.thread->deps.strtab, s);
-        push_str(&c->tir.thread->deps.strtab, (String) {1, &null});
+        int32_t index = push_str(&c->tir.thread->strtab, s);
+        push_str(&c->tir.thread->strtab, (String) {1, &null});
         return index;
     }
 
@@ -298,9 +299,9 @@ static int32_t ctx_push_double_str(Context const *c, String s1, String s2) {
     char null = '\0';
 
     if (c->tir.thread) {
-        int32_t index = push_str(&c->tir.thread->deps.strtab, s1);
-        push_str(&c->tir.thread->deps.strtab, s2);
-        push_str(&c->tir.thread->deps.strtab, (String) {1, &null});
+        int32_t index = push_str(&c->tir.thread->strtab, s1);
+        push_str(&c->tir.thread->strtab, s2);
+        push_str(&c->tir.thread->strtab, (String) {1, &null});
         return index;
     }
 
@@ -712,7 +713,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     }
     for (int32_t i = 0; i < func_type.param_count; i++) {
         TirId param_type = get_function_type_param(c->tir, type, i);
-        int32_t var = c->tir.thread->local_count++;
+        int32_t var = c->local_tir->local_count++;
         TirId param_value = new_variable(c->tir, f.params[i], param_type, var, false);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
@@ -722,8 +723,8 @@ static void analyze_function(Context *c, AstId node, TirId value) {
         error(c, f.body, &(Diagnostic) {.kind = ERROR_MISSING_RETURN});
     }
     pop_scope(c);
-    c->tir.thread->body_first = tir_block.index;
-    c->tir.thread->body_length = tir_block.length;
+    c->local_tir->body_first = tir_block.index;
+    c->local_tir->body_length = tir_block.length;
 }
 
 static TirId analyze_enum(Context *c, AstId node) {
@@ -960,7 +961,7 @@ static TirId analyze_let(Context *c, AstId node, bool mutable) {
     if (type_is_unknown_size(c->tir, init_type)) {
         type_error(c, node, init_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
     }
-    int32_t var = c->tir.thread->local_count++;
+    int32_t var = c->local_tir->local_count++;
     TirId value = new_variable(c->tir, node, init_type, var, mutable);
     add_id(c, (AstRef) {node, c->file}, value);
     return new_instr(c->tir, mutable ? TIR_MUT : TIR_LET, node, ptype(VOID), var, init_value.id);
@@ -1090,8 +1091,8 @@ static TirId analyze_string(Context *c, AstId node) {
     char *buffer;
 
     if (c->tir.thread) {
-        index = c->tir.thread->deps.strtab.len;
-        buffer = vec_grow(&c->tir.thread->deps.strtab, len + 4);
+        index = c->tir.thread->strtab.len;
+        buffer = vec_grow(&c->tir.thread->strtab, len + 4);
     } else {
         index = c->tir.global->strtab.len;
         buffer = vec_grow(&c->tir.global->strtab, len + 4);
@@ -2343,7 +2344,8 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
             local_tc.file = ref.file;
             local_tc.ast = &input->asts[ref.file];
-            local_tc.tir.thread = &tirs[i];
+            local_tc.tir.thread = &tirs[i].deps;
+            local_tc.local_tir = &tirs[i];
 
             analyze_function(&local_tc, ref.node, value);
 

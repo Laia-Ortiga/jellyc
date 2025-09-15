@@ -448,7 +448,7 @@ int check_substructural_types(SubstructuralAnalysisInput *input, Arena scratch) 
         ctx.ast_refs = input->ast_refs;
         ctx.file = input->ast_refs[input->functions[i].id].file;
         ctx.tir_ctx.global = input->global_deps;
-        ctx.tir_ctx.thread = &input->insts[i];
+        ctx.tir_ctx.thread = &input->insts[i].deps;
         ctx.scratch = scratch;
         ctx.var_count = input->insts[i].local_count;
         ctx.var_states = arena_alloc(&ctx.scratch, VariableState, ctx.var_count);

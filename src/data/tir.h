@@ -186,7 +186,7 @@ typedef struct {
 
 typedef struct {
     TirDependencies *global;
-    LocalTir *thread;
+    TirDependencies *thread;
 } TirContext;
 
 TirTag get_term_tag(TirContext ctx, TirId type);

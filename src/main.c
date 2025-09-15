@@ -408,7 +408,7 @@ int main(int argc, char **argv) {
         for (int32_t i = 0; i < tir_output.global_deps.functions.len; i++) {
             TirContext ctx = {
                 .global = &tir_output.global_deps,
-                .thread = &tir_output.insts[i],
+                .thread = &tir_output.insts[i].deps,
             };
             char const *name = get_value_str(ctx, tir_output.global_deps.functions.ptr[i]);
             print_tir(ctx, name, tir_output.insts[i].body_first, tir_output.insts[i].body_length);
