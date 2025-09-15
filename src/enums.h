@@ -103,14 +103,6 @@ typedef enum {
 } ErrorKind;
 
 typedef enum {
-    #define KEYWORD(keyword) TOK_KW_##keyword,
-    #include "keyword-defs"
-
-    #define TOKEN(token, s) TOK_##token,
-    #include "token-defs"
-} TokenTag;
-
-typedef enum {
     SYM_UNDEFINED,
     SYM_BUILTIN,
     SYM_GLOBAL,

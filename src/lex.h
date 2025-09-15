@@ -1,9 +1,16 @@
 #pragma once
 
 #include "adt.h"
-#include "enums.h"
 
 #include <stdint.h>
+
+typedef enum {
+    #define KEYWORD(keyword) TOK_KW_##keyword,
+    #include "keyword-defs"
+
+    #define TOKEN(token, s) TOK_##token,
+    #include "token-defs"
+} TokenTag;
 
 typedef struct {
     int32_t index;
