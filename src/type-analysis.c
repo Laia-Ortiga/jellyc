@@ -214,6 +214,10 @@ static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
 }
 
 static TirId new_inst_impl(Context *c, TirTag tag, AstId ast_id, int32_t left, int32_t right) {
+    if (!c->tir.thread) {
+        return (TirId) {0};
+    }
+
     TirInstData data = {ast_id, left, right};
     sum_vec_push(&c->tir.thread->insts.insts, data, tag);
     return (TirId) {c->tir.thread->insts.insts.len - 1};
@@ -580,14 +584,6 @@ typedef struct {
         double f;
     };
 } Constant;
-
-static Constant try_get_const(Context *c, TermId value) {
-    switch (get_term_tag(c->tir, value)) {
-        case VAL_CONST_INT: return (Constant) {.type = CONSTANT_INT, .i = get_value_int(c->tir, value)};
-        case VAL_CONST_FLOAT: return (Constant) {.type = CONSTANT_FLOAT, .f = get_value_float(c->tir, value)};
-        default: return (Constant) {.type = CONSTANT_INVALID};
-    }
-}
 
 static bool try_get_int_const(Context *c, TermId value, int64_t *i) {
     if (get_term_tag(c->tir, value) == VAL_CONST_INT) {
@@ -1197,46 +1193,12 @@ static TermId analyze_un_arithmetic(Context *c, AstId node, TermId hint, TirTag 
         return null_term;
     }
 
-    Constant operand_c = try_get_const(c, operand_value);
-    switch (operand_c.type) {
-        case CONSTANT_INVALID: {
-            break;
-        }
-        case CONSTANT_INT: {
-            int64_t r;
-            bool overflow;
-            switch (tag) {
-                case TIR_PLUS: return operand_value;
-                case TIR_MINUS: overflow = operand_c.i == INT64_MIN ? true : (r = -operand_c.i, false); break;
-                default: abort();
-            }
-            if (overflow) {
-                error(c, node, &(Diagnostic) {.kind = ERROR_CONST_INT_OVERFLOW});
-                return null_term;
-            }
-            return new_int_constant(c->tir, operand_type, r);
-        }
-        case CONSTANT_FLOAT: {
-            double r;
-            switch (tag) {
-                case TIR_PLUS: return operand_value;
-                case TIR_MINUS: r = -operand_c.f; break;
-                default: abort();
-            }
-            return new_float_constant(c->tir, operand_type, r);
-        }
-    }
-
     return new_unary_inst(c, tag, node, operand_type, operand_value.id);
 }
 
 static TermId analyze_not(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId operand_value = expect_value_type(c, operand, type_bool);
-    Constant operand_c = try_get_const(c, operand_value);
-    if (operand_c.type == CONSTANT_INT) {
-        return new_int_constant(c->tir, type_bool, !operand_c.i);
-    }
     return new_unary_inst(c, TIR_NOT, node, type_bool, operand_value.id);
 }
 
@@ -1376,17 +1338,6 @@ static TermId analyze_zero_extend(Context *c, AstId node, TermId hint) {
         return operand_value;
     }
 
-    Constant operand_c = try_get_const(c, operand_value);
-    if (operand_c.type == CONSTANT_INT) {
-        int64_t int_size = sizeof_type(c->tir, operand_type, c->options->target);
-        union {
-            uint64_t u;
-            int64_t s;
-        } mask;
-        mask.u = ((uint64_t) 1 << (int_size * 8)) - 1;
-        return new_int_constant(c->tir, hint, operand_c.i & mask.s);
-    }
-
     return new_unary_inst(c, TIR_ZEXT, node, hint, operand_value.id);
 }
 
@@ -1444,45 +1395,6 @@ static TermId analyze_bin_arithmetic(Context *c, AstId node, TermId hint, TirTag
         return null_term;
     }
 
-    Constant left_c = try_get_const(c, left_value);
-    Constant right_c = try_get_const(c, right_value);
-    if (left_c.type != CONSTANT_INVALID && left_c.type == right_c.type) {
-        switch (left_c.type) {
-            case CONSTANT_INVALID: {
-                break;
-            }
-            case CONSTANT_INT: {
-                int64_t r;
-                bool overflow;
-                switch (tag) {
-                    case TIR_ADD: overflow = __builtin_add_overflow(left_c.i, right_c.i, &r); break;
-                    case TIR_SUB: overflow = __builtin_sub_overflow(left_c.i, right_c.i, &r); break;
-                    case TIR_MUL: overflow = __builtin_mul_overflow(left_c.i, right_c.i, &r); break;
-                    case TIR_DIV: overflow = (right_c.i == 0 || (left_c.i == INT64_MIN && right_c.i == -1)) ? true : (r = left_c.i / right_c.i, false); break;
-                    case TIR_MOD: overflow = (right_c.i == 0) ? true : (r = left_c.i % right_c.i, false); break;
-                    default: abort();
-                }
-                if (overflow || !int_fits_in_type(r, left_type, c->options->target)) {
-                    error(c, node, &(Diagnostic) {.kind = ERROR_CONST_INT_OVERFLOW});
-                    return null_term;
-                }
-                return new_int_constant(c->tir, left_type, r);
-            }
-            case CONSTANT_FLOAT: {
-                double r;
-                switch (tag) {
-                    case TIR_ADD: r = left_c.f + right_c.f; break;
-                    case TIR_SUB: r = left_c.f - right_c.f; break;
-                    case TIR_MUL: r = left_c.f * right_c.f; break;
-                    case TIR_DIV: r = left_c.f / right_c.f; break;
-                    case TIR_MOD: r = fmod(left_c.f, right_c.f); break;
-                    default: abort();
-                }
-                return new_float_constant(c->tir, left_type, r);
-            }
-        }
-    }
-
     return new_binary_inst(c, tag, node, left_type, left_value.id, right_value.id);
 }
 
@@ -1500,48 +1412,6 @@ static TermId analyze_bin_bit(Context *c, AstId node, TermId hint, TirTag tag) {
         return null_term;
     }
 
-    Constant left_c = try_get_const(c, left_value);
-    Constant right_c = try_get_const(c, right_value);
-    if (left_c.type == CONSTANT_INT && left_c.type == right_c.type) {
-        int64_t int_size = sizeof_type(c->tir, left_type, c->options->target);
-        union {
-            uint64_t u;
-            int64_t s;
-        } mask;
-        mask.u = ((uint64_t) 1 << (int_size * 8)) - 1;
-        int64_t r;
-        switch (tag) {
-            case TIR_AND: r = left_c.i & right_c.i; break;
-            case TIR_OR: r = left_c.i | right_c.i; break;
-            case TIR_XOR: r = left_c.i ^ right_c.i; break;
-            case TIR_SHL: {
-                if (right_c.i < 0) {
-                    error(c, node, &(Diagnostic) {.kind = ERROR_CONST_NEGATIVE_SHIFT});
-                    return null_term;
-                }
-                r = right_c.i >= int_size * 8 ? 0 : (left_c.i << right_c.i);
-                if ((r & mask.s) == 0) {
-                    r = 0;
-                }
-                break;
-            }
-            case TIR_SHR: {
-                if (right_c.i < 0) {
-                    error(c, node, &(Diagnostic) {.kind = ERROR_CONST_NEGATIVE_SHIFT});
-                    return null_term;
-                }
-                if (right_c.i >= int_size * 8) {
-                    r = left_c.i < 0 ? -1 : 0;
-                } else {
-                    r = left_c.i >> right_c.i;
-                }
-                break;
-            }
-            default: abort();
-        }
-        return new_int_constant(c->tir, left_type, r);
-    }
-
     return new_binary_inst(c, tag, node, left_type, left_value.id, right_value.id);
 }
 
@@ -1555,34 +1425,6 @@ static TermId analyze_eq(Context *c, AstId node, TirTag tag) {
     if (left_type.id != right_type.id || !is_equality_type(c->tir, left_type)) {
         double_type_error(c, node, left_type, right_type, ERROR_BINARY_UNEXPECTED_OPERANDS);
         return null_term;
-    }
-
-    Constant left_c = try_get_const(c, left_value);
-    Constant right_c = try_get_const(c, right_value);
-    if (left_c.type != CONSTANT_INVALID && left_c.type == right_c.type) {
-        switch (left_c.type) {
-            case CONSTANT_INVALID: {
-                break;
-            }
-            case CONSTANT_INT: {
-                bool r;
-                switch (tag) {
-                    case TIR_EQ: r = left_c.i == right_c.i; break;
-                    case TIR_NE: r = left_c.i != right_c.i; break;
-                    default: abort();
-                }
-                return new_int_constant(c->tir, type_bool, r);
-            }
-            case CONSTANT_FLOAT: {
-                bool r;
-                switch (tag) {
-                    case TIR_EQ: r = left_c.f == right_c.f; break;
-                    case TIR_NE: r = left_c.f != right_c.f; break;
-                    default: abort();
-                }
-                return new_int_constant(c->tir, type_bool, r);
-            }
-        }
     }
 
     return new_binary_inst(c, tag, node, type_bool, left_value.id, right_value.id);
@@ -1600,38 +1442,6 @@ static TermId analyze_rel(Context *c, AstId node, TirTag tag) {
         return null_term;
     }
 
-    Constant left_c = try_get_const(c, left_value);
-    Constant right_c = try_get_const(c, right_value);
-    if (left_c.type != CONSTANT_INVALID && left_c.type == right_c.type) {
-        switch (left_c.type) {
-            case CONSTANT_INVALID: {
-                break;
-            }
-            case CONSTANT_INT: {
-                bool r;
-                switch (tag) {
-                    case TIR_LT: r = left_c.i < right_c.i; break;
-                    case TIR_GT: r = left_c.i > right_c.i; break;
-                    case TIR_LE: r = left_c.i <= right_c.i; break;
-                    case TIR_GE: r = left_c.i >= right_c.i; break;
-                    default: abort();
-                }
-                return new_int_constant(c->tir, type_bool, r);
-            }
-            case CONSTANT_FLOAT: {
-                bool r;
-                switch (tag) {
-                    case TIR_LT: r = left_c.f < right_c.f; break;
-                    case TIR_GT: r = left_c.f > right_c.f; break;
-                    case TIR_LE: r = left_c.f <= right_c.f; break;
-                    case TIR_GE: r = left_c.f >= right_c.f; break;
-                    default: abort();
-                }
-                return new_int_constant(c->tir, type_bool, r);
-            }
-        }
-    }
-
     return new_binary_inst(c, tag, node, type_bool, left_value.id, right_value.id);
 }
 
@@ -1639,18 +1449,6 @@ static TermId analyze_logic(Context *c, AstId node, bool is_and) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_value_type(c, bin.left, type_bool);
     TermId right_value = expect_value_type(c, bin.right, type_bool);
-
-    Constant left_c = try_get_const(c, left_value);
-    Constant right_c = try_get_const(c, right_value);
-    if (left_c.type == CONSTANT_INT && left_c.type == right_c.type) {
-        bool r;
-        if (is_and) {
-            r = left_c.i && right_c.i;
-        } else {
-            r = left_c.i || right_c.i;
-        }
-        return new_int_constant(c->tir, type_bool, r);
-    }
 
     TermId true_value = new_int_constant(c->tir, type_bool, 1);
     TermId false_value = new_int_constant(c->tir, type_bool, 0);
@@ -1893,19 +1691,6 @@ static TirTag get_cast_type(Context *c, TermId operand_type, TermId cast_type) {
     return -1;
 }
 
-static int64_t truncate_int_const(int64_t i, int64_t bits) {
-    union {
-        uint64_t u;
-        int64_t s;
-    } mask;
-    mask.u = ((uint64_t) 1 << bits) - 1;
-    if (i < 0) {
-        return i | ~mask.s;
-    } else {
-        return i & mask.s;
-    }
-}
-
 static TermId analyze_cast(Context *c, AstId node) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId cast_type = expect_type(c, bin.right);
@@ -1920,35 +1705,6 @@ static TermId analyze_cast(Context *c, AstId node) {
     if ((int) cast_kind == -1) {
         double_type_error(c, bin.left, operand_type, cast_type, ERROR_CAST);
         return null_term;
-    }
-
-    Constant operand_c = try_get_const(c, operand_value);
-    if (operand_c.type != CONSTANT_INVALID) {
-        switch (cast_kind) {
-            case TIR_ITOF: {
-                return new_float_constant(c->tir, cast_type, (double) operand_c.i);
-            }
-            case TIR_FTOI: {
-                int64_t int_size = sizeof_type(c->tir, cast_type, c->options->target);
-                int64_t r = truncate_int_const((int64_t) operand_c.f, int_size * 8);
-                return new_int_constant(c->tir, cast_type, r);
-            }
-            case TIR_ITRUNC: {
-                int64_t int_size = sizeof_type(c->tir, cast_type, c->options->target);
-                int64_t r = truncate_int_const(operand_c.i, int_size * 8);
-                return new_int_constant(c->tir, cast_type, r);
-            }
-            case TIR_SEXT: {
-                return new_int_constant(c->tir, cast_type, operand_c.i);
-            }
-            case TIR_FTRUNC:
-            case TIR_FEXT: {
-                return new_float_constant(c->tir, cast_type, operand_c.f);
-            }
-            default: {
-                break;
-            }
-        }
     }
 
     return new_unary_inst(c, cast_kind, node, cast_type, operand_value.id);
