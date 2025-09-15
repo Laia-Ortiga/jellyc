@@ -4,6 +4,7 @@
 #include "data/ast.h"
 #include "data/mir.h"
 #include "data/tir.h"
+#include "fwd.h"
 
 typedef struct {
     char **paths;

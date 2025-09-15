@@ -2,7 +2,8 @@
 
 #include "arena.h"
 #include "enums.h"
-#include "fwd.h"
+#include "ast.h"
+#include "hash.h"
 #include "wrappers.h"
 
 #include <stdbool.h>

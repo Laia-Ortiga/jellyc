@@ -1,5 +1,6 @@
 #pragma once
 
+#include "data/ast.h"
 #include "enums.h"
 #include "hash.h"
 #include "wrappers.h"

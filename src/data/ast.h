@@ -126,6 +126,16 @@ typedef struct {
     Vec(int32_t) extra;
 } Ast;
 
+typedef struct {
+    int32_t private_field_id;
+} AstId;
+
+static AstId const null_ast = {0};
+
+static inline bool is_ast_null(AstId ast_id) {
+    return !ast_id.private_field_id;
+}
+
 static inline AstTag get_ast_tag(AstId node, Ast const *ast) {
     return ast->nodes.tags[node.private_field_id];
 }
