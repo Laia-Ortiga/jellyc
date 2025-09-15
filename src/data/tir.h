@@ -136,13 +136,7 @@ typedef struct {
 } TirId;
 
 static TirId const null_tir = {0};
-
-// Types
-
-static TirId const type_void = {TYPE_VOID};
-
-#define TYPE(type) static TirId const type_##type = {TYPE_##type};
-#include "simple-types"
+#define ptype(type) ((TirId) {TYPE_##type})
 
 typedef struct {
     int32_t capacity;

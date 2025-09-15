@@ -493,7 +493,7 @@ static void gen_new_slice(GenContext *ctx, MirId mir_id) {
 
     int32_t llvm_left = load_operand(ctx, binary.left, type);
     fprintf(ctx->stream, "  store ");
-    gen_type(ctx, type_isize);
+    gen_type(ctx, ptype(isize));
     fprintf(ctx->stream, " ");
     gen_operand(ctx, binary.left, llvm_left);
     fprintf(ctx->stream, ", ptr %%%d\n", length_address);
@@ -589,7 +589,7 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
 static void gen_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
-    int32_t llvm_right = load_operand(ctx, index.right, type_isize);
+    int32_t llvm_right = load_operand(ctx, index.right, ptype(isize));
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", new_tmp(ctx, mir_id));
     gen_type(ctx, type);
     fprintf(ctx->stream, ", ptr ");
@@ -602,7 +602,7 @@ static void gen_index(GenContext *ctx, MirId mir_id) {
 static void gen_slice_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
-    int32_t llvm_right = load_operand(ctx, index.right, type_isize);
+    int32_t llvm_right = load_operand(ctx, index.right, ptype(isize));
     int32_t data_address = ctx->tmp_count++;
     fprintf(ctx->stream, "  %%%d = getelementptr inbounds ", data_address);
     gen_type(ctx, type);
@@ -647,7 +647,7 @@ static void gen_br(GenContext *ctx, MirId mir_id) {
 
 static void gen_br_if(GenContext *ctx, MirId mir_id) {
     MirAccess br = get_mir_access(ctx->mir, mir_id);
-    int32_t llvm_operand = load_operand(ctx, br.operand, type_bool);
+    int32_t llvm_operand = load_operand(ctx, br.operand, ptype(bool));
     fprintf(ctx->stream, "  br i1 ");
     gen_operand(ctx, br.operand, llvm_operand);
     fprintf(ctx->stream, ", label %%L.%d, label %%L.%d\n", br.index, ctx->blocks);
@@ -655,7 +655,7 @@ static void gen_br_if(GenContext *ctx, MirId mir_id) {
 
 static void gen_br_if_not(GenContext *ctx, MirId mir_id) {
     MirAccess br = get_mir_access(ctx->mir, mir_id);
-    int32_t llvm_operand = load_operand(ctx, br.operand, type_bool);
+    int32_t llvm_operand = load_operand(ctx, br.operand, ptype(bool));
     fprintf(ctx->stream, "  br i1 ");
     gen_operand(ctx, br.operand, llvm_operand);
     fprintf(ctx->stream, ", label %%L.%d, label %%L.%d\n", ctx->blocks, br.index);

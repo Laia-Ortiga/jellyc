@@ -352,7 +352,7 @@ TirId new_ptr_type(TirContext ctx, TirTag tag, TirId elem) {
 
 TirId new_multiptr_type(TirContext ctx, TirTag tag, TirId elem) {
     TirTag ptr = tag == TIR_MUT_SLICE_TYPE ? TIR_MUT_PTR_TYPE : TIR_PTR_TYPE;
-    TirId pointer = new_ptr_type(ctx, ptr, type_byte);
+    TirId pointer = new_ptr_type(ctx, ptr, ptype(byte));
     return new_structural_type(ctx, (StructuralType) {
         .tag = tag,
         .slice = {elem, pointer},
@@ -794,7 +794,7 @@ TirId get_struct_type_field(TirContext ctx, TirId type, int32_t index) {
 TirId get_any_struct_type_field(TirContext ctx, TirId type, int32_t index) {
     if (get_term_tag(ctx, type) == TIR_SLICE_TYPE || get_term_tag(ctx, type) == TIR_MUT_SLICE_TYPE) {
         switch (index) {
-            case 0: return type_isize;
+            case 0: return ptype(isize);
             case 1: return (TirId) {get_term_data(ctx, type)->b};
             default: return null_tir;
         }

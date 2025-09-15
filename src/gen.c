@@ -514,7 +514,7 @@ static void gen_binary(GenContext *ctx, MirId mir_id, char const *op) {
 
 static void gen_bool_binary(GenContext *ctx, MirId mir_id, char const *op) {
     MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    introduce_temporary(ctx, mir_id, type_bool, false);
+    introduce_temporary(ctx, mir_id, ptype(bool), false);
     gen_operand(ctx, binary.left);
     fprintf(ctx->stream, " %s ", op);
     gen_operand(ctx, binary.right);

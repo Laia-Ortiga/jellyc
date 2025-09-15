@@ -236,7 +236,7 @@ static MirId transform_slice(Context *c, TirId tir_id) {
     MirId operand_mir = transform_node(c, operand);
     MirId low_mir = transform_node(c, low);
     MirId high_mir = transform_node(c, high);
-    MirId length_mir = add_binary_instruction(c, MIR_SUB, type_isize, high_mir, low_mir);
+    MirId length_mir = add_binary_instruction(c, MIR_SUB, ptype(isize), high_mir, low_mir);
     TirId operand_type = get_value_type(c->tir, operand);
     MirTag tag = MIR_INDEX;
     if (remove_slice(c->tir, operand_type).id) {
@@ -251,7 +251,7 @@ static MirId transform_array_to_slice(Context *c, TirId tir_id) {
     TirId operand = {data->b};
     TirId index_type = {data->c};
     int64_t length = get_array_length_type(c->tir, index_type);
-    MirId length_mir = add_int_instruction(c, type_isize, length);
+    MirId length_mir = add_int_instruction(c, ptype(isize), length);
     MirId data_mir = transform_node(c, operand);
     return add_binary_instruction(c, MIR_NEW_SLICE, get_value_type(c->tir, tir_id), length_mir, data_mir);
 }
