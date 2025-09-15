@@ -1,7 +1,7 @@
 #pragma once
 
 #include "adt.h"
-#include "wrappers.h"
+#include "data/tir.h"
 
 #include <stdint.h>
 
@@ -80,6 +80,10 @@ typedef enum {
     MIR_RET_VOID,
     MIR_RET,
 } MirTag;
+
+typedef struct {
+    int32_t private_field_id;
+} MirId;
 
 typedef struct {
     MirId left;

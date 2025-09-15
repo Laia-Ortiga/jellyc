@@ -12,6 +12,19 @@
 #include <stdio.h>
 
 typedef struct {
+    int32_t id;
+} TirId;
+
+static TirId const null_tir = {0};
+
+// Types
+
+static TirId const type_void = {TYPE_VOID};
+
+#define TYPE(type) static TirId const type_##type = {TYPE_##type};
+#include "simple-types"
+
+typedef struct {
     int32_t capacity;
     int32_t count;
     TirId *ptr;
@@ -151,6 +164,22 @@ int32_t alignof_type(TirContext ctx, TirId type, Target target);
 int64_t sizeof_type(TirContext ctx, TirId type, Target target);
 void print_type(FILE *file, TirContext ctx, TirId type);
 void debug_type(TirContext ctx, TirId type);
+
+static inline bool type_is_fixed_int(TirId type) {
+    return type.id >= TYPE_i8 && type.id <= TYPE_char;
+}
+
+static inline bool type_is_int(TirId type) {
+    return type.id >= TYPE_i8 && type.id <= TYPE_isize;
+}
+
+static inline bool type_is_float(TirId type) {
+    return type.id >= TYPE_f32 && type.id <= TYPE_f64;
+}
+
+static inline bool type_is_arithmetic(TirId type) {
+    return type_is_int(type) || type_is_float(type);
+}
 
 // Type matching
 
