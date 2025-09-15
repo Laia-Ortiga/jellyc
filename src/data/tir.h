@@ -4,7 +4,6 @@
 #include "enums.h"
 #include "ast.h"
 #include "hash.h"
-#include "wrappers.h"
 
 #include <stdbool.h>
 #include <stddef.h>

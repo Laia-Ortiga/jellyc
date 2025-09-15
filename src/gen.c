@@ -2,7 +2,6 @@
 
 #include "data/mir.h"
 #include "data/tir.h"
-#include "wrappers.h"
 
 #include <stdlib.h>
 

@@ -3,7 +3,6 @@
 #include "data/ast.h"
 #include "enums.h"
 #include "hash.h"
-#include "wrappers.h"
 
 #include <stdint.h>
 
@@ -22,6 +21,14 @@ typedef struct {
     HashTable public_scope;
     HashTable private_scope;
 } Module;
+
+typedef struct {
+    int32_t id;
+} DefId;
+
+typedef struct {
+    int32_t id;
+} LocalId;
 
 typedef struct {
     SymbolKind kind;

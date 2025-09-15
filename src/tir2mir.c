@@ -4,7 +4,6 @@
 #include "data/mir.h"
 #include "data/tir.h"
 #include "util.h"
-#include "wrappers.h"
 
 #include <stdint.h>
 #include <stdlib.h>

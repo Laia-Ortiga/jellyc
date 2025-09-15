@@ -2,7 +2,6 @@
 
 #include "lex.h"
 #include "util.h"
-#include "wrappers.h"
 
 #include <stdbool.h>
 #include <stdint.h>

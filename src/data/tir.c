@@ -4,7 +4,6 @@
 #include "arena.h"
 #include "enums.h"
 #include "util.h"
-#include "wrappers.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -5,7 +5,6 @@
 #include "data/ast.h"
 #include "data/tir.h"
 #include "lex.h"
-#include "wrappers.h"
 
 static void print_indent(int indent) {
     for (int i = 0; i < indent; i++) {

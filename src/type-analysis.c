@@ -10,7 +10,6 @@
 #include "hash.h"
 #include "lex.h"
 #include "util.h"
-#include "wrappers.h"
 
 #include <math.h>
 #include <omp.h>
