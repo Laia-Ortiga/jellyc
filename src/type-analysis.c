@@ -1895,7 +1895,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
     }
 
     if (!is_tir_value(get_term_tag(c->tir, operand_value))) {
-        // TODO error
+        diagnostic(c, (AstRef) {node, c->file}, ERROR_INDEX_OPERAND_ROLE);
         return null_tir;
     }
 
