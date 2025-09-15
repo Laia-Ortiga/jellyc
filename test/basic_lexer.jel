@@ -310,7 +310,7 @@ function read_file(path *char) -> @mut char {
     libc.fseek(file, 0, 2)
     let length = libc.ftell(file)
     libc.fseek(file, 0, 0)
-    let buffer = <*mut char> libc.malloc(length + 1)
+    let buffer = <*mut char> `cast[libc.malloc(length + 1)]
 
     if buffer == null {
         return `slice[0, null]

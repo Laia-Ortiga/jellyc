@@ -16,7 +16,7 @@ function print_int_rec(x i64) {
     if x / 10 != 0 {
         print_int_rec(x / 10)
     }
-    print_char(<char> (x % 10) + '0')
+    print_char(<char> `cast[x % 10] + '0')
 }
 
 public function print_int(x i64) {
@@ -25,7 +25,7 @@ public function print_int(x i64) {
         if x / -10 != 0 {
             print_int_rec(x / -10)
         }
-        print_char(<char> -(x % 10) + '0')
+        print_char(<char> `cast[-(x % 10)] + '0')
     } else {
         print_int_rec(x)
     }

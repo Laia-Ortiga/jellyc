@@ -1322,6 +1322,58 @@ static TermId analyze_sizeof(Context *c, AstId node) {
     return null_term;
 }
 
+static TirTag get_cast_type(Context *c, TermId operand_type, TermId cast_type) {
+    if (remove_pointer(c->tir, operand_type).id && remove_pointer(c->tir, cast_type).id) {
+        return TIR_PTR_CAST;
+    }
+
+    if (type_is_int(operand_type) && type_is_float(cast_type)) {
+        return TIR_ITOF;
+    }
+
+    if (type_is_float(operand_type) && type_is_int(cast_type)) {
+        return TIR_FTOI;
+    }
+
+    if (type_is_int(operand_type) && type_is_int(cast_type)) {
+        if (operand_type.id == TYPE_char) {
+            return TIR_ZEXT;
+        }
+        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_ITRUNC : TIR_SEXT;
+    }
+
+    if (type_is_float(operand_type) && type_is_float(cast_type)) {
+        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_FTRUNC : TIR_FEXT;
+    }
+
+    return -1;
+}
+
+static TermId analyze_cast(Context *c, AstId node, TermId cast_type) {
+    AstCall call = get_ast_call(node, c->ast);
+
+    if (!cast_type.id) {
+        error(c, node, &(Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
+        return null_term;
+    }
+
+    TermId operand_value = expect_value(c, get_call_arg(&call, 0), cast_type);
+    TermId operand_type = get_value_type(c->tir, operand_value);
+    expect_arg_count(c, node, 1);
+
+    if (operand_type.id == cast_type.id) {
+        return operand_value;
+    }
+
+    TirTag cast_kind = get_cast_type(c, operand_type, cast_type);
+    if ((int) cast_kind == -1) {
+        double_type_error(c, get_call_arg(&call, 0), operand_type, cast_type, ERROR_CAST);
+        return null_term;
+    }
+
+    return new_unary_inst(c, cast_kind, node, cast_type, operand_value.id);
+}
+
 static TermId analyze_zero_extend(Context *c, AstId node, TermId hint) {
     AstCall call = get_ast_call(node, c->ast);
     TermId operand_value = expect_value(c, get_call_arg(&call, 0), hint);
@@ -1668,50 +1720,10 @@ static TermId analyze_access(Context *c, AstId node) {
     return new_binary_inst(c, TIR_ACCESS, node, result_type, operand_value.id, sym.field_index);
 }
 
-static TirTag get_cast_type(Context *c, TermId operand_type, TermId cast_type) {
-    if (remove_pointer(c->tir, operand_type).id && remove_pointer(c->tir, cast_type).id) {
-        return TIR_PTR_CAST;
-    }
-
-    if (type_is_int(operand_type) && type_is_float(cast_type)) {
-        return TIR_ITOF;
-    }
-
-    if (type_is_float(operand_type) && type_is_int(cast_type)) {
-        return TIR_FTOI;
-    }
-
-    if (type_is_int(operand_type) && type_is_int(cast_type)) {
-        if (operand_type.id == TYPE_char) {
-            return TIR_ZEXT;
-        }
-        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_ITRUNC : TIR_SEXT;
-    }
-
-    if (type_is_float(operand_type) && type_is_float(cast_type)) {
-        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_FTRUNC : TIR_FEXT;
-    }
-
-    return -1;
-}
-
-static TermId analyze_cast(Context *c, AstId node) {
+static TermId analyze_type_hint(Context *c, AstId node) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId cast_type = expect_type(c, bin.right);
-    TermId operand_value = expect_value(c, bin.left, cast_type);
-    TermId operand_type = get_value_type(c->tir, operand_value);
-
-    if (operand_type.id == cast_type.id) {
-        return operand_value;
-    }
-
-    TirTag cast_kind = get_cast_type(c, operand_type, cast_type);
-    if ((int) cast_kind == -1) {
-        double_type_error(c, bin.left, operand_type, cast_type, ERROR_CAST);
-        return null_term;
-    }
-
-    return new_unary_inst(c, cast_kind, node, cast_type, operand_value.id);
+    return expect_value_type(c, bin.left, cast_type);
 }
 
 static TermId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
@@ -1910,6 +1922,7 @@ static TermId analyze_index(Context *c, AstId node, TermId hint) {
     switch ((PrimitiveTerm) operand_value.id) {
         case BUILTIN_ALIGNOF: return analyze_alignof(c, node);
         case BUILTIN_SIZEOF: return analyze_sizeof(c, node);
+        case BUILTIN_CAST: return analyze_cast(c, node, hint);
         case BUILTIN_ZERO_EXTEND: return analyze_zero_extend(c, node, hint);
         case BUILTIN_SLICE: return analyze_slice_constructor(c, node, hint);
         case BUILTIN_AFFINE: return analyze_linear(c, node);
@@ -2280,7 +2293,7 @@ static TermId analyze_term(Context *c, AstId node, TermId hint) {
         case AST_ASSIGN_XOR: return analyze_assign_bit(c, node, TIR_ASSIGN_XOR);
         case AST_ACCESS: return analyze_access(c, node);
         case AST_INFERRED_ACCESS: return analyze_enum_member_inferred(c, node, hint);
-        case AST_CAST: return analyze_cast(c, node);
+        case AST_TYPE_HINT: return analyze_type_hint(c, node);
         case AST_CALL: return analyze_call(c, node);
         case AST_INDEX: return analyze_index(c, node, hint);
         case AST_SLICE: return analyze_slice(c, node);

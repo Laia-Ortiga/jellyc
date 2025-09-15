@@ -4,6 +4,7 @@
 #include "arena.h"
 #include "data/ast.h"
 #include "diagnostic.h"
+#include "enums.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
@@ -732,7 +733,7 @@ static AstId parse_prefix(Parser *parser) {
             AstId type = parse_expr(parser, PREC_NONE);
             expect(parser, TOK_ANGLER);
             AstId expr = parse_expr(parser, PREC_AS);
-            return add_binary_ast(AST_CAST, token.start, expr, type, &parser->ast);
+            return add_binary_ast(AST_TYPE_HINT, token.start, expr, type, &parser->ast);
         }
         case TOK_KW_function: {
             return parse_function_type(parser, token.start);

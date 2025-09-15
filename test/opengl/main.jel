@@ -115,15 +115,15 @@ function key_callback(window *mut byte, key i32, scancode i32, action i32, mods 
         GLFW_PRESS -> magnitude,
         else -> 0.0,
     }
-    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
+    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
     let state = &scene.cam_state
     switch key {
-        <i32> 'A'           -> state.speed.x = state.speed.x - speed,
-        <i32> 'D'           -> state.speed.x = state.speed.x + speed,
-        <i32> 'W'           -> state.speed.z = state.speed.z - speed,
-        <i32> 'S'           -> state.speed.z = state.speed.z + speed,
+        <i32> `cast['A']    -> state.speed.x = state.speed.x - speed,
+        <i32> `cast['D']    -> state.speed.x = state.speed.x + speed,
+        <i32> `cast['W']    -> state.speed.z = state.speed.z - speed,
+        <i32> `cast['S']    -> state.speed.z = state.speed.z + speed,
         GLFW_KEY_LEFT_SHIFT -> state.speed.y = state.speed.y - speed,
-        <i32> ' '           -> state.speed.y = state.speed.y + speed,
+        <i32> `cast[' ']    -> state.speed.y = state.speed.y + speed,
     }
 }
 
@@ -132,7 +132,7 @@ function mouse_button_callback(window *mut byte, button i32, action i32, mods i3
         return
     }
 
-    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
+    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
     if action == GLFW_PRESS {
         glfwGetCursorPos(window, &scene.cam_state.last_x, &scene.cam_state.last_y)
     }
@@ -140,14 +140,14 @@ function mouse_button_callback(window *mut byte, button i32, action i32, mods i3
 }
 
 function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
-    let scene = <*mut Scene> glfwGetWindowUserPointer(window)
+    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
     if !scene.cam_state.rotating {
         return
     }
 
     let factor = <f32> 0.005
-    scene.cam_state.target.pitch = scene.cam_state.target.pitch - <f32> (y - scene.cam_state.last_y) * factor
-    scene.cam_state.target.yaw = scene.cam_state.target.yaw - <f32> (x - scene.cam_state.last_x) * factor
+    scene.cam_state.target.pitch = scene.cam_state.target.pitch - <f32> `cast[y - scene.cam_state.last_y] * factor
+    scene.cam_state.target.yaw = scene.cam_state.target.yaw - <f32> `cast[x - scene.cam_state.last_x] * factor
     scene.cam_state.last_x = x
     scene.cam_state.last_y = y
     let limit = <f32> (3.14 / 3.0)

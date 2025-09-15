@@ -1,6 +1,7 @@
 #include "print.h"
 
 #include "adt.h"
+#include "enums.h"
 #include "fwd.h"
 #include "data/ast.h"
 #include "data/tir.h"
@@ -298,7 +299,7 @@ static void print_ast_node(AstPrinter *printer, AstId node) {
         case AST_ASSIGN_XOR: print_ast_binary(printer, "^=", node); break;
         case AST_ACCESS: print_ast_unary(printer, "Access", node); break;
         case AST_INFERRED_ACCESS: print_ast_leaf(printer, "InferredAccess"); break;
-        case AST_CAST: print_ast_binary(printer, "Cast", node); break;
+        case AST_TYPE_HINT: print_ast_binary(printer, "TypeHint", node); break;
         case AST_LET: print_ast_param(printer, "Let", node); break;
         case AST_MUT: print_ast_param(printer, "Mut", node); break;
         case AST_CALL: print_ast_call(printer, "Call", node); break;

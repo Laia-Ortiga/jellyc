@@ -358,6 +358,7 @@ int main(int argc, char **argv) {
     htable_try_insert(&global_scope, (String) Str("`Alignment"), BUILTIN_ALIGNMENT);
     htable_try_insert(&global_scope, (String) Str("`align_of"), BUILTIN_ALIGNOF);
     htable_try_insert(&global_scope, (String) Str("`size_of"), BUILTIN_SIZEOF);
+    htable_try_insert(&global_scope, (String) Str("`cast"), BUILTIN_CAST);
     htable_try_insert(&global_scope, (String) Str("`zero_extend"), BUILTIN_ZERO_EXTEND);
     htable_try_insert(&global_scope, (String) Str("`slice"), BUILTIN_SLICE);
     htable_try_insert(&global_scope, (String) Str("`Affine"), BUILTIN_AFFINE);
