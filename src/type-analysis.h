@@ -23,7 +23,7 @@ typedef struct {
 } TirInput;
 
 typedef struct {
-    TirDependencies global_deps;
+    Tir global_deps;
     LocalTir *insts;
     int error;
 } TirOutput;

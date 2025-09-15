@@ -12,7 +12,7 @@ typedef struct {
     Ast *asts;
     AstRef *ast_refs;
     TirId *functions;
-    TirDependencies *global_deps;
+    Tir *global_deps;
     LocalTir *insts;
     int32_t function_count;
 } MirAnalysisInput;

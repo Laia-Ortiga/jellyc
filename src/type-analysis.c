@@ -1157,7 +1157,7 @@ static TirId analyze_bool(Context *c, AstId node) {
 static TirId analyze_null(Context *c, TirId hint) {
     TirId type = hint;
     if (!remove_pointer(c->tir, hint).id) {
-        type = new_ptr_type(c->tir, TIR_MUT_PTR_TYPE, ptype(byte));
+        type = new_mut_ptr_type(c->tir, ptype(byte));
     }
     return new_null_constant(c->tir, type);
 }
@@ -1190,15 +1190,15 @@ static TirId analyze_address(Context *c, AstId node, TirId hint) {
             break;
         }
         case VALUE_TEMPORARY: {
-            TirId type = new_ptr_type(c->tir, TIR_MUT_PTR_TYPE, operand_type);
+            TirId type = new_mut_ptr_type(c->tir, operand_type);
             return new_unary_tir(c->tir, TIR_ADDRESS_OF_TEMPORARY, node, type, operand_value);
         }
         case VALUE_PLACE: {
-            TirId type = new_ptr_type(c->tir, TIR_PTR_TYPE, operand_type);
+            TirId type = new_ptr_type(c->tir, operand_type);
             return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
         case VALUE_MUTABLE_PLACE: {
-            TirId type = new_ptr_type(c->tir, TIR_MUT_PTR_TYPE, operand_type);
+            TirId type = new_mut_ptr_type(c->tir, operand_type);
             return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
         case VALUE_MULTIVALUE: {
@@ -1214,7 +1214,7 @@ static TirId analyze_deref(Context *c, AstId node) {
     TirId operand_value = analyze_term(c, operand, null_tir);
 
     if (is_tir_type(get_term_tag(c->tir, operand_value))) {
-        return new_ptr_type(c->tir, TIR_PTR_TYPE, operand_value);
+        return new_ptr_type(c->tir, operand_value);
     }
 
     TirId operand_type = get_value_type(c->tir, operand_value);
@@ -1228,16 +1228,22 @@ static TirId analyze_deref(Context *c, AstId node) {
     return new_unary_tir(c->tir, TIR_DEREF, node, type, operand_value);
 }
 
-static TirId analyze_ptr(Context *c, AstId node, TirTag tag) {
+static TirId analyze_mut_ptr_type(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     TirId operand_type = expect_type(c, operand);
-    return new_ptr_type(c->tir, tag, operand_type);
+    return new_mut_ptr_type(c->tir, operand_type);
 }
 
-static TirId analyze_multiptr(Context *c, AstId node, TirTag tag) {
+static TirId analyze_slice_type(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     TirId operand_type = expect_type(c, operand);
-    return new_multiptr_type(c->tir, tag, operand_type);
+    return new_slice_type(c->tir, operand_type);
+}
+
+static TirId analyze_mut_slice_type(Context *c, AstId node) {
+    AstId operand = get_ast_unary(node, c->ast);
+    TirId operand_type = expect_type(c, operand);
+    return new_mut_slice_type(c->tir, operand_type);
 }
 
 static AstId get_call_arg(AstCall *call, int32_t i) {
@@ -1266,7 +1272,7 @@ static TirId analyze_alignof(Context *c, AstId node) {
         TirId type_alignment_tag = get_internal_term(c, BUILTIN_ALIGNMENT);
         type_alignment_tag = get_generic_term(c->tir, type_alignment_tag).inner;
         TirId type = replace_type_parameters(type_alignment_tag, &(ReplaceTypeInfo) {
-            .ctx = c->tir,
+            .c = c->tir,
             .args = &operand_type,
             .scratch = *c->scratch,
             .target = c->options->target,
@@ -1286,7 +1292,7 @@ static TirId analyze_sizeof(Context *c, AstId node) {
         TirId type_size_tag = get_internal_term(c, BUILTIN_SIZE);
         type_size_tag = get_generic_term(c->tir, type_size_tag).inner;
         TirId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
-            .ctx = c->tir,
+            .c = c->tir,
             .args = &operand_type,
             .scratch = *c->scratch,
             .target = c->options->target,
@@ -1726,7 +1732,7 @@ static TirId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
         for (int32_t i = 0; i < call.arg_count; i++) {
             TirId field_type = get_struct_type_field(c->tir, inner, i);
             field_type = replace_type_parameters(field_type, &(ReplaceTypeInfo) {
-                .ctx = c->tir,
+                .c = c->tir,
                 .args = type_args,
                 .scratch = *c->scratch,
                 .target = c->options->target,
@@ -1748,7 +1754,7 @@ static TirId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
     TirId type = term->inner;
     if (term->type_count) {
         type = replace_type_parameters(term->inner, &(ReplaceTypeInfo) {
-            .ctx = c->tir,
+            .c = c->tir,
             .args = type_args,
             .scratch = *c->scratch,
             .target = c->options->target,
@@ -1812,7 +1818,7 @@ static TirId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
         for (int32_t i = 0; i < call.arg_count; i++) {
             TirId param_type = get_function_type_param(c->tir, operand_type, i);
             param_type = replace_type_parameters(param_type, &(ReplaceTypeInfo) {
-                .ctx = c->tir,
+                .c = c->tir,
                 .args = type_args,
                 .scratch = *c->scratch,
                 .target = c->options->target,
@@ -1834,7 +1840,7 @@ static TirId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
     TirId result_type = func_type.ret;
     if (term->type_count) {
         result_type = replace_type_parameters(func_type.ret, &(ReplaceTypeInfo) {
-            .ctx = c->tir,
+            .c = c->tir,
             .args = type_args,
             .scratch = *c->scratch,
             .target = c->options->target,
@@ -1883,7 +1889,7 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
         return null_tir;
     }
     return replace_type_parameters(g.inner, &(ReplaceTypeInfo) {
-        .ctx = c->tir,
+        .c = c->tir,
         .args = arg_types,
         .scratch = *c->scratch,
         .target = c->options->target,
@@ -1959,9 +1965,9 @@ static TirId analyze_slice(Context *c, AstId node) {
     } else if (get_term_tag(c->tir, operand_type) == TIR_ARRAY_TYPE
         && get_value_category(c->tir, operand_value) == VALUE_MUTABLE_PLACE)
     {
-        type = new_multiptr_type(c->tir, TIR_MUT_SLICE_TYPE, elem_type);
+        type = new_mut_slice_type(c->tir, elem_type);
     } else {
-        type = new_multiptr_type(c->tir, TIR_SLICE_TYPE, elem_type);
+        type = new_slice_type(c->tir, elem_type);
     }
 
     TirId low_result;
@@ -2212,9 +2218,9 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
     switch (get_ast_tag(node, c->ast)) {
         case AST_ARRAY_TYPE: return analyze_array_type(c, node);
         case AST_ARRAY_TYPE_SUGAR: return analyze_array_type_sugar(c, node);
-        case AST_POINTER_MUT_TYPE: return analyze_ptr(c, node, TIR_MUT_PTR_TYPE);
-        case AST_SLICE_TYPE: return analyze_multiptr(c, node, TIR_SLICE_TYPE);
-        case AST_SLICE_MUT_TYPE: return analyze_multiptr(c, node, TIR_MUT_SLICE_TYPE);
+        case AST_POINTER_MUT_TYPE: return analyze_mut_ptr_type(c, node);
+        case AST_SLICE_TYPE: return analyze_slice_type(c, node);
+        case AST_SLICE_MUT_TYPE: return analyze_mut_slice_type(c, node);
         case AST_FUNCTION_TYPE: return analyze_function_type(c, node);
         case AST_ID: return analyze_id(c, node);
         case AST_INT: return analyze_int(c, node, hint);
@@ -2289,7 +2295,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
 }
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
-    TirDependencies global_tir = {0};
+    Tir global_tir = {0};
     Context global_tc = {0};
     global_tc.options = input->options;
     global_tc.paths = input->paths;

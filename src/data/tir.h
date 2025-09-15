@@ -175,23 +175,23 @@ typedef struct {
     Vec(TirId) functions;
     Vec(TypeScopeSymbol) type_scope_symbols;
     Vec(HashTable) type_scopes;
-} TirDependencies;
+} Tir;
 
 typedef struct {
     int32_t body_first;
     int32_t body_length;
-    TirDependencies deps;
+    Tir deps;
     int32_t local_count;
 } LocalTir;
 
 typedef struct {
-    TirDependencies *global;
-    TirDependencies *thread;
+    Tir *global;
+    Tir *thread;
 } TirContext;
 
-TirTag get_term_tag(TirContext ctx, TirId type);
-TermData const *get_term_data(TirContext ctx, TirId term);
-int32_t get_term_extra(TirContext ctx, int32_t index);
+TirTag get_term_tag(TirContext c, TirId type);
+TermData const *get_term_data(TirContext c, TirId term);
+int32_t get_term_extra(TirContext c, int32_t index);
 
 // Types
 
@@ -232,52 +232,54 @@ typedef struct {
     TirId *types;
 } GenericTerm;
 
-TirId new_array_type(TirContext ctx, ArrayType *t);
-TirId new_array_length_type(TirContext ctx, int64_t length);
-TirId new_ptr_type(TirContext ctx, TirTag tag, TirId elem);
-TirId new_multiptr_type(TirContext ctx, TirTag tag, TirId elem);
-TirId new_function_type(TirContext ctx, FunctionType *t);
-TirId new_struct_type(TirContext ctx, Target target, StructType *t);
-TirId new_enum_type(TirContext ctx, EnumType *t);
-TirId new_linear_type(TirContext ctx, TirId elem);
-TirId new_type_parameter(TirContext ctx, int32_t i, int32_t name);
-TirId new_tagged_type(TirContext ctx, TaggedType *t);
+TirId new_array_type(TirContext c, ArrayType *t);
+TirId new_array_length_type(TirContext c, int64_t length);
+TirId new_ptr_type(TirContext c, TirId elem);
+TirId new_mut_ptr_type(TirContext c, TirId elem);
+TirId new_slice_type(TirContext c, TirId elem);
+TirId new_mut_slice_type(TirContext c, TirId elem);
+TirId new_function_type(TirContext c, FunctionType *t);
+TirId new_struct_type(TirContext c, Target target, StructType *t);
+TirId new_enum_type(TirContext c, EnumType *t);
+TirId new_linear_type(TirContext c, TirId elem);
+TirId new_type_parameter(TirContext c, int32_t i, int32_t name);
+TirId new_tagged_type(TirContext c, TaggedType *t);
 
-TirId remove_any_pointer(TirContext ctx, TirId type);
-TirId remove_pointer(TirContext ctx, TirId type);
-TirId remove_slice(TirContext ctx, TirId type);
-TirId replace_slice_with_pointer(TirContext ctx, TirId type);
-TirId replace_pointer_with_slice(TirContext ctx, TirId type);
-TirId remove_c_pointer_like(TirContext ctx, TirId type);
-TirId remove_array_like(TirContext ctx, TirId type);
-TirId remove_tags(TirContext ctx, TirId type);
-bool is_aggregate_type(TirContext ctx, TirId type);
-bool type_is_linear(TirContext ctx, TirId type);
-bool type_is_unknown_size(TirContext ctx, TirId type);
-bool is_equality_type(TirContext ctx, TirId a);
-bool is_relative_type(TirContext ctx, TirId a);
+TirId remove_any_pointer(TirContext c, TirId type);
+TirId remove_pointer(TirContext c, TirId type);
+TirId remove_slice(TirContext c, TirId type);
+TirId replace_slice_with_pointer(TirContext c, TirId type);
+TirId replace_pointer_with_slice(TirContext c, TirId type);
+TirId remove_c_pointer_like(TirContext c, TirId type);
+TirId remove_array_like(TirContext c, TirId type);
+TirId remove_tags(TirContext c, TirId type);
+bool is_aggregate_type(TirContext c, TirId type);
+bool type_is_linear(TirContext c, TirId type);
+bool type_is_unknown_size(TirContext c, TirId type);
+bool is_equality_type(TirContext c, TirId a);
+bool is_relative_type(TirContext c, TirId a);
 bool int_fits_in_type(int64_t i, TirId type, Target target);
 TirId bigger_primitive_type(TirId a, TirId b, Target target);
 
-ArrayType get_array_type(TirContext ctx, TirId type);
-int64_t get_array_length_type(TirContext ctx, TirId type);
-TirId get_linear_elem_type(TirContext ctx, TirId type);
-int32_t get_type_parameter_index(TirContext ctx, TirId type);
-FunctionType get_function_type(TirContext ctx, TirId type);
-TirId get_function_type_param(TirContext ctx, TirId type, int32_t index);
-StructType get_struct_type(TirContext ctx, TirId type);
-TirId get_struct_type_field(TirContext ctx, TirId type, int32_t index);
-TirId get_any_struct_type_field(TirContext ctx, TirId type, int32_t index);
-EnumType get_enum_type(TirContext ctx, TirId type);
-TaggedType get_tagged_type(TirContext ctx, TirId type);
-TirId get_tagged_type_arg(TirContext ctx, TirId type, int32_t index);
-GenericTerm get_generic_term(TirContext ctx, TirId term);
+ArrayType get_array_type(TirContext c, TirId type);
+int64_t get_array_length_type(TirContext c, TirId type);
+TirId get_linear_elem_type(TirContext c, TirId type);
+int32_t get_type_parameter_index(TirContext c, TirId type);
+FunctionType get_function_type(TirContext c, TirId type);
+TirId get_function_type_param(TirContext c, TirId type, int32_t index);
+StructType get_struct_type(TirContext c, TirId type);
+TirId get_struct_type_field(TirContext c, TirId type, int32_t index);
+TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index);
+EnumType get_enum_type(TirContext c, TirId type);
+TaggedType get_tagged_type(TirContext c, TirId type);
+TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index);
+GenericTerm get_generic_term(TirContext c, TirId term);
 
 int32_t sizeof_pointer(Target target);
-int32_t alignof_type(TirContext ctx, TirId type, Target target);
-int64_t sizeof_type(TirContext ctx, TirId type, Target target);
-void print_type(FILE *file, TirContext ctx, TirId type);
-void debug_type(TirContext ctx, TirId type);
+int32_t alignof_type(TirContext c, TirId type, Target target);
+int64_t sizeof_type(TirContext c, TirId type, Target target);
+void print_type(FILE *file, TirContext c, TirId type);
+void debug_type(TirContext c, TirId type);
 
 static inline bool type_is_fixed_int(TirId type) {
     return type.id >= TYPE_i8 && type.id <= TYPE_char;
@@ -315,11 +317,11 @@ typedef struct TypeMatcher {
     struct TypeMatcher *inner;
 } TypeMatcher;
 
-int match_types(TirContext ctx, TirId *results, int32_t count, TirId *types, TypeMatcher *matchers);
-int match_type_parameters(TirContext ctx, TirId *results, TirId param, TirId arg);
+int match_types(TirContext c, TirId *results, int32_t count, TirId *types, TypeMatcher *matchers);
+int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg);
 
 typedef struct {
-    TirContext ctx;
+    TirContext c;
     TirId const *args;
     Arena scratch;
     Target target;
@@ -333,26 +335,26 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info);
 
 // Values
 
-TirId new_int_constant(TirContext ctx, TirId type, int64_t x);
-TirId new_float_constant(TirContext ctx, TirId type, double x);
-TirId new_null_constant(TirContext ctx, TirId type);
-TirId new_string_constant(TirContext ctx, TirId type, int32_t s);
-TirId new_function(TirContext ctx, TirId type, int32_t name);
-TirId new_extern_function(TirContext ctx, TirId type, int32_t name);
-TirId new_extern_var(TirContext ctx, TirId type, int32_t name);
-TirId new_variable(TirContext ctx, AstId node, TirId type, int32_t index, bool mutable);
-TirId new_unary_tir(TirContext ctx, TirTag tag, AstId node, TirId type, TirId a);
-TirId new_binary_tir(TirContext ctx, TirTag tag, AstId node, TirId type, TirId a, TirId b);
-TirId new_instr(TirContext ctx, TirTag tag, AstId node, TirId type, int32_t a, int32_t b);
+TirId new_int_constant(TirContext c, TirId type, int64_t x);
+TirId new_float_constant(TirContext c, TirId type, double x);
+TirId new_null_constant(TirContext c, TirId type);
+TirId new_string_constant(TirContext c, TirId type, int32_t s);
+TirId new_function(TirContext c, TirId type, int32_t name);
+TirId new_extern_function(TirContext c, TirId type, int32_t name);
+TirId new_extern_var(TirContext c, TirId type, int32_t name);
+TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, bool mutable);
+TirId new_unary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a);
+TirId new_binary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a, TirId b);
+TirId new_instr(TirContext c, TirTag tag, AstId node, TirId type, int32_t a, int32_t b);
 TirId new_generic(
-    TirContext ctx,
+    TirContext c,
     TirId inner,
     int32_t type_count,
     TirId *types
 );
 
-TirId get_value_type(TirContext ctx, TirId value);
-ValueCategory get_value_category(TirContext ctx, TirId value);
-char const *get_value_str(TirContext ctx, TirId value);
-int64_t get_value_int(TirContext ctx, TirId value);
-double get_value_float(TirContext ctx, TirId value);
+TirId get_value_type(TirContext c, TirId value);
+ValueCategory get_value_category(TirContext c, TirId value);
+char const *get_value_str(TirContext c, TirId value);
+int64_t get_value_int(TirContext c, TirId value);
+double get_value_float(TirContext c, TirId value);

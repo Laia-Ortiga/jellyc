@@ -4,7 +4,7 @@
 #include "type-analysis.h"
 
 typedef struct {
-    TirDependencies global_deps;
+    Tir global_deps;
     LocalTir *insts;
     MirResult *mir_result;
 } GenInput;
