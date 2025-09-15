@@ -3,6 +3,7 @@
 #include "arena.h"
 #include "enums.h"
 #include "fwd.h"
+#include "wrappers.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,20 +17,11 @@ typedef struct {
 } TermSet;
 
 typedef struct {
+    AstId node;
     int32_t a;
     int32_t b;
+    int32_t c;
 } TermData;
-
-typedef struct {
-    AstId node;
-    int32_t left;
-    int32_t right;
-} TirInstData;
-
-typedef struct {
-    SumVec(TirInstData) insts;
-    Vec(int32_t) extra;
-} TirInstList;
 
 typedef struct {
     SumVec(TermData) terms;
@@ -58,8 +50,8 @@ typedef struct {
 } TirDependencies;
 
 typedef struct {
-    TirInstList insts;
-    TirId first;
+    int32_t body_first;
+    int32_t body_length;
     TirDependencies deps;
     int32_t local_count;
 } LocalTir;
@@ -69,13 +61,9 @@ typedef struct {
     LocalTir *thread;
 } TirContext;
 
-typedef struct {
-    TirContext ctx;
-    TirInstList insts;
-} Tir;
-
 TermTag get_term_tag(TirContext ctx, TermId type);
 TermData const *get_term_data(TirContext ctx, TermId term);
+int32_t get_term_extra(TirContext ctx, int32_t index);
 
 // Types
 
@@ -208,8 +196,10 @@ TermId new_string_constant(TirContext ctx, TermId type, int32_t s);
 TermId new_function(TirContext ctx, TermId type, int32_t name);
 TermId new_extern_function(TirContext ctx, TermId type, int32_t name);
 TermId new_extern_var(TirContext ctx, TermId type, int32_t name);
-TermId new_variable(TirContext ctx, TermId type, int32_t index, bool mutable);
-TermId new_temporary(TirContext ctx, TermId type, TirId tir_id);
+TermId new_variable(TirContext ctx, AstId node, TermId type, int32_t index, bool mutable);
+TermId new_unary_tir(TirContext ctx, TermTag tag, AstId node, TermId type, TermId a);
+TermId new_binary_tir(TirContext ctx, TermTag tag, AstId node, TermId type, TermId a, TermId b);
+TermId new_instr(TirContext ctx, TermTag tag, AstId node, TermId type, int32_t a, int32_t b);
 TermId new_generic(
     TirContext ctx,
     TermId inner,
@@ -222,9 +212,3 @@ ValueCategory get_value_category(TirContext ctx, TermId value);
 char const *get_value_str(TirContext ctx, TermId value);
 int64_t get_value_int(TirContext ctx, TermId value);
 double get_value_float(TirContext ctx, TermId value);
-
-// Instructions
-
-TirTag get_tir_tag(TirInstList *insts, TirId inst);
-TirInstData get_tir_data(TirInstList *insts, TirId inst);
-int32_t get_tir_extra(TirInstList *insts, int32_t index);

@@ -205,36 +205,12 @@ static void add_id(Context *c, AstRef ref, TermId term) {
 }
 
 static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
-    int32_t index = c->tir.thread->insts.extra.len;
-    int32_t *result = vec_grow(&c->tir.thread->insts.extra, count);
+    int32_t index = c->tir.thread->deps.terms.extra.len;
+    int32_t *result = vec_grow(&c->tir.thread->deps.terms.extra, count);
     for (int32_t i = 0; i < count; i++) {
         result[i] = values[i];
     }
     return index;
-}
-
-static TirId new_inst_impl(Context *c, TirTag tag, AstId ast_id, int32_t left, int32_t right) {
-    if (!c->tir.thread) {
-        return (TirId) {0};
-    }
-
-    TirInstData data = {ast_id, left, right};
-    sum_vec_push(&c->tir.thread->insts.insts, data, tag);
-    return (TirId) {c->tir.thread->insts.insts.len - 1};
-}
-
-static TermId new_unary_inst(Context *c, TirTag tag, AstId ast_id, TermId type, int32_t operand) {
-    TirId tir_id = new_inst_impl(c, tag, ast_id, operand, 0);
-    return new_temporary(c->tir, type, tir_id);
-}
-
-static TermId new_binary_inst(Context *c, TirTag tag, AstId ast_id, TermId type, int32_t left, int32_t right) {
-    TirId tir_id = new_inst_impl(c, tag, ast_id, left, right);
-    return new_temporary(c->tir, type, tir_id);
-}
-
-static TirId new_binary_statement(Context *c, TirTag tag, AstId ast_id, int32_t left, int32_t right) {
-    return new_inst_impl(c, tag, ast_id, left, right);
 }
 
 static String ctx_source(Context const *c) {
@@ -452,13 +428,13 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_binary_inst(
-                c,
+            return new_binary_tir(
+                c->tir,
                 TIR_ARRAY_TO_SLICE,
                 node,
                 wanted_type,
-                value.id,
-                t[1].id
+                value,
+                t[1]
             );
         }
     }
@@ -475,13 +451,13 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_binary_inst(
-                c,
+            return new_binary_tir(
+                c->tir,
                 TIR_ARRAY_TO_SLICE,
                 node,
                 wanted_type,
-                value.id,
-                t[1].id
+                value,
+                t[1]
             );
         }
     }
@@ -498,7 +474,7 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_unary_inst(c, TIR_NOP, node, wanted_type, value.id);
+            return new_unary_tir(c->tir, TIR_NOP, node, wanted_type, value);
         }
     }
     // @mut T to @T
@@ -514,7 +490,7 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_unary_inst(c, TIR_NOP, node, wanted_type, value.id);
+            return new_unary_tir(c->tir, TIR_NOP, node, wanted_type, value);
         }
     }
     // *mut T to *mut byte
@@ -530,7 +506,7 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_unary_inst(c, TIR_PTR_CAST, node, wanted_type, value.id);
+            return new_unary_tir(c->tir, TIR_PTR_CAST, node, wanted_type, value);
         }
     }
     // *(mut) T to *byte
@@ -546,7 +522,7 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_unary_inst(c, TIR_PTR_CAST, node, wanted_type, value.id);
+            return new_unary_tir(c->tir, TIR_PTR_CAST, node, wanted_type, value);
         }
     }
     // tag[Tags...] to tag:inner
@@ -559,7 +535,7 @@ static TermId apply_implicit_conversion(Context *c, AstId node, TermId value, Te
             match_T(1),
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return new_unary_inst(c, TIR_NOP, node, wanted_type, value.id);
+            return new_unary_tir(c->tir, TIR_NOP, node, wanted_type, value);
         }
     }
 
@@ -636,7 +612,7 @@ static TermId analyze_function_decl(Context *c, AstId node) {
     for (int32_t i = 0; i < f.param_count; i++) {
         AstId param_type = get_ast_unary(f.params[i], c->ast);
         param_types[i] = expect_type(c, param_type);
-        TermId param_value = new_variable(c->tir, param_types[i], i, false);
+        TermId param_value = new_variable(c->tir, f.params[i], param_types[i], i, false);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
 
@@ -696,16 +672,14 @@ static TermId analyze_return(Context *c, AstId node) {
         }
 
         TermId operand_value = expect_value_type(c, operand, operand_hint);
-        new_binary_statement(c, TIR_RETURN, node, operand_value.id, 0);
+        return new_unary_tir(c->tir, TIR_RETURN, node, null_term, operand_value);
     } else {
         if (func_type.ret.id != TYPE_VOID) {
             error(c, operand, &(Diagnostic) {.kind = ERROR_RETURN_MISSING_VALUE});
         }
 
-        new_binary_statement(c, TIR_RETURN, node, 0, 0);
+        return new_unary_tir(c->tir, TIR_RETURN, node, null_term, null_term);
     }
-
-    return null_term;
 }
 
 static TirBlock analyze_block(Context *c, AstId block, TermId hint) {
@@ -713,21 +687,24 @@ static TirBlock analyze_block(Context *c, AstId block, TermId hint) {
     int32_t *body_tir = arena_alloc(c->scratch, int32_t, list.count);
     int32_t length = 0;
     for (int32_t i = 0; i < list.count; i++) {
+        TermId tir = null_term;
         if (i == list.count - 1 && hint.id && hint.id != TYPE_VOID) {
             if (get_ast_tag(list.nodes[i], c->ast) == AST_EXPRESSION_STATEMENT) {
-                analyze_return(c, list.nodes[i]);
+                tir = analyze_return(c, list.nodes[i]);
             } else {
                 diagnostic(c, (AstRef) {list.nodes[i], c->file}, ERROR_EXPECTED_VALUE);
             }
         } else {
-            analyze_term(c, list.nodes[i], null_term);
+            tir = analyze_term(c, list.nodes[i], null_term);
         }
-        body_tir[length++] = c->tir.thread->insts.insts.len - 1;
+        if (is_term_value(get_term_tag(c->tir, tir))) {
+            body_tir[length++] = tir.id;
+        }
     }
     return (TirBlock) {push_extra(c, body_tir, length), length};
 }
 
-static TirId analyze_function(Context *c, AstId node, TermId value) {
+static void analyze_function(Context *c, AstId node, TermId value) {
     AstFunction f = get_ast_function(node, c->ast);
     GenericTerm g = get_generic_term(c->tir, value);
     TermId type = get_value_type(c->tir, g.inner);
@@ -739,7 +716,7 @@ static TirId analyze_function(Context *c, AstId node, TermId value) {
     for (int32_t i = 0; i < func_type.param_count; i++) {
         TermId param_type = get_function_type_param(c->tir, type, i);
         int32_t var = c->tir.thread->local_count++;
-        TermId param_value = new_variable(c->tir, param_type, var, false);
+        TermId param_value = new_variable(c->tir, f.params[i], param_type, var, false);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
     c->current_function_type = type;
@@ -748,7 +725,8 @@ static TirId analyze_function(Context *c, AstId node, TermId value) {
         error(c, f.body, &(Diagnostic) {.kind = ERROR_MISSING_RETURN});
     }
     pop_scope(c);
-    return new_binary_statement(c, TIR_FUNCTION, f.body, tir_block.index, tir_block.length);
+    c->tir.thread->body_first = tir_block.index;
+    c->tir.thread->body_length = tir_block.length;
 }
 
 static TermId analyze_enum(Context *c, AstId node) {
@@ -986,10 +964,9 @@ static TermId analyze_let(Context *c, AstId node, bool mutable) {
         type_error(c, node, init_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
     }
     int32_t var = c->tir.thread->local_count++;
-    TermId value = new_variable(c->tir, init_type, var, mutable);
-    new_inst_impl(c, mutable ? TIR_MUT : TIR_LET, node, var, init_value.id);
+    TermId value = new_variable(c->tir, node, init_type, var, mutable);
     add_id(c, (AstRef) {node, c->file}, value);
-    return null_term;
+    return new_instr(c->tir, mutable ? TIR_MUT : TIR_LET, node, type_void, var, init_value.id);
 }
 
 static TermId analyze_function_type(Context *c, AstId node) {
@@ -1187,7 +1164,7 @@ static TermId analyze_null(Context *c, TermId hint) {
     return new_null_constant(c->tir, type);
 }
 
-static TermId analyze_un_arithmetic(Context *c, AstId node, TermId hint, TirTag tag) {
+static TermId analyze_un_arithmetic(Context *c, AstId node, TermId hint, TermTag tag) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId operand_value = expect_value(c, operand, hint);
     TermId operand_type = get_value_type(c->tir, operand_value);
@@ -1197,13 +1174,13 @@ static TermId analyze_un_arithmetic(Context *c, AstId node, TermId hint, TirTag 
         return null_term;
     }
 
-    return new_unary_inst(c, tag, node, operand_type, operand_value.id);
+    return new_unary_tir(c->tir, tag, node, operand_type, operand_value);
 }
 
 static TermId analyze_not(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     TermId operand_value = expect_value_type(c, operand, type_bool);
-    return new_unary_inst(c, TIR_NOT, node, type_bool, operand_value.id);
+    return new_unary_tir(c->tir, TIR_NOT, node, type_bool, operand_value);
 }
 
 static TermId analyze_address(Context *c, AstId node, TermId hint) {
@@ -1216,15 +1193,15 @@ static TermId analyze_address(Context *c, AstId node, TermId hint) {
         }
         case VALUE_TEMPORARY: {
             TermId type = new_ptr_type(c->tir, TYPE_PTR_MUT, operand_type);
-            return new_unary_inst(c, TIR_ADDRESS_OF_TEMPORARY, node, type, operand_value.id);
+            return new_unary_tir(c->tir, TIR_ADDRESS_OF_TEMPORARY, node, type, operand_value);
         }
         case VALUE_PLACE: {
             TermId type = new_ptr_type(c->tir, TYPE_PTR, operand_type);
-            return new_unary_inst(c, TIR_ADDRESS, node, type, operand_value.id);
+            return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
         case VALUE_MUTABLE_PLACE: {
             TermId type = new_ptr_type(c->tir, TYPE_PTR_MUT, operand_type);
-            return new_unary_inst(c, TIR_ADDRESS, node, type, operand_value.id);
+            return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
         case VALUE_MULTIVALUE: {
             return expect_value(c, operand, hint);
@@ -1250,7 +1227,7 @@ static TermId analyze_deref(Context *c, AstId node) {
         return null_term;
     }
 
-    return new_unary_inst(c, TIR_DEREF, node, type, operand_value.id);
+    return new_unary_tir(c->tir, TIR_DEREF, node, type, operand_value);
 }
 
 static TermId analyze_ptr(Context *c, AstId node, TermTag tag) {
@@ -1322,7 +1299,7 @@ static TermId analyze_sizeof(Context *c, AstId node) {
     return null_term;
 }
 
-static TirTag get_cast_type(Context *c, TermId operand_type, TermId cast_type) {
+static TermTag get_cast_type(Context *c, TermId operand_type, TermId cast_type) {
     if (remove_pointer(c->tir, operand_type).id && remove_pointer(c->tir, cast_type).id) {
         return TIR_PTR_CAST;
     }
@@ -1365,13 +1342,13 @@ static TermId analyze_cast(Context *c, AstId node, TermId cast_type) {
         return operand_value;
     }
 
-    TirTag cast_kind = get_cast_type(c, operand_type, cast_type);
+    TermTag cast_kind = get_cast_type(c, operand_type, cast_type);
     if ((int) cast_kind == -1) {
         double_type_error(c, get_call_arg(&call, 0), operand_type, cast_type, ERROR_CAST);
         return null_term;
     }
 
-    return new_unary_inst(c, cast_kind, node, cast_type, operand_value.id);
+    return new_unary_tir(c->tir, cast_kind, node, cast_type, operand_value);
 }
 
 static TermId analyze_zero_extend(Context *c, AstId node, TermId hint) {
@@ -1394,7 +1371,7 @@ static TermId analyze_zero_extend(Context *c, AstId node, TermId hint) {
         return operand_value;
     }
 
-    return new_unary_inst(c, TIR_ZEXT, node, hint, operand_value.id);
+    return new_unary_tir(c->tir, TIR_ZEXT, node, hint, operand_value);
 }
 
 static TermId analyze_slice_constructor(Context *c, AstId node, TermId hint) {
@@ -1414,7 +1391,7 @@ static TermId analyze_slice_constructor(Context *c, AstId node, TermId hint) {
         length_result.id,
         data_value.id,
     };
-    return new_binary_inst(c, TIR_NEW_STRUCT, node, type, push_extra(c, extra, ArrayLength(extra)), 2);
+    return new_instr(c->tir, TIR_NEW_STRUCT, node, type, push_extra(c, extra, ArrayLength(extra)), 2);
 }
 
 static TermId analyze_linear(Context *c, AstId node) {
@@ -1437,7 +1414,7 @@ static TermId analyze_array_length_type(Context *c, AstId node) {
     return null_term;
 }
 
-static TermId analyze_bin_arithmetic(Context *c, AstId node, TermId hint, TirTag tag) {
+static TermId analyze_bin_arithmetic(Context *c, AstId node, TermId hint, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_value(c, bin.left, hint);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1451,10 +1428,10 @@ static TermId analyze_bin_arithmetic(Context *c, AstId node, TermId hint, TirTag
         return null_term;
     }
 
-    return new_binary_inst(c, tag, node, left_type, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, left_type, left_value, right_value);
 }
 
-static TermId analyze_bin_bit(Context *c, AstId node, TermId hint, TirTag tag) {
+static TermId analyze_bin_bit(Context *c, AstId node, TermId hint, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_value(c, bin.left, hint);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1468,10 +1445,10 @@ static TermId analyze_bin_bit(Context *c, AstId node, TermId hint, TirTag tag) {
         return null_term;
     }
 
-    return new_binary_inst(c, tag, node, left_type, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, left_type, left_value, right_value);
 }
 
-static TermId analyze_eq(Context *c, AstId node, TirTag tag) {
+static TermId analyze_eq(Context *c, AstId node, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_value(c, bin.left, null_term);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1483,10 +1460,10 @@ static TermId analyze_eq(Context *c, AstId node, TirTag tag) {
         return null_term;
     }
 
-    return new_binary_inst(c, tag, node, type_bool, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, type_bool, left_value, right_value);
 }
 
-static TermId analyze_rel(Context *c, AstId node, TirTag tag) {
+static TermId analyze_rel(Context *c, AstId node, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_value(c, bin.left, null_term);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1498,7 +1475,7 @@ static TermId analyze_rel(Context *c, AstId node, TirTag tag) {
         return null_term;
     }
 
-    return new_binary_inst(c, tag, node, type_bool, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, type_bool, left_value, right_value);
 }
 
 static TermId analyze_logic(Context *c, AstId node, bool is_and) {
@@ -1517,7 +1494,7 @@ static TermId analyze_logic(Context *c, AstId node, bool is_and) {
         push_extra(c, branches_tir, 4),
         2,
     };
-    return new_binary_inst(c, TIR_SWITCH, node, type_bool, left_value.id, push_extra(c, extra, ArrayLength(extra)));
+    return new_instr(c->tir, TIR_SWITCH, node, type_bool, left_value.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
 static TermId analyze_assign(Context *c, AstId node) {
@@ -1528,10 +1505,10 @@ static TermId analyze_assign(Context *c, AstId node) {
     if (type_is_unknown_size(c->tir, left_type)) {
         type_error(c, node, left_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
     }
-    return new_binary_inst(c, TIR_ASSIGN, node, type_void, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, TIR_ASSIGN, node, type_void, left_value, right_value);
 }
 
-static TermId analyze_assign_arithmetic(Context *c, AstId node, TirTag tag) {
+static TermId analyze_assign_arithmetic(Context *c, AstId node, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_mutable_place(c, bin.left, null_term);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1539,10 +1516,10 @@ static TermId analyze_assign_arithmetic(Context *c, AstId node, TirTag tag) {
     if (!type_is_arithmetic(left_type)) {
         double_type_error(c, bin.left, left_type, get_value_type(c->tir, right_value), ERROR_BINARY_UNEXPECTED_OPERANDS);
     }
-    return new_binary_inst(c, tag, node, type_void, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, type_void, left_value, right_value);
 }
 
-static TermId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
+static TermId analyze_assign_bit(Context *c, AstId node, TermTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
     TermId left_value = expect_mutable_place(c, bin.left, null_term);
     TermId left_type = get_value_type(c->tir, left_value);
@@ -1550,7 +1527,7 @@ static TermId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
     if (!type_is_int(left_type)) {
         double_type_error(c, bin.left, left_type, get_value_type(c->tir, right_value), ERROR_BINARY_UNEXPECTED_OPERANDS);
     }
-    return new_binary_inst(c, tag, node, type_void, left_value.id, right_value.id);
+    return new_binary_tir(c->tir, tag, node, type_void, left_value, right_value);
 }
 
 static TermId implicit_pointer_deref(Context *c, AstId node, TermId value) {
@@ -1559,7 +1536,7 @@ static TermId implicit_pointer_deref(Context *c, AstId node, TermId value) {
     if (!inner_type.id) {
         return value;
     }
-    return new_unary_inst(c, TIR_DEREF, node, inner_type, value.id);
+    return new_unary_tir(c->tir, TIR_DEREF, node, inner_type, value);
 }
 
 static int32_t find_field(Context *c, TermId type, String name) {
@@ -1618,7 +1595,7 @@ static TermId resolve_length(Context *c, AstId node, TermId array_like) {
         }
         case TYPE_MULTIPTR:
         case TYPE_MULTIPTR_MUT: {
-            return new_binary_inst(c, TIR_ACCESS, node, type_isize, array_like.id, 0);
+            return new_instr(c->tir, TIR_ACCESS, node, type_isize, array_like.id, 0);
         }
         default: {
             return null_term;
@@ -1632,7 +1609,7 @@ static TermId resolve_slice_data(Context *c, AstId node, TermId array_like) {
     if (!type.id) {
         return null_term;
     }
-    return new_binary_inst(c, TIR_ACCESS, node, type, array_like.id, 1);
+    return new_instr(c->tir, TIR_ACCESS, node, type, array_like.id, 1);
 }
 
 static TermId analyze_access(Context *c, AstId node) {
@@ -1717,7 +1694,7 @@ static TermId analyze_access(Context *c, AstId node) {
 
     TypeScopeSymbol sym = c->tir.global->type_scope_symbols.ptr[field_sym];
     TermId result_type = get_struct_type_field(c->tir, type, sym.field_index);
-    return new_binary_inst(c, TIR_ACCESS, node, result_type, operand_value.id, sym.field_index);
+    return new_instr(c->tir, TIR_ACCESS, node, result_type, operand_value.id, sym.field_index);
 }
 
 static TermId analyze_type_hint(Context *c, AstId node) {
@@ -1779,7 +1756,7 @@ static TermId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
             .target = c->options->target,
         });
     }
-    return new_binary_inst(c, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
+    return new_instr(c->tir, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
 }
 
 static TermId analyze_linear_ctor(Context *c, AstId node, TermId linear_type) {
@@ -1792,7 +1769,7 @@ static TermId analyze_linear_ctor(Context *c, AstId node, TermId linear_type) {
 
     TermId param_type = get_linear_elem_type(c->tir, linear_type);
     TermId arg_result = expect_value_type(c, get_call_arg(&call, 0), param_type);
-    return new_unary_inst(c, TIR_NOP, node, linear_type, arg_result.id);
+    return new_unary_tir(c->tir, TIR_NOP, node, linear_type, arg_result);
 }
 
 static TermId analyze_constructor(Context *c, AstId node, GenericTerm *term) {
@@ -1866,8 +1843,8 @@ static TermId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
         });
     }
 
-    return new_binary_inst(
-        c,
+    return new_instr(
+        c->tir,
         TIR_CALL,
         node,
         result_type,
@@ -1964,7 +1941,7 @@ static TermId analyze_index(Context *c, AstId node, TermId hint) {
         return null_term;
     }
 
-    return new_binary_inst(c, TIR_INDEX, node, elem_type, operand_value.id, arg_result.id);
+    return new_binary_tir(c->tir, TIR_INDEX, node, elem_type, operand_value, arg_result);
 }
 
 static TermId analyze_slice(Context *c, AstId node) {
@@ -2007,8 +1984,8 @@ static TermId analyze_slice(Context *c, AstId node) {
         low_result.id,
         high_result.id,
     };
-    return new_binary_inst(
-        c,
+    return new_instr(
+        c->tir,
         TIR_SLICE,
         node,
         type,
@@ -2044,7 +2021,7 @@ static TermId analyze_list(Context *c, AstId node, TermId hint) {
         .index = new_array_length_type(c->tir, list.count),
         .elem = elem_type,
     });
-    return new_binary_inst(c, TIR_NEW_ARRAY, node, type, push_extra(c, args_tir, list.count), list.count);
+    return new_instr(c->tir, TIR_NEW_ARRAY, node, type, push_extra(c, args_tir, list.count), list.count);
 }
 
 static TermId analyze_if(Context *c, AstId node) {
@@ -2065,8 +2042,7 @@ static TermId analyze_if(Context *c, AstId node) {
         false_tir.index,
         false_tir.length,
     };
-    new_binary_statement(c, TIR_IF, node, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
-    return null_term;
+    return new_instr(c->tir, TIR_IF, node, type_void, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
 static TermId analyze_while(Context *c, AstId node) {
@@ -2082,15 +2058,13 @@ static TermId analyze_while(Context *c, AstId node) {
         block_tir.index,
         block_tir.length,
     };
-    new_binary_statement(c, TIR_LOOP, node, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
-    return null_term;
+    return new_instr(c->tir, TIR_LOOP, node, type_void, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
 static TermId analyze_for_helper(Context *c, AstId node) {
     AstFor for_ = get_ast_for(get_ast_unary(node, c->ast), c->ast);
     push_scope(c);
-    analyze_term(c, for_.init, null_term);
-    return null_term;
+    return analyze_term(c, for_.init, null_term);
 }
 
 static TermId analyze_for(Context *c, AstId node) {
@@ -2106,8 +2080,7 @@ static TermId analyze_for(Context *c, AstId node) {
         block_tir.length,
     };
     pop_scope(c);
-    new_binary_statement(c, TIR_LOOP, node, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
-    return null_term;
+    return new_instr(c->tir, TIR_LOOP, node, type_void, cond_result.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
 static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *type, int32_t *branches) {
@@ -2208,17 +2181,13 @@ static TermId analyze_switch(Context *c, AstId node, TermId hint) {
                 }
             }
         }
-
-        if (consistent_types) {
-            int32_t extra[] = {
-                push_extra(c, branches_tir, switch_.arg_count * 2),
-                switch_.arg_count,
-            };
-            return new_binary_inst(c, TIR_SWITCH, node, result_type, cond_value.id, push_extra(c, extra, ArrayLength(extra)));
-        }
     }
 
-    return null_term;
+    int32_t extra[] = {
+        push_extra(c, branches_tir, switch_.arg_count * 2),
+        switch_.arg_count,
+    };
+    return new_instr(c->tir, TIR_SWITCH, node, result_type, cond_value.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
 static TermId analyze_break(Context *c, AstId node) {
@@ -2226,8 +2195,7 @@ static TermId analyze_break(Context *c, AstId node) {
         error(c, node, &(Diagnostic) {.kind = ERROR_MISPLACED_BREAK});
     }
 
-    new_binary_statement(c, TIR_BREAK, node, 0, 0);
-    return null_term;
+    return new_instr(c->tir, TIR_BREAK, node, type_void, 0, 0);
 }
 
 static TermId analyze_continue(Context *c, AstId node) {
@@ -2235,13 +2203,11 @@ static TermId analyze_continue(Context *c, AstId node) {
         error(c, node, &(Diagnostic) {.kind = ERROR_MISPLACED_CONTINUE});
     }
 
-    new_binary_statement(c, TIR_CONTINUE, node, 0, 0);
-    return null_term;
+    return new_instr(c->tir, TIR_CONTINUE, node, type_void, 0, 0);
 }
 
 static TermId analyze_value_statement(Context *c, AstId node) {
-    new_binary_statement(c, TIR_VALUE, node, expect_value(c, get_ast_unary(node, c->ast), null_term).id, 0);
-    return null_term;
+    return analyze_term(c, get_ast_unary(node, c->ast), null_term);
 }
 
 static TermId analyze_term(Context *c, AstId node, TermId hint) {
@@ -2320,7 +2286,7 @@ static TermId analyze_term(Context *c, AstId node, TermId hint) {
         case AST_EXTERN_FUNCTION: return analyze_extern_function(c, node);
         case AST_EXTERN_MUT: return analyze_extern_mut(c, node);
 
-        default: return null_term;
+        default: abort();
     }
 }
 
@@ -2382,7 +2348,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             local_tc.ast = &input->asts[ref.file];
             local_tc.tir.thread = &tirs[i];
 
-            tirs[i].first = analyze_function(&local_tc, ref.node, value);
+            analyze_function(&local_tc, ref.node, value);
 
             if (local_tc.error) {
                 err = 1;

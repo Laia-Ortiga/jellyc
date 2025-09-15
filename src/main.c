@@ -412,7 +412,7 @@ int main(int argc, char **argv) {
                 .thread = &tir_output.insts[i],
             };
             char const *name = get_value_str(ctx, tir_output.global_deps.functions.ptr[i]);
-            print_tir(ctx, name, &tir_output.insts[i].insts, tir_output.insts[i].first);
+            print_tir(ctx, name, tir_output.insts[i].body_first, tir_output.insts[i].body_length);
         }
     }
     err = check_substructural_types(

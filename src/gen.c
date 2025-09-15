@@ -378,9 +378,6 @@ static void gen_string(GenContext *ctx, char const *str) {
 
 static void gen_value(GenContext *ctx, TermId value) {
     switch (get_term_tag(ctx->tir, value)) {
-        default: {
-            abort();
-        }
         case VAL_FUNCTION:
         case VAL_EXTERN_FUNCTION:
         case VAL_EXTERN_VAR: {
@@ -404,9 +401,7 @@ static void gen_value(GenContext *ctx, TermId value) {
             fprintf(ctx->stream, "0");
             break;
         }
-        case VAL_VARIABLE:
-        case VAL_MUTABLE_VARIABLE:
-        case VAL_TEMPORARY: {
+        default: {
             abort();
         }
     }

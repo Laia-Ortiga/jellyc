@@ -22,16 +22,12 @@ typedef struct {
 } TermId;
 
 typedef struct {
-    int32_t id;
-} TirId;
-
-typedef struct {
     int32_t private_field_id;
 } MirId;
 
 static AstId const null_ast = {0};
 static TermId const null_term = {0};
-static TirId const null_tir = {0};
+static TermId const null_tir = {0};
 
 static inline bool is_ast_null(AstId ast_id) {
     return !ast_id.private_field_id;

@@ -297,40 +297,8 @@ typedef enum {
     VAL_VARIABLE,
     VAL_MUTABLE_VARIABLE,
 
-    // index is the instruction index
-    VAL_TEMPORARY,
-
-    TERM_VALUE_END,
-
-    TERM_MACRO = TERM_VALUE_END,
-    TERM_MODULE,
-
-    // a is the inner term
-    // b points to the number of type parameters followed by the types
-    TERM_GENERIC,
-} TermTag;
-
-static inline bool is_term_type(TermTag tag) {
-    return tag >= TERM_TYPE_START && tag < TERM_TYPE_END;
-}
-
-static inline bool is_term_value(TermTag tag) {
-    return tag >= TERM_VALUE_START && tag < TERM_VALUE_END;
-}
-
-typedef enum {
-    VALUE_INVALID,
-    VALUE_TEMPORARY,
-    VALUE_PLACE,
-    VALUE_MUTABLE_PLACE,
-    VALUE_MULTIVALUE,
-} ValueCategory;
-
-typedef enum {
-    TIR_FUNCTION,
     TIR_LET,
     TIR_MUT,
-    TIR_VALUE,
 
     TIR_PLUS,
     TIR_MINUS,
@@ -392,7 +360,32 @@ typedef enum {
     TIR_BREAK,
     TIR_CONTINUE,
     TIR_RETURN,
-} TirTag;
+
+    TERM_VALUE_END,
+
+    TERM_MACRO = TERM_VALUE_END,
+    TERM_MODULE,
+
+    // a is the inner term
+    // b points to the number of type parameters followed by the types
+    TERM_GENERIC,
+} TermTag;
+
+static inline bool is_term_type(TermTag tag) {
+    return tag >= TERM_TYPE_START && tag < TERM_TYPE_END;
+}
+
+static inline bool is_term_value(TermTag tag) {
+    return tag >= TERM_VALUE_START && tag < TERM_VALUE_END;
+}
+
+typedef enum {
+    VALUE_INVALID,
+    VALUE_TEMPORARY,
+    VALUE_PLACE,
+    VALUE_MUTABLE_PLACE,
+    VALUE_MULTIVALUE,
+} ValueCategory;
 
 typedef enum {
     // Statement

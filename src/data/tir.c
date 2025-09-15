@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -313,9 +314,7 @@ static TermId new_structural_type(TirContext ctx, StructuralType descriptor) {
     return type;
 }
 
-static TermId new_term(TirContext ctx, TermTag tag, int32_t a, int32_t b) {
-    TermData data = {a, b};
-
+static TermId new_tir(TirContext ctx, TermTag tag, TermData data) {
     if (!ctx.thread) {
         TermId t = {ctx.global->terms.terms.len + TERM_COUNT};
         sum_vec_push(&ctx.global->terms.terms, data, tag);
@@ -325,6 +324,11 @@ static TermId new_term(TirContext ctx, TermTag tag, int32_t a, int32_t b) {
     TermId t = {ctx.global->terms.terms.len + TERM_COUNT + ctx.thread->deps.terms.terms.len};
     sum_vec_push(&ctx.thread->deps.terms.terms, data, tag);
     return t;
+}
+
+static TermId new_term(TirContext ctx, TermTag tag, int32_t a, int32_t b) {
+    TermData data = {.a = a, .b = b};
+    return new_tir(ctx, tag, data);
 }
 
 TermId new_array_type(TirContext ctx, ArrayType *t) {
@@ -481,6 +485,10 @@ TermData const *get_term_data(TirContext ctx, TermId type) {
     }
     TermIndex i = get_term_index(ctx, type);
     return &i.deps->terms.terms.datas[i.index];
+}
+
+int32_t get_term_extra(TirContext ctx, int32_t index) {
+    return ctx.thread->deps.terms.extra.ptr[index];
 }
 
 static int32_t *get_type_extra(TirContext ctx, TermId type) {
@@ -1305,7 +1313,10 @@ TermId new_int_constant(TirContext ctx, TermId type, int64_t x) {
     store_i64(x, &low, &high);
     vec_push(&terms->extra, low);
     vec_push(&terms->extra, high);
-    return new_term(ctx, VAL_CONST_INT, type.id, terms->extra.len - 2);
+    return new_tir(ctx, VAL_CONST_INT, (TermData) {
+        .a = type.id,
+        .b = terms->extra.len - 2,
+    });
 }
 
 TermId new_float_constant(TirContext ctx, TermId type, double x) {
@@ -1314,40 +1325,82 @@ TermId new_float_constant(TirContext ctx, TermId type, double x) {
     store_f64(x, &low, &high);
     vec_push(&terms->extra, low);
     vec_push(&terms->extra, high);
-    return new_term(ctx, VAL_CONST_FLOAT, type.id, terms->extra.len - 2);
+    return new_tir(ctx, VAL_CONST_FLOAT, (TermData) {
+        .a = type.id,
+        .b = terms->extra.len - 2,
+    });
 }
 
 TermId new_null_constant(TirContext ctx, TermId type) {
-    return new_term(ctx, VAL_CONST_NULL, type.id, 0);
+    return new_tir(ctx, VAL_CONST_NULL, (TermData) {
+        .a = type.id,
+    });
 }
 
 TermId new_string_constant(TirContext ctx, TermId type, int32_t s) {
-    return new_term(ctx, VAL_STRING, type.id, s);
+    return new_tir(ctx, VAL_STRING, (TermData) {
+        .a = type.id,
+        .b = s,
+    });
 }
 
 TermId new_function(TirContext ctx, TermId type, int32_t name) {
-    return new_term(ctx, VAL_FUNCTION, type.id, name);
+    return new_tir(ctx, VAL_FUNCTION, (TermData) {
+        .a = type.id,
+        .b = name,
+    });
 }
 
 TermId new_extern_function(TirContext ctx, TermId type, int32_t name) {
-    return new_term(ctx, VAL_EXTERN_FUNCTION, type.id, name);
+    return new_tir(ctx, VAL_EXTERN_FUNCTION, (TermData) {
+        .a = type.id,
+        .b = name,
+    });
 }
 
 TermId new_extern_var(TirContext ctx, TermId type, int32_t name) {
-    return new_term(ctx, VAL_EXTERN_VAR, type.id, name);
+    return new_tir(ctx, VAL_EXTERN_VAR, (TermData) {
+        .a = type.id,
+        .b = name,
+    });
 }
 
-TermId new_variable(TirContext ctx, TermId type, int32_t index, bool mutable) {
-    return new_term(
+TermId new_variable(TirContext ctx, AstId node, TermId type, int32_t index, bool mutable) {
+    return new_tir(
         ctx,
         mutable ? VAL_MUTABLE_VARIABLE : VAL_VARIABLE,
-        type.id,
-        index
+        (TermData) {
+            .node = node,
+            .a = type.id,
+            .b = index,
+        }
     );
 }
 
-TermId new_temporary(TirContext ctx, TermId type, TirId tir_id) {
-    return new_term(ctx, VAL_TEMPORARY, type.id, tir_id.id);
+TermId new_unary_tir(TirContext ctx, TermTag tag, AstId node, TermId type, TermId a) {
+    return new_tir(ctx, tag, (TermData) {
+        .node = node,
+        .a = type.id,
+        .b = a.id,
+    });
+}
+
+TermId new_binary_tir(TirContext ctx, TermTag tag, AstId node, TermId type, TermId a, TermId b) {
+    return new_tir(ctx, tag, (TermData) {
+        .node = node,
+        .a = type.id,
+        .b = a.id,
+        .c = b.id,
+    });
+}
+
+TermId new_instr(TirContext ctx, TermTag tag, AstId node, TermId type, int32_t a, int32_t b) {
+    return new_tir(ctx, tag, (TermData) {
+        .node = node,
+        .a = type.id,
+        .b = a,
+        .c = b,
+    });
 }
 
 TermId new_generic(
@@ -1387,88 +1440,72 @@ ValueCategory get_value_category(TirContext ctx, TermId value) {
 
         case VAL_MUTABLE_VARIABLE: return VALUE_MUTABLE_PLACE;
 
-        case VAL_TEMPORARY: {
-            TirId tir_id = {get_term_data(ctx, value)->b};
-            switch (get_tir_tag(&ctx.thread->insts, tir_id)) {
-                case TIR_FUNCTION:
-                case TIR_LET:
-                case TIR_MUT:
-                case TIR_IF:
-                case TIR_LOOP:
-                case TIR_BREAK:
-                case TIR_CONTINUE:
-                case TIR_RETURN:
-                case TIR_VALUE: abort();
+        case TIR_LET:
+        case TIR_MUT:
+        case TIR_IF:
+        case TIR_LOOP:
+        case TIR_BREAK:
+        case TIR_CONTINUE:
+        case TIR_RETURN:
+        case TIR_PLUS:
+        case TIR_MINUS:
+        case TIR_NOT:
+        case TIR_ADDRESS:
+        case TIR_ADDRESS_OF_TEMPORARY:
+        case TIR_ADD:
+        case TIR_SUB:
+        case TIR_MUL:
+        case TIR_DIV:
+        case TIR_MOD:
+        case TIR_AND:
+        case TIR_OR:
+        case TIR_XOR:
+        case TIR_SHL:
+        case TIR_SHR:
+        case TIR_EQ:
+        case TIR_NE:
+        case TIR_LT:
+        case TIR_GT:
+        case TIR_LE:
+        case TIR_GE:
+        case TIR_ASSIGN:
+        case TIR_ASSIGN_ADD:
+        case TIR_ASSIGN_SUB:
+        case TIR_ASSIGN_MUL:
+        case TIR_ASSIGN_DIV:
+        case TIR_ASSIGN_MOD:
+        case TIR_ASSIGN_AND:
+        case TIR_ASSIGN_OR:
+        case TIR_ASSIGN_XOR:
+        case TIR_ITOF:
+        case TIR_ITRUNC:
+        case TIR_SEXT:
+        case TIR_ZEXT:
+        case TIR_FTOI:
+        case TIR_FTRUNC:
+        case TIR_FEXT:
+        case TIR_PTR_CAST:
+        case TIR_NOP:
+        case TIR_ARRAY_TO_SLICE:
+        case TIR_CALL:
+        case TIR_NEW_STRUCT:
+        case TIR_NEW_ARRAY:
+        case TIR_SWITCH: return VALUE_TEMPORARY;
 
-                case TIR_PLUS:
-                case TIR_MINUS:
-                case TIR_NOT:
-                case TIR_ADDRESS:
-                case TIR_ADDRESS_OF_TEMPORARY:
-                case TIR_ADD:
-                case TIR_SUB:
-                case TIR_MUL:
-                case TIR_DIV:
-                case TIR_MOD:
-                case TIR_AND:
-                case TIR_OR:
-                case TIR_XOR:
-                case TIR_SHL:
-                case TIR_SHR:
-                case TIR_EQ:
-                case TIR_NE:
-                case TIR_LT:
-                case TIR_GT:
-                case TIR_LE:
-                case TIR_GE:
-                case TIR_ASSIGN:
-                case TIR_ASSIGN_ADD:
-                case TIR_ASSIGN_SUB:
-                case TIR_ASSIGN_MUL:
-                case TIR_ASSIGN_DIV:
-                case TIR_ASSIGN_MOD:
-                case TIR_ASSIGN_AND:
-                case TIR_ASSIGN_OR:
-                case TIR_ASSIGN_XOR:
-                case TIR_ITOF:
-                case TIR_ITRUNC:
-                case TIR_SEXT:
-                case TIR_ZEXT:
-                case TIR_FTOI:
-                case TIR_FTRUNC:
-                case TIR_FEXT:
-                case TIR_PTR_CAST:
-                case TIR_NOP:
-                case TIR_ARRAY_TO_SLICE:
-                case TIR_CALL:
-                case TIR_NEW_STRUCT:
-                case TIR_NEW_ARRAY:
-                case TIR_SWITCH: return VALUE_TEMPORARY;
-
-                case TIR_DEREF: {
-                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
-                    if (get_term_tag(ctx, get_value_type(ctx, operand)) == TYPE_PTR_MUT) {
-                        return VALUE_MUTABLE_PLACE;
-                    } else {
-                        return VALUE_PLACE;
-                    }
-                }
-                case TIR_INDEX: {
-                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
-                    switch (get_term_tag(ctx, get_value_type(ctx, operand))) {
-                        case TYPE_PTR: return VALUE_PLACE;
-                        case TYPE_PTR_MUT: return VALUE_MUTABLE_PLACE;
-                        default: return get_value_category(ctx, operand);
-                    }
-                }
-                case TIR_ACCESS: {
-                    TermId operand = {get_tir_data(&ctx.thread->insts, tir_id).left};
-                    return get_value_category(ctx, operand);
-                }
-                case TIR_SLICE: return VALUE_MULTIVALUE;
+        case TIR_DEREF:
+        case TIR_INDEX: {
+            TermId operand = {get_term_data(ctx, value)->b};
+            switch (get_term_tag(ctx, get_value_type(ctx, operand))) {
+                case TYPE_PTR: return VALUE_PLACE;
+                case TYPE_PTR_MUT: return VALUE_MUTABLE_PLACE;
+                default: return get_value_category(ctx, operand);
             }
-            break;
         }
+        case TIR_ACCESS: {
+            TermId operand = {get_term_data(ctx, value)->b};
+            return get_value_category(ctx, operand);
+        }
+        case TIR_SLICE: return VALUE_MULTIVALUE;
         default: break;
     }
     return VALUE_INVALID;
@@ -1489,18 +1526,4 @@ double get_value_float(TirContext ctx, TermId value) {
     TermIndex i = get_term_index(ctx, value);
     int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
     return load_f64(p[0], p[1]);
-}
-
-// Instructions
-
-TirTag get_tir_tag(TirInstList *insts, TirId inst) {
-    return (TirTag) insts->insts.tags[inst.id];
-}
-
-TirInstData get_tir_data(TirInstList *insts, TirId inst) {
-    return insts->insts.datas[inst.id];
-}
-
-int32_t get_tir_extra(TirInstList *insts, int32_t index) {
-    return insts->extra.ptr[index];
 }
