@@ -960,9 +960,13 @@ static TermId analyze_const(Context *c, AstId node) {
         case TERM_ERROR: {
             return (TermId) {0};
         }
+        case VAL_FUNCTION:
+        case VAL_EXTERN_FUNCTION:
+        case VAL_EXTERN_VAR:
         case VAL_CONST_INT:
         case VAL_CONST_FLOAT:
-        case VAL_CONST_NULL: {
+        case VAL_CONST_NULL:
+        case VAL_STRING: {
             return init_result;
         }
         default: {
