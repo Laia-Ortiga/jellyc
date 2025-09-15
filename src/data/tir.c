@@ -1160,7 +1160,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
 
     TirTag tag = get_term_tag(c, param);
     if (tag == TIR_TYPE_PARAMETER) {
-        int32_t index = get_term_data(c, param)->a;
+        int32_t index = get_type_parameter_index(c, param);
         if (!results[index].id) {
             results[index] = arg;
         } else if (results[index].id != arg.id) {
@@ -1242,7 +1242,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             return generic;
         }
         case TIR_TYPE_PARAMETER: {
-            int32_t index = get_term_data(info->c, generic)->a;
+            int32_t index = get_type_parameter_index(info->c, generic);
             return info->args[index];
         }
         case TIR_ARRAY_TYPE: {
