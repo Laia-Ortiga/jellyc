@@ -463,10 +463,10 @@ TermTag get_term_tag(TirContext ctx, TermId type) {
         if (type.id == 0) {
             return TERM_ERROR;
         }
-        if (type.id >= BUILTIN_TYPE_START && type.id <= BUILTIN_TYPE_END) {
+        if (type.id >= BUILTIN_TYPE_START && type.id < BUILTIN_TYPE_END) {
             return TYPE_PRIMITIVE;
         }
-        if (type.id >= BUILTIN_MACRO_START && type.id <= BUILTIN_MACRO_END) {
+        if (type.id >= BUILTIN_MACRO_START && type.id < BUILTIN_MACRO_END) {
             return TERM_MACRO;
         }
         return TERM_MODULE;
