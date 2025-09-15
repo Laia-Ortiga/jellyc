@@ -29,29 +29,17 @@ typedef enum {
     TIR_TYPE_PARAMETER,
     TIR_TYPE_END,
 
-    // index is unused
     TIR_VALUE_START = TIR_TYPE_END,
     TIR_FUNCTION = TIR_VALUE_START,
 
-    // index points to the name of the function
     TIR_EXTERN_FUNCTION,
-
-    // index points to the name of the var
     TIR_EXTERN_VAR,
 
-    // index points to the 64-bit value in extra
     TIR_CONST_INT,
-
-    // index points to the 64-bit value in extra
     TIR_CONST_FLOAT,
-
-    // index is unused
     TIR_CONST_NULL,
-
-    // index points to the string
     TIR_STRING,
 
-    // index is the variable index
     TIR_VARIABLE,
     TIR_MUTABLE_VARIABLE,
 
@@ -124,8 +112,6 @@ typedef enum {
     TIR_MACRO = TIR_VALUE_END,
     TIR_MODULE,
 
-    // a is the inner term
-    // b points to the number of type parameters followed by the types
     TIR_GENERIC,
 } TirTag;
 
