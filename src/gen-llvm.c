@@ -530,13 +530,11 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_aggregate_type(ctx->tir, function_type.ret);
 
     int32_t llvm_callee = load_operand(ctx, call.operand, type);
-    int32_t *llvm_args = arena_alloc(&ctx->scratch, int32_t, arg_count);
+    int32_t first_tmp = ctx->tmp_count;
     for (int32_t i = 0; i < arg_count; i++) {
         MirId arg = {get_mir_extra(ctx->mir, call.index + i)};
-        if (is_aggregate_type(ctx->tir, get_function_type_param(ctx->tir, type, i))) {
-            llvm_args[i] = -1;
-        } else {
-            llvm_args[i] = load_operand(ctx, arg, get_function_type_param(ctx->tir, type, i));
+        if (!is_aggregate_type(ctx->tir, get_function_type_param(ctx->tir, type, i))) {
+            load_operand(ctx, arg, get_function_type_param(ctx->tir, type, i));
         }
     }
 
@@ -577,9 +575,13 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
             fprintf(ctx->stream, " ");
             gen_operand_address(ctx, arg);
         } else {
+            int32_t place = -1;
+            if (is_lvalue(ctx, arg)) {
+                place = first_tmp++;
+            }
             gen_type(ctx, get_function_type_param(ctx->tir, type, i));
             fprintf(ctx->stream, " ");
-            gen_operand(ctx, arg, llvm_args[i]);
+            gen_operand(ctx, arg, place);
         }
     }
 
