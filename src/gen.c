@@ -444,11 +444,6 @@ static void gen_operand(GenContext *ctx, MirId mir_id) {
             gen_value(ctx, operand);
             return;
         }
-        case MIR_DEREF: {
-            MirId operand = get_mir_unary(ctx->mir, mir_id);
-            fprintf(ctx->stream, "(*t%d)", operand.private_field_id - ctx->mir_start);
-            return;
-        }
         default: {
             break;
         }
@@ -491,6 +486,14 @@ static void gen_address(GenContext *ctx, MirId mir_id) {
     }
 
     fputs("&", ctx->stream);
+    gen_operand(ctx, operand);
+    fprintf(ctx->stream, ";\n");
+}
+
+static void gen_deref(GenContext *ctx, MirId mir_id) {
+    MirId operand = get_mir_unary(ctx->mir, mir_id);
+    TirId type = get_mir_type(ctx->mir, mir_id);
+    introduce_temporary(ctx, mir_id, type, true);
     gen_operand(ctx, operand);
     fprintf(ctx->stream, ";\n");
 }
@@ -741,12 +744,12 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_STRING: break;
         case MIR_NULL: break;
         case MIR_TIR_VALUE: break;
-        case MIR_DEREF: break;
         case MIR_ASSIGN: gen_assign(ctx, mir_id); break;
         case MIR_NEW_SLICE: gen_new_slice(ctx, mir_id); break;
         case MIR_MINUS: gen_unary(ctx, mir_id, "-"); break;
         case MIR_NOT: gen_unary(ctx, mir_id, "!"); break;
         case MIR_ADDRESS: gen_address(ctx, mir_id); break;
+        case MIR_DEREF: gen_deref(ctx, mir_id); break;
         case MIR_ADD: gen_binary(ctx, mir_id, "+"); break;
         case MIR_SUB: gen_binary(ctx, mir_id, "-"); break;
         case MIR_MUL: gen_binary(ctx, mir_id, "*"); break;
