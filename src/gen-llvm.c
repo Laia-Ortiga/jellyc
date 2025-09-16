@@ -14,6 +14,7 @@ typedef struct {
     Arena scratch;
     int32_t *temporaries;
     Vec(char const *) strings;
+    Vec(int32_t) call_tmps;
     int32_t tmp_count;
     int32_t blocks;
     TirId return_type;
@@ -154,9 +155,13 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM: {
             return is_aggregate_type(ctx->tir, get_mir_type(ctx->mir, mir_id));
         }
-        case MIR_CALL: {
+        case MIR_START_CALL: {
             FunctionType func_type = get_function_type(ctx->tir, get_mir_type(ctx->mir, mir_id));
             return is_aggregate_type(ctx->tir, func_type.ret);
+        }
+        case MIR_END_CALL:
+        case MIR_ARG: {
+            abort();
         }
         case MIR_TIR_VALUE: {
             TirId value = get_mir_tir_value(ctx->mir, mir_id);
@@ -449,7 +454,7 @@ static bool should_deref(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM: {
             return is_aggregate_type(ctx->tir, get_mir_type(ctx->mir, mir_id));
         }
-        case MIR_CALL: {
+        case MIR_START_CALL: {
             FunctionType func_type = get_function_type(ctx->tir, get_mir_type(ctx->mir, mir_id));
             return is_aggregate_type(ctx->tir, func_type.ret);
         }
@@ -522,17 +527,18 @@ static void gen_cast(GenContext *ctx, MirId mir_id, char const *op) {
     fprintf(ctx->stream, "\n");
 }
 
-static void gen_call(GenContext *ctx, MirId mir_id) {
-    MirAccess call = get_mir_access(ctx->mir, mir_id);
+static void gen_start_call(GenContext *ctx, MirId mir_id) {
+    MirId f = get_mir_unary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
     FunctionType function_type = get_function_type(ctx->tir, type);
     int32_t arg_count = function_type.param_count;
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_aggregate_type(ctx->tir, function_type.ret);
 
-    int32_t llvm_callee = load_operand(ctx, call.operand, type);
-    int32_t first_tmp = ctx->tmp_count;
+    int32_t llvm_callee = load_operand(ctx, f, type);
+    vec_push(&ctx->call_tmps, ctx->tmp_count);
     for (int32_t i = 0; i < arg_count; i++) {
-        MirId arg = {get_mir_extra(ctx->mir, call.index + i)};
+        MirId arg_id = {mir_id.private_field_id + 1 + i};
+        MirId arg = get_mir_access(ctx->mir, arg_id).operand;
         if (!is_aggregate_type(ctx->tir, get_function_type_param(ctx->tir, type, i))) {
             load_operand(ctx, arg, get_function_type_param(ctx->tir, type, i));
         }
@@ -553,7 +559,7 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
         gen_type(ctx, function_type.ret);
     }
     fprintf(ctx->stream, " ");
-    gen_operand(ctx, call.operand, llvm_callee);
+    gen_operand(ctx, f, llvm_callee);
     fprintf(ctx->stream, "(");
 
     if (implicit_return) {
@@ -563,29 +569,33 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
             fprintf(ctx->stream, ", ");
         }
     }
+}
 
-    for (int32_t i = 0; i < arg_count; i++) {
-        if (i != 0) {
-            fprintf(ctx->stream, ", ");
-        }
+static void gen_end_call(GenContext *ctx) {
+    ctx->call_tmps.len--;
+    fprintf(ctx->stream, ")\n");
+}
 
-        MirId arg = {get_mir_extra(ctx->mir, call.index + i)};
-        if (is_aggregate_type(ctx->tir, get_function_type_param(ctx->tir, type, i))) {
-            fprintf(ctx->stream, "ptr");
-            fprintf(ctx->stream, " ");
-            gen_operand_address(ctx, arg);
-        } else {
-            int32_t place = -1;
-            if (is_lvalue(ctx, arg)) {
-                place = first_tmp++;
-            }
-            gen_type(ctx, get_function_type_param(ctx->tir, type, i));
-            fprintf(ctx->stream, " ");
-            gen_operand(ctx, arg, place);
-        }
+static void gen_arg(GenContext *ctx, MirId mir_id) {
+    MirAccess call = get_mir_access(ctx->mir, mir_id);
+
+    if (call.index != 0) {
+        fprintf(ctx->stream, ", ");
     }
 
-    fprintf(ctx->stream, ")\n");
+    if (is_aggregate_type(ctx->tir, get_mir_type(ctx->mir, mir_id))) {
+        fprintf(ctx->stream, "ptr");
+        fprintf(ctx->stream, " ");
+        gen_operand_address(ctx, call.operand);
+    } else {
+        int32_t place = -1;
+        if (is_lvalue(ctx, call.operand)) {
+            place = ctx->call_tmps.ptr[ctx->call_tmps.len - 1]++;
+        }
+        gen_type(ctx, get_mir_type(ctx->mir, mir_id));
+        fprintf(ctx->stream, " ");
+        gen_operand(ctx, call.operand, place);
+    }
 }
 
 static void gen_index(GenContext *ctx, MirId mir_id) {
@@ -733,7 +743,9 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_FEXT: gen_cast(ctx, mir_id, "fpext"); break;
         case MIR_PTR_CAST: gen_cast(ctx, mir_id, "bitcast"); break;
 
-        case MIR_CALL: gen_call(ctx, mir_id); break;
+        case MIR_START_CALL: gen_start_call(ctx, mir_id); break;
+        case MIR_END_CALL: gen_end_call(ctx); break;
+        case MIR_ARG: gen_arg(ctx, mir_id); break;
         case MIR_INDEX: gen_index(ctx, mir_id); break;
         case MIR_SLICE_INDEX: gen_slice_index(ctx, mir_id); break;
         case MIR_CONST_INDEX: gen_const_index(ctx, mir_id); break;
@@ -774,7 +786,7 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Ti
         MirId mir_id = {i};
         switch (get_mir_tag(ctx->mir, (MirId) {i})) {
             case MIR_ALLOC: gen_alloc(ctx, mir_id); break;
-            case MIR_CALL: gen_call_alloc(ctx, mir_id); break;
+            case MIR_START_CALL: gen_call_alloc(ctx, mir_id); break;
             case MIR_NEW_SLICE: gen_new_slice_alloc(ctx, mir_id); break;
             default: break;
         }

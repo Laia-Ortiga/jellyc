@@ -349,7 +349,9 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_FTRUNC:
         case MIR_FEXT:
         case MIR_PTR_CAST:
-        case MIR_CALL:
+        case MIR_START_CALL:
+        case MIR_END_CALL:
+        case MIR_ARG:
         case MIR_BR:
         case MIR_BR_IF:
         case MIR_BR_IF_NOT:
@@ -594,8 +596,8 @@ static void gen_zext(GenContext *ctx, MirId mir_id) {
     fprintf(ctx->stream, " & 0x%lX;\n", mask);
 }
 
-static void gen_call(GenContext *ctx, MirId mir_id) {
-    MirAccess call = get_mir_access(ctx->mir, mir_id);
+static void gen_start_call(GenContext *ctx, MirId mir_id) {
+    MirId f = get_mir_unary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
     FunctionType function_type = get_function_type(ctx->tir, type);
     int32_t arg_count = function_type.param_count;
@@ -616,7 +618,7 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
         fprintf(ctx->stream, "    ");
     }
 
-    gen_operand(ctx, call.operand);
+    gen_operand(ctx, f);
     fprintf(ctx->stream, "(");
 
     if (implicit_return) {
@@ -627,17 +629,20 @@ static void gen_call(GenContext *ctx, MirId mir_id) {
             fprintf(ctx->stream, ", ");
         }
     }
+}
 
-    for (int32_t i = 0; i < arg_count; i++) {
-        if (i != 0) {
-            fprintf(ctx->stream, ", ");
-        }
+static void gen_end_call(GenContext *ctx) {
+    fprintf(ctx->stream, ");\n");
+}
 
-        MirId arg = {get_mir_extra(ctx->mir, call.index + i)};
-        gen_operand(ctx, arg);
+static void gen_arg(GenContext *ctx, MirId mir_id) {
+    MirAccess call = get_mir_access(ctx->mir, mir_id);
+
+    if (call.index != 0) {
+        fprintf(ctx->stream, ", ");
     }
 
-    fprintf(ctx->stream, ");\n");
+    gen_operand(ctx, call.operand);
 }
 
 static void gen_index(GenContext *ctx, MirId mir_id) {
@@ -768,7 +773,9 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_PTR_CAST: gen_cast(ctx, mir_id); break;
 
         case MIR_ZEXT: gen_zext(ctx, mir_id); break;
-        case MIR_CALL: gen_call(ctx, mir_id); break;
+        case MIR_START_CALL: gen_start_call(ctx, mir_id); break;
+        case MIR_END_CALL: gen_end_call(ctx); break;
+        case MIR_ARG: gen_arg(ctx, mir_id); break;
         case MIR_INDEX: gen_index(ctx, mir_id); break;
         case MIR_SLICE_INDEX: gen_slice_index(ctx, mir_id); break;
         case MIR_CONST_INDEX: gen_const_index(ctx, mir_id); break;

@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 typedef struct {
     TirContext tir;
@@ -20,54 +19,47 @@ typedef struct {
     bool error;
 } Context;
 
-int32_t push_extra(Context *c, int32_t *extra, int32_t count) {
-    int32_t index = c->mir.extra.len;
-    int32_t *destination = vec_grow(&c->mir.extra, count);
-    memcpy(destination, extra, count * sizeof(int32_t));
-    return index;
-}
-
 static MirId add_leaf_instruction(Context *c, MirTag tag, TirId type) {
     MirData data = {0};
     data.type = type;
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     return id;
 }
 
 static MirId add_value_instruction(Context *c, MirTag tag, TirId value) {
     TirId type = get_value_type(c->tir, value);
     MirData data = {type, .tir_value = value};
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     return id;
 }
 
 static MirId add_binary_instruction(Context *c, MirTag tag, TirId type, MirId left, MirId right) {
     MirData data = {type, .binary = {left, right}};
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     return id;
 }
 
 static MirId add_unary_instruction(Context *c, MirTag tag, TirId type, MirId operand) {
     MirData data = {type, .unary = operand};
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     return id;
 }
 
 static MirId add_mir_const_instruction(Context *c, MirTag tag, TirId type, MirId operand, int32_t index) {
     MirData data = {type, .mir_const = {operand, index}};
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     return id;
 }
 
 static MirId add_int_instruction(Context *c, TirId type, int64_t i) {
     MirData data = {type, .raw = {(int32_t) (uint32_t) i, (int32_t) (uint32_t) ((uint64_t) i >> 32)}};
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, MIR_INT);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, MIR_INT);
     return id;
 }
 
@@ -75,8 +67,8 @@ static MirId add_cond_br_instruction(Context *c, MirTag tag, MirId operand) {
     MirData data = {0};
     data.type = null_tir;
     data.mir_const.operand = operand;
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, tag);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, tag);
     c->basic_block++;
     return id;
 }
@@ -84,14 +76,14 @@ static MirId add_cond_br_instruction(Context *c, MirTag tag, MirId operand) {
 static MirId add_br_instruction(Context *c) {
     MirData data = {0};
     data.type = null_tir;
-    MirId id = {c->mir.mir.len};
-    sum_vec_push(&c->mir.mir, data, MIR_BR);
+    MirId id = {c->mir.len};
+    sum_vec_push(&c->mir, data, MIR_BR);
     c->basic_block++;
     return id;
 }
 
 static void patch_br(Context *c, MirId br, int32_t basic_block) {
-    c->mir.mir.datas[br.private_field_id].mir_const.index = basic_block;
+    c->mir.datas[br.private_field_id].mir_const.index = basic_block;
 }
 
 static MirId transform_node(Context *c, TirId tir_id);
@@ -210,7 +202,15 @@ static MirId transform_call(Context *c, TirId tir_id) {
         args_mir[i] = arg_mir.private_field_id;
     }
 
-    return add_mir_const_instruction(c, MIR_CALL, type, operand_mir, push_extra(c, args_mir, function_type.param_count));
+    MirId result = add_unary_instruction(c, MIR_START_CALL, type, operand_mir);
+
+    for (int32_t i = 0; i < function_type.param_count; i++) {
+        MirId arg_mir = {args_mir[i]};
+        add_mir_const_instruction(c, MIR_ARG, get_function_type_param(c->tir, type, i), arg_mir, i);
+    }
+
+    add_leaf_instruction(c, MIR_END_CALL, type);
+    return result;
 }
 
 static MirId transform_index(Context *c, TirId tir_id) {
@@ -294,7 +294,7 @@ static MirId transform_new_array(Context *c, TirId tir_id) {
 }
 
 static bool last_is_terminator(Context *c, MirId last_br) {
-    return c->mir.mir.len - 1 > last_br.private_field_id && is_mir_terminator(c->mir.mir.tags[c->mir.mir.len - 1]);
+    return c->mir.len - 1 > last_br.private_field_id && is_mir_terminator(c->mir.tags[c->mir.len - 1]);
 }
 
 static MirId transform_if(Context *c, TirId tir_id) {
@@ -495,14 +495,14 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
         c->variable_to_mir_map[i] = add_leaf_instruction(c, MIR_PARAM, param_type);
     }
 
-    int32_t start = c->mir.mir.len;
+    int32_t start = c->mir.len;
 
     for (int32_t i = 0; i < block_length; i++) {
         TirId statement = {get_term_extra(c->tir, block + i)};
         transform_node(c, statement);
     }
 
-    if (func_type.ret.id == TYPE_VOID && (c->mir.mir.len == start || c->mir.mir.tags[c->mir.mir.len - 1] != MIR_RET_VOID)) {
+    if (func_type.ret.id == TYPE_VOID && (c->mir.len == start || c->mir.tags[c->mir.len - 1] != MIR_RET_VOID)) {
         add_leaf_instruction(c, MIR_RET_VOID, null_tir);
     }
 }
@@ -596,12 +596,12 @@ MirResult tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         c.tir.thread = &input->insts[i].deps;
         c.scratch = scratch;
         c.variable_to_mir_map = arena_alloc(&c.scratch, MirId, input->insts[i].local_count);
-        ends[i] = c.mir.mir.len;
+        ends[i] = c.mir.len;
         transform_function(&c, input->insts[i].body_first, input->insts[i].body_length, input->functions[i]);
         free(c.break_instructions.ptr);
         free(c.continue_instructions.ptr);
         mir = c.mir;
-        ends[i + 1] = c.mir.mir.len;
+        ends[i + 1] = c.mir.len;
     }
 
     return (MirResult) {

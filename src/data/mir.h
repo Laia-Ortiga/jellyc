@@ -73,7 +73,9 @@ typedef enum {
 
     // Control flow
 
-    MIR_CALL,
+    MIR_START_CALL,
+    MIR_END_CALL,
+    MIR_ARG,
     MIR_BR,
     MIR_BR_IF,
     MIR_BR_IF_NOT,
@@ -111,10 +113,7 @@ typedef struct {
     };
 } MirData;
 
-typedef struct {
-    SumVec(MirData) mir;
-    Vec(int32_t) extra;
-} Mir;
+typedef SumVec(MirData) Mir;
 
 static inline bool is_mir_terminator(MirTag tag) {
     switch (tag) {
@@ -129,35 +128,31 @@ static inline bool is_mir_terminator(MirTag tag) {
 }
 
 static inline MirTag get_mir_tag(Mir *mir, MirId mir_id) {
-    return mir->mir.tags[mir_id.private_field_id];
+    return mir->tags[mir_id.private_field_id];
 }
 
 static inline TirId get_mir_type(Mir *mir, MirId mir_id) {
-    return mir->mir.datas[mir_id.private_field_id].type;
+    return mir->datas[mir_id.private_field_id].type;
 }
 
 static inline MirId get_mir_unary(Mir *mir, MirId mir_id) {
-    return mir->mir.datas[mir_id.private_field_id].unary;
+    return mir->datas[mir_id.private_field_id].unary;
 }
 
 static inline int64_t get_mir_int(Mir *mir, MirId mir_id) {
-    uint32_t low = mir->mir.datas[mir_id.private_field_id].raw.left;
-    uint32_t high = mir->mir.datas[mir_id.private_field_id].raw.right;
+    uint32_t low = mir->datas[mir_id.private_field_id].raw.left;
+    uint32_t high = mir->datas[mir_id.private_field_id].raw.right;
     return (int64_t) ((uint64_t) low | ((uint64_t) high << 32));
 }
 
 static inline MirBinary get_mir_binary(Mir *mir, MirId mir_id) {
-    return mir->mir.datas[mir_id.private_field_id].binary;
+    return mir->datas[mir_id.private_field_id].binary;
 }
 
 static inline MirAccess get_mir_access(Mir *mir, MirId mir_id) {
-    return mir->mir.datas[mir_id.private_field_id].mir_const;
+    return mir->datas[mir_id.private_field_id].mir_const;
 }
 
 static inline TirId get_mir_tir_value(Mir *mir, MirId mir_id) {
-    return mir->mir.datas[mir_id.private_field_id].tir_value;
-}
-
-static inline int32_t get_mir_extra(Mir *mir, int32_t index) {
-    return mir->extra.ptr[index];
+    return mir->datas[mir_id.private_field_id].tir_value;
 }
