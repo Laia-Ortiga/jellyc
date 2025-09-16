@@ -415,7 +415,7 @@ static void gen_binary(GenContext *ctx, MirId mir_id, char const *op) {
     TirId type = get_mir_type(ctx->mir, mir_id);
     int32_t llvm_left = load_operand(ctx, binary.left, type);
     int32_t llvm_right = load_operand(ctx, binary.right, type);
-    fprintf(ctx->stream, "  %%t%d = %s ", mir_id.private_field_id, op);
+    fprintf(ctx->stream, "  %%%d = %s ", new_tmp(ctx, mir_id), op);
     gen_type(ctx, type);
     fprintf(ctx->stream, " ");
     gen_operand(ctx, binary.left, llvm_left);
