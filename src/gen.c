@@ -363,10 +363,10 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
 
 static void gen_string(GenContext *ctx, char const *str) {
     fprintf(ctx->stream, "\"");
-    uint64_t len = (uint64_t) str[0];
-    len |= (uint64_t) str[1] << 8;
-    len |= (uint64_t) str[2] << 16;
-    len |= (uint64_t) str[3] << 24;
+    uint64_t len = (uint64_t) (unsigned char) str[0];
+    len |= (uint64_t) (unsigned char) str[1] << 8;
+    len |= (uint64_t) (unsigned char) str[2] << 16;
+    len |= (uint64_t) (unsigned char) str[3] << 24;
     for (uint64_t i = 0; i < len; i++) {
         if (str[i + 4] >= 32 && str[i + 4] <= 126) {
             fprintf(ctx->stream, "%c", str[i + 4]);

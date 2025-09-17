@@ -1090,7 +1090,7 @@ static TirId analyze_string(Context *c, AstId node) {
         .index = new_array_length_type(c->tir, len),
         .elem = ptype(char),
     });
-    int32_t index = tir_push_str(c->tir, (String) {len, buffer});
+    int32_t index = tir_push_str(c->tir, (String) {len + 4, buffer});
     return new_string_constant(c->tir, type, index);
 }
 
