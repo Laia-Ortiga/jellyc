@@ -371,7 +371,7 @@ TirId new_mut_ptr_type(TirContext c, TirId elem) {
 }
 
 TirId new_slice_type(TirContext c, TirId elem) {
-    TirId pointer = new_ptr_type(c, ptype(byte));
+    TirId pointer = new_ptr_type(c, elem);
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_SLICE_TYPE,
         .slice = {elem, pointer},
