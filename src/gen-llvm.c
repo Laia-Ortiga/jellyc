@@ -194,9 +194,7 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_ADDRESS:
         case MIR_ASSIGN:
         case MIR_INT:
-        case MIR_FLOAT:
         case MIR_STRING:
-        case MIR_NULL:
         case MIR_MINUS:
         case MIR_NOT:
         case MIR_ADD:
@@ -707,9 +705,7 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM: break;
         case MIR_ALLOC: break;
         case MIR_INT: break;
-        case MIR_FLOAT: break;
         case MIR_STRING: break;
-        case MIR_NULL: break;
         case MIR_TIR_VALUE: break;
         case MIR_ADDRESS: break;
         case MIR_DEREF: gen_deref(ctx, mir_id); break;

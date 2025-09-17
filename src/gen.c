@@ -323,9 +323,7 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_ASSIGN:
         case MIR_NEW_SLICE:
         case MIR_INT:
-        case MIR_FLOAT:
         case MIR_STRING:
-        case MIR_NULL:
         case MIR_TIR_VALUE:
         case MIR_MINUS:
         case MIR_NOT:
@@ -751,9 +749,7 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM: break;
         case MIR_ALLOC: gen_alloc(ctx, mir_id); break;
         case MIR_INT: break;
-        case MIR_FLOAT: break;
         case MIR_STRING: break;
-        case MIR_NULL: break;
         case MIR_TIR_VALUE: break;
         case MIR_ASSIGN: gen_assign(ctx, mir_id); break;
         case MIR_NEW_SLICE: gen_new_slice(ctx, mir_id); break;
