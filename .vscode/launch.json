@@ -38,6 +38,19 @@
             "preLaunchTask": "make",
             "type": "lldb",
             "request": "launch",
+            "name": "Launch array",
+            "program": "${workspaceFolder}/build/jellyc",
+            "args": [
+                "test/array.jel",
+                "lib/std.jel",
+                "lib/libc.jel",
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "preLaunchTask": "make",
+            "type": "lldb",
+            "request": "launch",
             "name": "Launch basic lexer",
             "program": "${workspaceFolder}/build/jellyc",
             "args": [
