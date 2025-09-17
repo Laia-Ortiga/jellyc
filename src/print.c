@@ -591,27 +591,37 @@ static void print_tir_node(TirPrinter *printer, TirId tir_id) {
         case TIR_EXTERN_VAR: {
             print_indent(printer->depth);
             char const *name = get_value_str(printer->context, tir_id);
-            printf("%s\n", name);
+            printf("%s: ", name);
+            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
+            printf("\n");
             break;
         }
         case TIR_CONST_INT: {
             print_indent(printer->depth);
-            printf("%ld\n", get_value_int(printer->context, tir_id));
+            printf("%ld: ", get_value_int(printer->context, tir_id));
+            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
+            printf("\n");
             break;
         }
         case TIR_CONST_FLOAT: {
             print_indent(printer->depth);
-            printf("%f\n", get_value_float(printer->context, tir_id));
+            printf("%f: ", get_value_float(printer->context, tir_id));
+            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
+            printf("\n");
             break;
         }
         case TIR_CONST_NULL: {
             print_indent(printer->depth);
-            printf("null\n");
+            printf("null: ");
+            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
+            printf("\n");
             break;
         }
         case TIR_STRING: {
             print_indent(printer->depth);
-            printf("\"%s\"\n", get_value_str(printer->context, tir_id));
+            printf("\"%s\": ", get_value_str(printer->context, tir_id));
+            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
+            printf("\n");
             break;
         }
         case TIR_VARIABLE:

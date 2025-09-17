@@ -1,0 +1,50 @@
+module main
+
+struct A {
+    a i8,
+    b bool,
+}
+
+struct Generic[T, U] {
+    a *T,
+    b @U,
+}
+
+newtype N[T] = *T
+
+enum E i8 {
+    a,
+    b,
+    c,
+    d,
+}
+
+extern function returns(a `Affine[f32]) -> `Affine[bool]
+
+function g[T](a `Size[T]) {
+    
+}
+
+# function ()
+function main() {
+    # *mut i64
+    &3
+
+    # *i64
+    let a = 0
+    &a
+
+    # [:3]i64
+    let b = [1, 2, 3]
+
+    # `ArrayLength
+    `ArrayLength[4]
+
+    # @i64
+    &b[:]
+
+    # @mut i64
+    &[1, 2, 3][:]
+
+    g(`size_of[byte])
+}
