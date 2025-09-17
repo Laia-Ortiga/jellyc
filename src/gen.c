@@ -91,6 +91,8 @@ static void gen_type_before(GenContext *ctx, TirId type) {
     switch (get_term_tag(ctx->tir, type)) {
         case TIR_PRIMITIVE_TYPE: {
             switch ((PrimitiveTerm) type.id) {
+                case TYPE_VOID: fprintf(ctx->stream, "void "); return;
+
                 case TYPE_i8: fprintf(ctx->stream, "int8_t "); return;
                 case TYPE_i16: fprintf(ctx->stream, "int16_t "); return;
                 case TYPE_i32: fprintf(ctx->stream, "int32_t "); return;
@@ -120,7 +122,7 @@ static void gen_type_before(GenContext *ctx, TirId type) {
         }
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: {
-            gen_ptr_type_before(ctx, remove_pointer(ctx->tir, type));
+            gen_ptr_type_before(ctx, ptype(VOID));
             return;
         }
         case TIR_SLICE_TYPE:
@@ -191,7 +193,7 @@ static void gen_type_after(GenContext *ctx, TirId type) {
         }
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: {
-            gen_ptr_type_after(ctx, remove_pointer(ctx->tir, type));
+            gen_ptr_type_after(ctx, ptype(VOID));
             return;
         }
         case TIR_FUNCTION_TYPE: {
@@ -569,8 +571,7 @@ static void gen_new_slice(GenContext *ctx, MirId mir_id) {
     introduce_temporary(ctx, mir_id, type, false);
     fprintf(ctx->stream, "{");
     gen_operand(ctx, binary.left);
-    fprintf(ctx->stream, ", (char *) t%d", binary.right.private_field_id - ctx->mir_start);
-    fprintf(ctx->stream, "};\n");
+    fprintf(ctx->stream, ", t%d};\n", binary.right.private_field_id - ctx->mir_start);
 }
 
 static void gen_cast(GenContext *ctx, MirId mir_id) {
@@ -653,10 +654,14 @@ static void gen_arg(GenContext *ctx, MirId mir_id) {
 static void gen_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
-    introduce_temporary(ctx, mir_id, remove_c_pointer_like(ctx->tir, type), true);
-    fprintf(ctx->stream, "&");
+    TirId elem_type = remove_c_pointer_like(ctx->tir, type);
+    introduce_temporary(ctx, mir_id, elem_type, true);
+    fprintf(ctx->stream, "&((");
+    gen_ptr_type_before(ctx, elem_type);
+    gen_ptr_type_after(ctx, elem_type);
+    fprintf(ctx->stream, ") ");
     gen_operand(ctx, index.left);
-    fprintf(ctx->stream, "[");
+    fprintf(ctx->stream, ")[");
     gen_operand(ctx, index.right);
     fprintf(ctx->stream, "];\n");
 }
@@ -664,12 +669,12 @@ static void gen_index(GenContext *ctx, MirId mir_id) {
 static void gen_slice_index(GenContext *ctx, MirId mir_id) {
     MirBinary index = get_mir_binary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
-    TirId elem_type = remove_slice(ctx->tir, type);
+    TirId elem_type = remove_c_pointer_like(ctx->tir, type);
     introduce_temporary(ctx, mir_id, elem_type, true);
     fprintf(ctx->stream, "&((");
     gen_ptr_type_before(ctx, elem_type);
     gen_ptr_type_after(ctx, elem_type);
-    fprintf(ctx->stream, ")");
+    fprintf(ctx->stream, ") ");
     gen_operand(ctx, index.left);
     fprintf(ctx->stream, "._1)[");
     gen_operand(ctx, index.right);
@@ -679,10 +684,14 @@ static void gen_slice_index(GenContext *ctx, MirId mir_id) {
 static void gen_const_index(GenContext *ctx, MirId mir_id) {
     MirAccess index = get_mir_access(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
-    introduce_temporary(ctx, mir_id, remove_c_pointer_like(ctx->tir, type), true);
-    fprintf(ctx->stream, "&");
+    TirId elem_type = remove_c_pointer_like(ctx->tir, type);
+    introduce_temporary(ctx, mir_id, elem_type, true);
+    fprintf(ctx->stream, "&((");
+    gen_ptr_type_before(ctx, elem_type);
+    gen_ptr_type_after(ctx, elem_type);
+    fprintf(ctx->stream, ") ");
     gen_operand(ctx, index.operand);
-    fprintf(ctx->stream, "[%d];\n", index.index);
+    fprintf(ctx->stream, ")[%d];\n", index.index);
 }
 
 static void gen_access(GenContext *ctx, MirId mir_id) {
@@ -882,7 +891,7 @@ void gen_c(GenInput *input, Target target) {
 
     fprintf(stream, "#include <stdint.h>\n\n");
     int ptr_bits = sizeof_pointer(target) * 8;
-    fprintf(stream, "struct Slice { int%d_t _0; char *_1; };\n\n", ptr_bits);
+    fprintf(stream, "struct Slice { int%d_t _0; void *_1; };\n\n", ptr_bits);
 
     GenContext ctx = {
         .target = target,
