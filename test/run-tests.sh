@@ -13,3 +13,4 @@ test jellyc lib/*.jel test/basic_lexer.jel
 test jellyc lib/*.jel test/fibonacci.jel
 test jellyc lib/*.jel test/opengl/*.jel
 test jellyc -print-debug test/print_type.jel
+rm a.c a.ll
