@@ -362,3 +362,7 @@ TirId new_generic(
     TirId *types
 );
 GenericTerm get_generic_term(TirContext c, TirId term);
+
+char const *tir_get_str(TirContext c, int32_t s);
+int32_t tir_push_str(TirContext c, String s);
+int32_t tir_push_cstr(TirContext c, String s);

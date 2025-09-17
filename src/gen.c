@@ -145,7 +145,7 @@ static void gen_type_before(GenContext *ctx, TirId type) {
             return;
         }
         case TIR_STRUCT_TYPE: {
-            fprintf(ctx->stream, "struct _S%s ", ctx->tir.global->strtab.ptr + get_struct_type(ctx->tir, type).name);
+            fprintf(ctx->stream, "struct _S%s ", tir_get_str(ctx->tir, get_struct_type(ctx->tir, type).name));
             return;
         }
         case TIR_ENUM_TYPE: {
@@ -850,13 +850,13 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Ti
 
 static void gen_struct_decl(GenContext *ctx, TirId type) {
     TaggedType t = get_tagged_type(ctx->tir, type);
-    fprintf(ctx->stream, "struct _S%s;\n", ctx->tir.global->strtab.ptr + t.name);
+    fprintf(ctx->stream, "struct _S%s;\n", tir_get_str(ctx->tir, t.name));
 }
 
 static void gen_struct(GenContext *ctx, TirId type) {
     TaggedType t = get_tagged_type(ctx->tir, type);
     StructType s = get_struct_type(ctx->tir, t.inner);
-    fprintf(ctx->stream, "struct _S%s {\n", ctx->tir.global->strtab.ptr + t.name);
+    fprintf(ctx->stream, "struct _S%s {\n", tir_get_str(ctx->tir, t.name));
 
     for (int32_t i = 0; i < s.field_count; i++) {
         TirId field_type = s.fields[i];

@@ -215,12 +215,12 @@ static void termset_resize(TermSet *set, TirContext c) {
     *set = new_set;
 }
 
-static Tir *ctx_deps(TirContext c) {
+static Tir *ctx_write(TirContext c) {
     return c.thread ? c.thread : c.global;
 }
 
 static TermList *ctx_terms(TirContext c) {
-    return &ctx_deps(c)->terms;
+    return &ctx_write(c)->terms;
 }
 
 static TirId new_structural_type(TirContext c, StructuralType descriptor) {
@@ -472,13 +472,6 @@ typedef struct {
     Tir *deps;
     int32_t index;
 } TermIndex;
-
-static Tir *get_term_deps(TirContext c, TirId type) {
-    if (type.id - TERM_COUNT < c.global->terms.terms.len) {
-        return c.global;
-    }
-    return c.thread;
-}
 
 static TermIndex get_term_index(TirContext c, TirId type) {
     if (type.id - TERM_COUNT < c.global->terms.terms.len) {
@@ -1037,12 +1030,12 @@ void print_type(FILE *file, TirContext c, TirId type) {
             return;
         }
         case TIR_ENUM_TYPE: {
-            fprintf(file, "%s", get_term_deps(c, type)->strtab.ptr + get_enum_type(c, type).name);
+            fprintf(file, "%s", tir_get_str(c, get_enum_type(c, type).name));
             return;
         }
         case TIR_TAGGED_TYPE: {
             TaggedType t = get_tagged_type(c, type);
-            fprintf(file, "%s", get_term_deps(c, type)->strtab.ptr + t.name);
+            fprintf(file, "%s", tir_get_str(c, t.name));
 
             if (t.arg_count) {
                 fprintf(file, "[");
@@ -1538,7 +1531,7 @@ ValueCategory get_value_category(TirContext c, TirId value) {
 
 char const *get_value_str(TirContext c, TirId value) {
     TermIndex i = get_term_index(c, value);
-    return &i.deps->strtab.ptr[i.deps->terms.terms.datas[i.index].b];
+    return tir_get_str(c, i.deps->terms.terms.datas[i.index].b);
 }
 
 int64_t get_value_int(TirContext c, TirId value) {
@@ -1551,4 +1544,21 @@ double get_value_float(TirContext c, TirId value) {
     TermIndex i = get_term_index(c, value);
     int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
     return load_f64(p[0], p[1]);
+}
+
+char const *tir_get_str(TirContext c, int32_t s) {
+    return s < 0 ? &c.thread->strtab.ptr[~s] : &c.global->strtab.ptr[s];
+}
+
+int32_t tir_push_str(TirContext c, String s) {
+    Tir *tir = ctx_write(c);
+    int32_t index = push_str(&tir->strtab, s);
+    return c.thread ? ~index : index;
+}
+
+int32_t tir_push_cstr(TirContext c, String s) {
+    Tir *tir = ctx_write(c);
+    int32_t index = push_str(&tir->strtab, s);
+    push_str(&tir->strtab, (String) {1, ""});
+    return c.thread ? ~index : index;
 }

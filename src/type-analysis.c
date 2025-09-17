@@ -281,36 +281,6 @@ static void double_type_error(Context *c, AstId child, TirId type1, TirId type2,
     c->error = 1;
 }
 
-static int32_t ctx_push_str(Context const *c, String s) {
-    char null = '\0';
-
-    if (c->tir.thread) {
-        int32_t index = push_str(&c->tir.thread->strtab, s);
-        push_str(&c->tir.thread->strtab, (String) {1, &null});
-        return index;
-    }
-
-    int32_t index = push_str(&c->tir.global->strtab, s);
-    push_str(&c->tir.global->strtab, (String) {1, &null});
-    return index;
-}
-
-static int32_t ctx_push_double_str(Context const *c, String s1, String s2) {
-    char null = '\0';
-
-    if (c->tir.thread) {
-        int32_t index = push_str(&c->tir.thread->strtab, s1);
-        push_str(&c->tir.thread->strtab, s2);
-        push_str(&c->tir.thread->strtab, (String) {1, &null});
-        return index;
-    }
-
-    int32_t index = push_str(&c->tir.global->strtab, s1);
-    push_str(&c->tir.global->strtab, s2);
-    push_str(&c->tir.global->strtab, (String) {1, &null});
-    return index;
-}
-
 // Analysis
 
 static TirId analyze_term(Context *c, AstId node, TirId hint);
@@ -587,7 +557,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     for (int32_t i = 0; i < f.type_param_count; i++) {
         SourceIndex token = get_ast_token(f.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
-        type_param_types[i] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
+        type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
         add_id(c, (AstRef) {f.type_params[i], c->file}, type_param_types[i]);
     }
 
@@ -606,13 +576,18 @@ static TirId analyze_function_decl(Context *c, AstId node) {
         .ret = ret_type,
     });
 
-    SourceIndex token = get_ast_token(node, c->ast);
-    String name = id_token_to_string(ctx_source(c), token);
-    char name_buffer[64];
-    int length = snprintf(name_buffer, sizeof(name_buffer), "file%d_", c->file);
     pop_scope(c);
     c->locals.len = 0;
-    TirId inner_value = new_function(c->tir, type, ctx_push_double_str(c, (String) {length, name_buffer}, name));
+
+    SourceIndex token = get_ast_token(node, c->ast);
+    String name = id_token_to_string(ctx_source(c), token);
+
+    char name_buffer[64];
+    int length = snprintf(name_buffer, sizeof(name_buffer), "file%d_", c->file);
+    int32_t name_index = tir_push_str(c->tir, (String) {length, name_buffer});
+    tir_push_cstr(c->tir, name);
+
+    TirId inner_value = new_function(c->tir, type, name_index);
     TirId value = inner_value;
 
     if (f.type_param_count) {
@@ -722,7 +697,7 @@ static TirId analyze_enum(Context *c, AstId node) {
     vec_push(&c->tir.global->type_scopes, table_init);
     TirId type = new_enum_type(c->tir, &(EnumType) {
         .scope = scope,
-        .name = ctx_push_str(c, name),
+        .name = tir_push_cstr(c->tir, name),
         .repr = repr_type,
     });
     HashTable *table = &c->tir.global->type_scopes.ptr[scope];
@@ -759,7 +734,7 @@ static TirId analyze_struct(Context *c, AstId node) {
     for (int32_t i = 0; i < s.type_param_count; i++) {
         SourceIndex token = get_ast_token(s.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
-        type_param_types[i] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
+        type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
         add_id(c, (AstRef) {s.type_params[i], c->file}, type_param_types[i]);
     }
 
@@ -804,7 +779,7 @@ static TirId analyze_struct(Context *c, AstId node) {
         error(c, node, &(Diagnostic) {.kind = ERROR_EMPTY_STRUCT});
     }
 
-    int32_t name_i = ctx_push_str(c, name);
+    int32_t name_i = tir_push_cstr(c->tir, name);
     TirId inner_type = new_struct_type(c->tir, c->options->target, &(StructType) {
         .scope = scope,
         .name = name_i,
@@ -838,7 +813,7 @@ static TirId analyze_newtype(Context *c, AstId node) {
     for (int32_t i = 0; i < n.type_param_count; i++) {
         SourceIndex token = get_ast_token(n.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
-        type_param_types[i] = new_type_parameter(c->tir, i, ctx_push_str(c, name));
+        type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
         add_id(c, (AstRef) {n.type_params[i], c->file}, type_param_types[i]);
     }
 
@@ -848,7 +823,7 @@ static TirId analyze_newtype(Context *c, AstId node) {
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
     TirId type = new_tagged_type(c->tir, &(TaggedType) {
-        .name = ctx_push_str(c, name),
+        .name = tir_push_cstr(c->tir, name),
         .inner = inner,
         .arg_count = n.type_param_count,
         .args = type_param_types,
@@ -883,7 +858,7 @@ static TirId analyze_extern_function(Context *c, AstId node) {
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
 
-    TirId value = new_extern_function(c->tir, type, ctx_push_str(c, name));
+    TirId value = new_extern_function(c->tir, type, tir_push_cstr(c->tir, name));
     add_id(c, (AstRef) {node, c->file}, value);
     vec_push(&c->tir.global->extern_functions, value);
     return value;
@@ -893,7 +868,7 @@ static TirId analyze_extern_mut(Context *c, AstId node) {
     AstId var_type = get_ast_unary(node, c->ast);
     TirId type = expect_type(c, var_type);
     String name = id_token_to_string(ctx_source(c), get_ast_token(node, c->ast));
-    TirId value = new_extern_var(c->tir, type, ctx_push_str(c, name));
+    TirId value = new_extern_var(c->tir, type, tir_push_cstr(c->tir, name));
     add_id(c, (AstRef) {node, c->file}, value);
     vec_push(&c->tir.global->extern_vars, value);
     return value;
@@ -1066,17 +1041,7 @@ static int parse_hex_char(char c) {
 
 static TirId analyze_string(Context *c, AstId node) {
     int64_t len = string_token_byte_length(ctx_source(c), get_ast_token(node, c->ast));
-    int32_t index;
-    char *buffer;
-
-    if (c->tir.thread) {
-        index = c->tir.thread->strtab.len;
-        buffer = vec_grow(&c->tir.thread->strtab, len + 4);
-    } else {
-        index = c->tir.global->strtab.len;
-        buffer = vec_grow(&c->tir.global->strtab, len + 4);
-    }
-
+    char *buffer = arena_alloc(c->scratch, char, len + 4);
     buffer[0] = (unsigned char) (len & 0xFF);
     buffer[1] = (unsigned char) ((len >> 8) & 0xFF);
     buffer[2] = (unsigned char) ((len >> 16) & 0xFF);
@@ -1125,6 +1090,7 @@ static TirId analyze_string(Context *c, AstId node) {
         .index = new_array_length_type(c->tir, len),
         .elem = ptype(char),
     });
+    int32_t index = tir_push_str(c->tir, (String) {len, buffer});
     return new_string_constant(c->tir, type, index);
 }
 
