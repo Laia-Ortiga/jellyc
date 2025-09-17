@@ -918,7 +918,14 @@ static TirId analyze_let(Context *c, AstId node, bool mutable) {
     int32_t var = c->local_tir->local_count++;
     TirId value = new_variable(c->tir, node, init_type, var, mutable);
     add_id(c, (AstRef) {node, c->file}, value);
-    return new_instr(c->tir, mutable ? TIR_MUT : TIR_LET, node, ptype(VOID), var, init_value.id);
+    return new_binary_tir(
+        c->tir,
+        mutable ? TIR_MUT : TIR_LET,
+        node,
+        ptype(VOID),
+        value,
+        init_value
+    );
 }
 
 static TirId analyze_function_type(Context *c, AstId node) {

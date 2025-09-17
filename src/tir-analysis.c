@@ -65,7 +65,8 @@ static void check_value(LinearChecker *ctx, TirId node, ExpectedValue expected_c
 }
 
 static void check_let(LinearChecker *ctx, TirId node) {
-    int32_t var = get_term_data(ctx->tir_ctx, node)->b;
+    TirId v = {get_term_data(ctx->tir_ctx, node)->b};
+    int32_t var = get_term_data(ctx->tir_ctx, v)->b;
     ctx->var_states[var] = VAR_NOT_CONSUMED;
     ctx->var_refs[var] = get_term_data(ctx->tir_ctx, node)->node;
     ctx->var_states_top++;

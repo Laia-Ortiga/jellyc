@@ -343,13 +343,14 @@ static void print_tir_leaf_statement(TirPrinter *printer, char const *name) {
 
 static void print_tir_let(TirPrinter *printer, char const *name, TirId tir_id) {
     TermData const *data = get_term_data(printer->context, tir_id);
-    int32_t var_id = data->b;
+    TirId v = {get_term_data(printer->context, tir_id)->b};
+    int32_t var = get_term_data(printer->context, v)->b;
     TirId init = {data->c};
     print_indent(printer->depth);
     printf("%s(\n", name);
     printer->depth++;
     print_indent(printer->depth);
-    printf("variable_%d\n", var_id);
+    printf("variable_%d\n", var);
     print_tir_node(printer, init);
     printer->depth--;
     print_indent(printer->depth);

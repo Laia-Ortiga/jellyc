@@ -90,13 +90,14 @@ static MirId transform_node(Context *c, TirId tir_id);
 
 static MirId transform_let(Context *c, TirId tir_id) {
     TermData const *data = get_term_data(c->tir, tir_id);
-    int32_t variable = data->b;
+    TirId v = {get_term_data(c->tir, tir_id)->b};
+    int32_t var = get_term_data(c->tir, v)->b;
     TirId init = {data->c};
     TirId type = get_value_type(c->tir, init);
     MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, type);
     MirId init_mir = transform_node(c, init);
     add_binary_instruction(c, MIR_ASSIGN, type, alloc_mir, init_mir);
-    c->variable_to_mir_map[variable] = alloc_mir;
+    c->variable_to_mir_map[var] = alloc_mir;
     return alloc_mir;
 }
 
