@@ -320,7 +320,6 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM:
         case MIR_ALLOC:
         case MIR_ASSIGN:
-        case MIR_NEW_SLICE:
         case MIR_INT:
         case MIR_STRING:
         case MIR_TIR_VALUE:
@@ -562,15 +561,6 @@ static void gen_assign(GenContext *ctx, MirId mir_id) {
     }
 }
 
-static void gen_new_slice(GenContext *ctx, MirId mir_id) {
-    MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TirId type = get_mir_type(ctx->mir, mir_id);
-    introduce_temporary(ctx, mir_id, type, false);
-    fprintf(ctx->stream, "{");
-    gen_operand(ctx, binary.left);
-    fprintf(ctx->stream, ", t%d};\n", binary.right.private_field_id - ctx->mir_start);
-}
-
 static void gen_cast(GenContext *ctx, MirId mir_id) {
     MirAccess cast = get_mir_access(ctx->mir, mir_id);
     TirId cast_type = get_mir_type(ctx->mir, mir_id);
@@ -738,7 +728,6 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_STRING: break;
         case MIR_TIR_VALUE: break;
         case MIR_ASSIGN: gen_assign(ctx, mir_id); break;
-        case MIR_NEW_SLICE: gen_new_slice(ctx, mir_id); break;
         case MIR_MINUS: gen_unary(ctx, mir_id, "-"); break;
         case MIR_NOT: gen_unary(ctx, mir_id, "!"); break;
         case MIR_ADDRESS: gen_address(ctx, mir_id); break;

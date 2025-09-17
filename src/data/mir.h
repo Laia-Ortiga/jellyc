@@ -60,7 +60,6 @@ typedef enum {
     MIR_FTRUNC,
     MIR_FEXT,
     MIR_PTR_CAST,
-    MIR_NEW_SLICE,
 
     // Access
 

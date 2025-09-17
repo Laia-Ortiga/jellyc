@@ -186,8 +186,7 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_DEREF:
         case MIR_INDEX:
         case MIR_SLICE_INDEX:
-        case MIR_ACCESS:
-        case MIR_NEW_SLICE: {
+        case MIR_ACCESS: {
             return true;
         }
         case MIR_ADDRESS:
@@ -380,10 +379,6 @@ static void gen_call_alloc(GenContext *ctx, MirId mir_id) {
     }
 }
 
-static void gen_new_slice_alloc(GenContext *ctx, MirId mir_id) {
-    fprintf(ctx->stream, "  %%%d = alloca %%slice\n", new_tmp(ctx, mir_id));
-}
-
 static void gen_negative(GenContext *ctx, MirId mir_id) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
@@ -482,32 +477,6 @@ static void gen_assign(GenContext *ctx, MirId mir_id) {
     fprintf(ctx->stream, ", ptr ");
     gen_operand_address(ctx, binary.left);
     fprintf(ctx->stream, "\n");
-}
-
-static void gen_new_slice(GenContext *ctx, MirId mir_id) {
-    MirBinary binary = get_mir_binary(ctx->mir, mir_id);
-    TirId type = get_mir_type(ctx->mir, mir_id);
-
-    int32_t length_address = ctx->tmp_count++;
-    fprintf(ctx->stream, "  %%%d = getelementptr inbounds %%slice, ptr ", length_address);
-    gen_operand_address(ctx, mir_id);
-    fprintf(ctx->stream, ", i64 0, i32 0\n");
-
-    int32_t llvm_left = load_operand(ctx, binary.left, type);
-    fprintf(ctx->stream, "  store ");
-    gen_type(ctx, ptype(isize));
-    fprintf(ctx->stream, " ");
-    gen_operand(ctx, binary.left, llvm_left);
-    fprintf(ctx->stream, ", ptr %%%d\n", length_address);
-
-    int32_t data_address = ctx->tmp_count++;
-    fprintf(ctx->stream, "  %%%d = getelementptr inbounds %%slice, ptr ", data_address);
-    gen_operand_address(ctx, mir_id);
-    fprintf(ctx->stream, ", i64 0, i32 1\n");
-
-    fprintf(ctx->stream, "  store ptr ");
-    gen_operand_address(ctx, binary.right);
-    fprintf(ctx->stream, ", ptr %%%d\n", data_address);
 }
 
 static void gen_cast(GenContext *ctx, MirId mir_id, char const *op) {
@@ -699,7 +668,6 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_ADDRESS: break;
         case MIR_DEREF: gen_deref(ctx, mir_id); break;
         case MIR_ASSIGN: gen_assign(ctx, mir_id); break;
-        case MIR_NEW_SLICE: gen_new_slice(ctx, mir_id); break;
         case MIR_MINUS: gen_negative(ctx, mir_id); break;
         case MIR_NOT: gen_not(ctx, mir_id); break;
         case MIR_ADD: gen_overloaded_binary(ctx, mir_id, "add", "fadd"); break;
@@ -771,7 +739,6 @@ static void gen_function(GenContext *ctx, int32_t mir_start, int32_t mir_end, Ti
         switch (get_mir_tag(ctx->mir, (MirId) {i})) {
             case MIR_ALLOC: gen_alloc(ctx, mir_id); break;
             case MIR_START_CALL: gen_call_alloc(ctx, mir_id); break;
-            case MIR_NEW_SLICE: gen_new_slice_alloc(ctx, mir_id); break;
             default: break;
         }
     }

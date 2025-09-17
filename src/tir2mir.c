@@ -234,17 +234,29 @@ static MirId transform_slice(Context *c, TirId tir_id) {
     int32_t index = data->c;
     TirId low = {get_term_extra(c->tir, index)};
     TirId high = {get_term_extra(c->tir, index + 1)};
+
+    TirId s = get_value_type(c->tir, tir_id);
+    MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, s);
+
     MirId operand_mir = transform_node(c, operand);
     MirId low_mir = transform_node(c, low);
     MirId high_mir = transform_node(c, high);
+
     MirId length_mir = add_binary_instruction(c, MIR_SUB, ptype(isize), high_mir, low_mir);
+    MirId length_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, 0);
+    add_binary_instruction(c, MIR_ASSIGN, ptype(isize), length_address, length_mir);
+
     TirId operand_type = get_value_type(c->tir, operand);
     MirTag tag = MIR_INDEX;
     if (remove_slice(c->tir, operand_type).id) {
         tag = MIR_SLICE_INDEX;
     }
     MirId data_mir = add_binary_instruction(c, tag, operand_type, operand_mir, low_mir);
-    return add_binary_instruction(c, MIR_NEW_SLICE, get_value_type(c->tir, tir_id), length_mir, data_mir);
+    MirId data_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, 1);
+    TirId ptr_type = {get_term_data(c->tir, s)->b};
+    add_binary_instruction(c, MIR_ASSIGN, ptr_type, data_address, data_mir);
+
+    return alloc_mir;
 }
 
 static MirId transform_array_to_slice(Context *c, TirId tir_id) {
@@ -252,9 +264,20 @@ static MirId transform_array_to_slice(Context *c, TirId tir_id) {
     TirId operand = {data->b};
     TirId index_type = {data->c};
     int64_t length = get_array_length_type(c->tir, index_type);
+
+    TirId s = get_value_type(c->tir, tir_id);
+    MirId alloc_mir = add_leaf_instruction(c, MIR_ALLOC, s);
+
     MirId length_mir = add_int_instruction(c, ptype(isize), length);
+    MirId length_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, 0);
+    add_binary_instruction(c, MIR_ASSIGN, ptype(isize), length_address, length_mir);
+
     MirId data_mir = transform_node(c, operand);
-    return add_binary_instruction(c, MIR_NEW_SLICE, get_value_type(c->tir, tir_id), length_mir, data_mir);
+    MirId data_address = add_mir_const_instruction(c, MIR_ACCESS, s, alloc_mir, 1);
+    TirId ptr_type = {get_term_data(c->tir, s)->b};
+    add_binary_instruction(c, MIR_ASSIGN, ptr_type, data_address, data_mir);
+
+    return alloc_mir;
 }
 
 static MirId transform_new_struct(Context *c, TirId tir_id) {
