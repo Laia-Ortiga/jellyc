@@ -321,7 +321,6 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_ALLOC:
         case MIR_ASSIGN:
         case MIR_INT:
-        case MIR_STRING:
         case MIR_TIR_VALUE:
         case MIR_MINUS:
         case MIR_NOT:
@@ -434,11 +433,6 @@ static void gen_operand(GenContext *ctx, MirId mir_id) {
             fprintf(ctx->stream, "%ld", get_mir_int(ctx->mir, mir_id));
             return;
         }
-        case MIR_STRING: {
-            TirId value = get_mir_tir_value(ctx->mir, mir_id);
-            gen_string(ctx, get_value_str(ctx->tir, value));
-            return;
-        }
         case MIR_TIR_VALUE: {
             TirId operand = get_mir_tir_value(ctx->mir, mir_id);
             gen_value(ctx, operand);
@@ -474,17 +468,6 @@ static void gen_address(GenContext *ctx, MirId mir_id) {
     MirId operand = get_mir_unary(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
     introduce_temporary(ctx, mir_id, type, true);
-
-    if (get_mir_tag(ctx->mir, operand) == MIR_STRING) {
-        fputs("(", ctx->stream);
-        gen_ptr_type_before(ctx, type);
-        gen_ptr_type_after(ctx, type);
-        fputs(") ", ctx->stream);
-        gen_operand(ctx, operand);
-        fprintf(ctx->stream, ";\n");
-        return;
-    }
-
     fputs("&", ctx->stream);
     gen_operand(ctx, operand);
     fprintf(ctx->stream, ";\n");
@@ -725,7 +708,6 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_PARAM: break;
         case MIR_ALLOC: gen_alloc(ctx, mir_id); break;
         case MIR_INT: break;
-        case MIR_STRING: break;
         case MIR_TIR_VALUE: break;
         case MIR_ASSIGN: gen_assign(ctx, mir_id); break;
         case MIR_MINUS: gen_unary(ctx, mir_id, "-"); break;

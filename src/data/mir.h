@@ -15,7 +15,6 @@ typedef enum {
     // Value
 
     MIR_INT,
-    MIR_STRING,
     MIR_TIR_VALUE,
 
     // Pointer operator

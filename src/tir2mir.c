@@ -539,11 +539,9 @@ static MirId transform_node(Context *c, TirId tir_id) {
         case TIR_EXTERN_VAR:
         case TIR_CONST_INT:
         case TIR_CONST_FLOAT:
-        case TIR_CONST_NULL: {
-            return add_value_instruction(c, MIR_TIR_VALUE, tir_id);
-        }
+        case TIR_CONST_NULL:
         case TIR_STRING: {
-            return add_value_instruction(c, MIR_STRING, tir_id);
+            return add_value_instruction(c, MIR_TIR_VALUE, tir_id);
         }
         case TIR_VARIABLE:
         case TIR_MUTABLE_VARIABLE: {
