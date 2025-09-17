@@ -287,7 +287,8 @@ static MirId transform_new_array(Context *c, TirId tir_id) {
     for (int32_t i = 0; i < arg_count; i++) {
         TirId arg = {get_term_extra(c->tir, args + i)};
         MirId arg_mir = transform_node(c, arg);
-        MirId field_address = add_mir_const_instruction(c, MIR_CONST_INDEX, type, alloc_mir, i);
+        MirId index = add_int_instruction(c, ptype(i32), i);
+        MirId field_address = add_binary_instruction(c, MIR_INDEX, type, alloc_mir, index);
         add_binary_instruction(c, MIR_ASSIGN, element_type, field_address, arg_mir);
     }
 

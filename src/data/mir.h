@@ -65,7 +65,6 @@ typedef enum {
     // Access
 
     MIR_INDEX,
-    MIR_CONST_INDEX,
     MIR_SLICE_INDEX,
     MIR_ACCESS,
 

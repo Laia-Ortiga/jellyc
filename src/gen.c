@@ -314,7 +314,6 @@ static bool is_lvalue(GenContext *ctx, MirId mir_id) {
         case MIR_DEREF:
         case MIR_INDEX:
         case MIR_SLICE_INDEX:
-        case MIR_CONST_INDEX:
         case MIR_ACCESS: return true;
 
         case MIR_ADDRESS:
@@ -679,19 +678,6 @@ static void gen_slice_index(GenContext *ctx, MirId mir_id) {
     fprintf(ctx->stream, "];\n");
 }
 
-static void gen_const_index(GenContext *ctx, MirId mir_id) {
-    MirAccess index = get_mir_access(ctx->mir, mir_id);
-    TirId type = get_mir_type(ctx->mir, mir_id);
-    TirId elem_type = remove_c_pointer_like(ctx->tir, type);
-    introduce_temporary(ctx, mir_id, elem_type, true);
-    fprintf(ctx->stream, "&((");
-    gen_ptr_type_before(ctx, elem_type);
-    gen_ptr_type_after(ctx, elem_type);
-    fprintf(ctx->stream, ") ");
-    gen_operand(ctx, index.operand);
-    fprintf(ctx->stream, ")[%d];\n", index.index);
-}
-
 static void gen_access(GenContext *ctx, MirId mir_id) {
     MirAccess access = get_mir_access(ctx->mir, mir_id);
     TirId type = get_mir_type(ctx->mir, mir_id);
@@ -788,7 +774,6 @@ static void gen_instruction(GenContext *ctx, MirId mir_id) {
         case MIR_ARG: gen_arg(ctx, mir_id); break;
         case MIR_INDEX: gen_index(ctx, mir_id); break;
         case MIR_SLICE_INDEX: gen_slice_index(ctx, mir_id); break;
-        case MIR_CONST_INDEX: gen_const_index(ctx, mir_id); break;
         case MIR_ACCESS: gen_access(ctx, mir_id); break;
         case MIR_BR: gen_br(ctx, mir_id); break;
         case MIR_BR_IF: gen_br_if(ctx, mir_id); break;
