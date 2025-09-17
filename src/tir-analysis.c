@@ -334,8 +334,7 @@ static void check_node(LinearChecker *ctx, TirId node, ExpectedValue expected_ca
             }
             break;
         }
-        case TIR_LET:
-        case TIR_MUT: {
+        case TIR_LET: {
             check_let(ctx, node);
             break;
         }

@@ -920,7 +920,7 @@ static TirId analyze_let(Context *c, AstId node, bool mutable) {
     add_id(c, (AstRef) {node, c->file}, value);
     return new_binary_tir(
         c->tir,
-        mutable ? TIR_MUT : TIR_LET,
+        TIR_LET,
         node,
         ptype(VOID),
         value,

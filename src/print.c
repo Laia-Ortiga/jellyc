@@ -634,7 +634,6 @@ static void print_tir_node(TirPrinter *printer, TirId tir_id) {
             break;
         }
         case TIR_LET: print_tir_let(printer, "let", tir_id); break;
-        case TIR_MUT: print_tir_let(printer, "mut", tir_id); break;
         case TIR_PLUS: print_tir_unary_value(printer, "plus", tir_id); break;
         case TIR_MINUS: print_tir_unary_value(printer, "minus", tir_id); break;
         case TIR_NOT: print_tir_unary_value(printer, "not", tir_id); break;

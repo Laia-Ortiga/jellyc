@@ -1459,7 +1459,6 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_MUTABLE_VARIABLE: return VALUE_MUTABLE_PLACE;
 
         case TIR_LET:
-        case TIR_MUT:
         case TIR_IF:
         case TIR_LOOP:
         case TIR_BREAK:

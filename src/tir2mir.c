@@ -528,7 +528,6 @@ static MirId transform_node(Context *c, TirId tir_id) {
             return c->variable_to_mir_map[variable];
         }
         case TIR_LET: return transform_let(c, tir_id);
-        case TIR_MUT: return transform_let(c, tir_id);
         case TIR_PLUS: return transform_plus(c, tir_id);
         case TIR_MINUS: return transform_unary(c, tir_id, MIR_MINUS);
         case TIR_NOT: return transform_unary(c, tir_id, MIR_NOT);

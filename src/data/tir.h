@@ -44,7 +44,6 @@ typedef enum {
     TIR_MUTABLE_VARIABLE,
 
     TIR_LET,
-    TIR_MUT,
 
     TIR_PLUS,
     TIR_MINUS,
