@@ -165,9 +165,11 @@ static void gen_type_before(GenContext *ctx, TirId type) {
             return;
         }
         default: {
-            abort();
+            break;
         }
     }
+
+    abort();
 }
 
 static void gen_type_after(GenContext *ctx, TirId type) {
