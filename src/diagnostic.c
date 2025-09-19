@@ -232,7 +232,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             );
             break;
         }
-        case ERROR_LINEAR_CTOR_COUNT: {
+        case ERROR_AFFINE_CTOR_COUNT: {
             fprintf(stderr, "expected 1 field");
             break;
         }
@@ -359,8 +359,8 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "main function must take no arguments and return nothing");
             break;
         }
-        case ERROR_LINEAR_ASSIGNMENT: {
-            fprintf(stderr, "cannot assign to linear type");
+        case ERROR_AFFINE_ASSIGNMENT: {
+            fprintf(stderr, "cannot assign to affine type");
             break;
         }
         case ERROR_CONSUMED_VALUE_USED: {

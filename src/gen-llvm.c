@@ -85,8 +85,8 @@ static void gen_type(GenContext *ctx, TirId type) {
             gen_type(ctx, get_tagged_type(ctx->tir, type).inner);
             return;
         }
-        case TIR_LINEAR_TYPE: {
-            gen_type(ctx, get_linear_elem_type(ctx->tir, type));
+        case TIR_AFFINE_TYPE: {
+            gen_type(ctx, get_affine_elem_type(ctx->tir, type));
             return;
         }
         default: {

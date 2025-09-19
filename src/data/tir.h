@@ -25,7 +25,7 @@ typedef enum {
     TIR_TAGGED_TYPE,
     TIR_STRUCT_TYPE,
     TIR_ENUM_TYPE,
-    TIR_LINEAR_TYPE,
+    TIR_AFFINE_TYPE,
     TIR_TYPE_PARAMETER,
     TIR_TYPE_END,
 
@@ -240,13 +240,13 @@ TirId new_mut_slice_type(TirContext c, TirId elem);
 TirId new_function_type(TirContext c, FunctionType *t);
 TirId new_struct_type(TirContext c, Target target, StructType *t);
 TirId new_enum_type(TirContext c, EnumType *t);
-TirId new_linear_type(TirContext c, TirId elem);
+TirId new_affine_type(TirContext c, TirId elem);
 TirId new_type_parameter(TirContext c, int32_t i, int32_t name);
 TirId new_tagged_type(TirContext c, TaggedType *t);
 
 ArrayType get_array_type(TirContext c, TirId type);
 int64_t get_array_length_type(TirContext c, TirId type);
-TirId get_linear_elem_type(TirContext c, TirId type);
+TirId get_affine_elem_type(TirContext c, TirId type);
 int32_t get_type_parameter_index(TirContext c, TirId type);
 FunctionType get_function_type(TirContext c, TirId type);
 TirId get_function_type_param(TirContext c, TirId type, int32_t index);
@@ -266,7 +266,7 @@ TirId remove_c_pointer_like(TirContext c, TirId a);
 TirId remove_array_like(TirContext c, TirId a);
 TirId remove_tags(TirContext c, TirId a);
 bool is_aggregate_type(TirContext c, TirId a);
-bool type_is_linear(TirContext c, TirId a);
+bool type_is_affine(TirContext c, TirId a);
 bool type_is_unknown_size(TirContext c, TirId a);
 bool is_equality_type(TirContext c, TirId a);
 bool is_relative_type(TirContext c, TirId a);

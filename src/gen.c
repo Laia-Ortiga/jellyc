@@ -158,8 +158,8 @@ static void gen_type_before(GenContext *ctx, TirId type) {
             gen_type_before(ctx, get_tagged_type(ctx->tir, type).inner);
             return;
         }
-        case TIR_LINEAR_TYPE: {
-            gen_type_before(ctx, get_linear_elem_type(ctx->tir, type));
+        case TIR_AFFINE_TYPE: {
+            gen_type_before(ctx, get_affine_elem_type(ctx->tir, type));
             return;
         }
         case TIR_TYPE_PARAMETER: {
@@ -217,8 +217,8 @@ static void gen_type_after(GenContext *ctx, TirId type) {
             gen_type_after(ctx, get_tagged_type(ctx->tir, type).inner);
             return;
         }
-        case TIR_LINEAR_TYPE: {
-            gen_type_after(ctx, get_linear_elem_type(ctx->tir, type));
+        case TIR_AFFINE_TYPE: {
+            gen_type_after(ctx, get_affine_elem_type(ctx->tir, type));
             return;
         }
         default: {

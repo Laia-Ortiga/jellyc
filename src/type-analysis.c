@@ -1350,11 +1350,11 @@ static TirId analyze_slice_constructor(Context *c, AstId node, TirId hint) {
     return new_instr(c->tir, TIR_NEW_STRUCT, node, type, push_extra(c, extra, ArrayLength(extra)), 2);
 }
 
-static TirId analyze_linear(Context *c, AstId node) {
+static TirId analyze_affine(Context *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
     TirId operand_type = expect_type(c, get_call_arg(&call, 0));
     expect_arg_count(c, node, 1);
-    return new_linear_type(c->tir, operand_type);
+    return new_affine_type(c->tir, operand_type);
 }
 
 static TirId analyze_array_length_type(Context *c, AstId node) {
@@ -1715,17 +1715,17 @@ static TirId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
     return new_instr(c->tir, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
 }
 
-static TirId analyze_linear_ctor(Context *c, AstId node, TirId linear_type) {
+static TirId analyze_affine_ctor(Context *c, AstId node, TirId affine_type) {
     AstCall call = get_ast_call(node, c->ast);
 
     if (1 != call.arg_count) {
-        type_error(c, call.operand, linear_type, 0, ERROR_LINEAR_CTOR_COUNT);
+        type_error(c, call.operand, affine_type, 0, ERROR_AFFINE_CTOR_COUNT);
         return null_tir;
     }
 
-    TirId param_type = get_linear_elem_type(c->tir, linear_type);
+    TirId param_type = get_affine_elem_type(c->tir, affine_type);
     TirId arg_result = expect_value_type(c, get_call_arg(&call, 0), param_type);
-    return new_unary_tir(c->tir, TIR_NOP, node, linear_type, arg_result);
+    return new_unary_tir(c->tir, TIR_NOP, node, affine_type, arg_result);
 }
 
 static TirId analyze_constructor(Context *c, AstId node, GenericTerm *term) {
@@ -1733,7 +1733,7 @@ static TirId analyze_constructor(Context *c, AstId node, GenericTerm *term) {
     TirId inner = remove_tags(c->tir, term->inner);
     switch (get_term_tag(c->tir, inner)) {
         case TIR_STRUCT_TYPE: return analyze_struct_ctor(c, node, term);
-        case TIR_LINEAR_TYPE: return analyze_linear_ctor(c, node, term->inner);
+        case TIR_AFFINE_TYPE: return analyze_affine_ctor(c, node, term->inner);
         default: type_error(c, call.operand, term->inner, 0, ERROR_TYPE_CONSTRUCTOR_TYPE); return null_tir;
     }
 }
@@ -1858,7 +1858,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
         case BUILTIN_CAST: return analyze_cast(c, node, hint);
         case BUILTIN_ZERO_EXTEND: return analyze_zero_extend(c, node, hint);
         case BUILTIN_SLICE: return analyze_slice_constructor(c, node, hint);
-        case BUILTIN_AFFINE: return analyze_linear(c, node);
+        case BUILTIN_AFFINE: return analyze_affine(c, node);
         case BUILTIN_ARRAY_LENGTH_TYPE: return analyze_array_length_type(c, node);
         default: break;
     }

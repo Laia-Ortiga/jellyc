@@ -57,7 +57,7 @@ static void error(LinearChecker *ctx, AstId node, ErrorKind kind) {
 static void check_node(LinearChecker *ctx, TirId node, ExpectedValue expected_category);
 
 static void check_value(LinearChecker *ctx, TirId node, ExpectedValue expected_category) {
-    if (expected_category == RVALUE && !type_is_linear(ctx->tir_ctx, get_value_type(ctx->tir_ctx, node))) {
+    if (expected_category == RVALUE && !type_is_affine(ctx->tir_ctx, get_value_type(ctx->tir_ctx, node))) {
         return;
     }
 
@@ -100,9 +100,9 @@ static void check_assign(LinearChecker *ctx, TirId node) {
     TirId left = {get_term_data(ctx->tir_ctx, node)->b};
     TirId right = {get_term_data(ctx->tir_ctx, node)->c};
     TirId type = get_value_type(ctx->tir_ctx, left);
-    if (type_is_linear(ctx->tir_ctx, type)) {
+    if (type_is_affine(ctx->tir_ctx, type)) {
         AstId ast_id = get_term_data(ctx->tir_ctx, node)->node;
-        error(ctx, ast_id, ERROR_LINEAR_ASSIGNMENT);
+        error(ctx, ast_id, ERROR_AFFINE_ASSIGNMENT);
     }
     check_value(ctx, right, RVALUE);
     check_value(ctx, left, RVALUE);
@@ -113,7 +113,7 @@ static void check_access(LinearChecker *ctx, TirId node, ExpectedValue expected_
     int32_t index = get_term_data(ctx->tir_ctx, node)->c;
     TirId type = get_value_type(ctx->tir_ctx, operand);
     TirId result_type = get_struct_type_field(ctx->tir_ctx, type, index);
-    if (expected_category == RVALUE && !type_is_linear(ctx->tir_ctx, result_type)) {
+    if (expected_category == RVALUE && !type_is_affine(ctx->tir_ctx, result_type)) {
         // If you are accessing a field that is not affine, no need to consume it.
         check_value(ctx, operand, LVALUE);
     } else {

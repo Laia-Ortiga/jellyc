@@ -34,7 +34,7 @@ static TirId get_type_elem(TirContext c, TirId type) {
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
-        case TIR_LINEAR_TYPE: return (TirId) {get_term_data(c, type)->a};
+        case TIR_AFFINE_TYPE: return (TirId) {get_term_data(c, type)->a};
 
         default: return null_tir;
     }
@@ -74,10 +74,10 @@ static StructuralType get_type_from_id(TirContext c, TirId type) {
                 .tagged = get_tagged_type(c, type),
             };
         }
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .unary = get_linear_elem_type(c, type),
+                .unary = get_affine_elem_type(c, type),
             };
         }
         default: {
@@ -105,7 +105,7 @@ static bool type_eq(StructuralType a, StructuralType b) {
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
-        case TIR_LINEAR_TYPE: return a.unary.id == b.unary.id;
+        case TIR_AFFINE_TYPE: return a.unary.id == b.unary.id;
 
         case TIR_FUNCTION_TYPE: {
             if (a.function.param_count != b.function.param_count) {
@@ -155,7 +155,7 @@ static int32_t hash_type(TirContext c, StructuralType type) {
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             result = 31 * result + hash_type(c, get_type_from_id(c, type.unary));
             break;
         }
@@ -277,7 +277,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
         }
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             TermData data = {
                 .a = descriptor.unary.id,
             };
@@ -398,7 +398,7 @@ typedef struct {
     int32_t name;
     int32_t alignment;
     int32_t size;
-    int32_t is_linear;
+    int32_t is_affine;
 } StructTypeLayout;
 
 typedef struct {
@@ -429,11 +429,11 @@ TirId new_struct_type(TirContext c, Target target, StructType *t) {
     layout->scope = t->scope;
     layout->name = t->name;
     init_struct_layout(layout, c, t->field_count, t->fields, target);
-    layout->is_linear = false;
+    layout->is_affine = false;
     for (int32_t i = 0; i < t->field_count; i++) {
         ptr[i + sizeof(StructTypeLayout) / sizeof(int32_t)] = t->fields[i].id;
-        if (!layout->is_linear && type_is_linear(c, t->fields[i])) {
-            layout->is_linear = true;
+        if (!layout->is_affine && type_is_affine(c, t->fields[i])) {
+            layout->is_affine = true;
         }
     }
     return new_term(c, TIR_STRUCT_TYPE, t->field_count, index);
@@ -454,12 +454,12 @@ TirId new_tagged_type(TirContext c, TaggedType *t) {
     });
 }
 
-TirId new_linear_type(TirContext c, TirId elem) {
-    if (get_term_tag(c, elem) == TIR_LINEAR_TYPE) {
+TirId new_affine_type(TirContext c, TirId elem) {
+    if (get_term_tag(c, elem) == TIR_AFFINE_TYPE) {
         return elem;
     }
     return new_structural_type(c, (StructuralType) {
-        .tag = TIR_LINEAR_TYPE,
+        .tag = TIR_AFFINE_TYPE,
         .unary = elem,
     });
 }
@@ -608,18 +608,18 @@ bool is_aggregate_type(TirContext c, TirId type) {
         case TIR_TYPE_PARAMETER: return true;
 
         case TIR_TAGGED_TYPE: return is_aggregate_type(c, get_tagged_type(c, type).inner);
-        case TIR_LINEAR_TYPE: return is_aggregate_type(c, get_linear_elem_type(c, type));
+        case TIR_AFFINE_TYPE: return is_aggregate_type(c, get_affine_elem_type(c, type));
 
         default: return false;
     }
 }
 
-bool type_is_linear(TirContext c, TirId type) {
+bool type_is_affine(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE: return type_is_linear(c, get_array_type(c, type).elem);
-        case TIR_TAGGED_TYPE: return type_is_linear(c, get_tagged_type(c, type).inner);
-        case TIR_STRUCT_TYPE: return ((StructTypeLayout *) get_type_extra(c, type))->is_linear;
-        case TIR_LINEAR_TYPE: return true;
+        case TIR_ARRAY_TYPE: return type_is_affine(c, get_array_type(c, type).elem);
+        case TIR_TAGGED_TYPE: return type_is_affine(c, get_tagged_type(c, type).inner);
+        case TIR_STRUCT_TYPE: return ((StructTypeLayout *) get_type_extra(c, type))->is_affine;
+        case TIR_AFFINE_TYPE: return true;
         default: return false;
     }
 }
@@ -628,7 +628,7 @@ bool type_is_unknown_size(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_ARRAY_TYPE: return type_is_unknown_size(c, get_array_type(c, type).elem);
         case TIR_TAGGED_TYPE: return type_is_unknown_size(c, get_tagged_type(c, type).inner);
-        case TIR_LINEAR_TYPE: return type_is_unknown_size(c, get_linear_elem_type(c, type));
+        case TIR_AFFINE_TYPE: return type_is_unknown_size(c, get_affine_elem_type(c, type));
         case TIR_TYPE_PARAMETER: return true;
         default: return false;
     }
@@ -739,8 +739,8 @@ int64_t get_array_length_type(TirContext c, TirId type) {
     return *(int64_t const *) get_term_data(c, type);
 }
 
-TirId get_linear_elem_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_LINEAR_TYPE) {
+TirId get_affine_elem_type(TirContext c, TirId type) {
+    if (get_term_tag(c, type) != TIR_AFFINE_TYPE) {
         abort();
     }
 
@@ -933,7 +933,7 @@ int32_t alignof_type(TirContext c, TirId type, Target target) {
         case TIR_STRUCT_TYPE: return ((StructTypeLayout *) get_type_extra(c, type))->alignment;
         case TIR_ENUM_TYPE: return alignof_type(c, get_enum_type(c, type).repr, target);
         case TIR_TAGGED_TYPE: return alignof_type(c, get_tagged_type(c, type).inner, target);
-        case TIR_LINEAR_TYPE: return alignof_type(c, get_linear_elem_type(c, type), target);
+        case TIR_AFFINE_TYPE: return alignof_type(c, get_affine_elem_type(c, type), target);
         case TIR_TYPE_PARAMETER: return -1;
     }
 }
@@ -958,7 +958,7 @@ int64_t sizeof_type(TirContext c, TirId type, Target target) {
         case TIR_STRUCT_TYPE: return ((StructTypeLayout *) get_type_extra(c, type))->size;
         case TIR_ENUM_TYPE: return sizeof_type(c, get_enum_type(c, type).repr, target);
         case TIR_TAGGED_TYPE: return sizeof_type(c, get_tagged_type(c, type).inner, target);
-        case TIR_LINEAR_TYPE: return sizeof_type(c, get_linear_elem_type(c, type), target);
+        case TIR_AFFINE_TYPE: return sizeof_type(c, get_affine_elem_type(c, type), target);
         case TIR_TYPE_PARAMETER: return -1;
         default: {
             abort();
@@ -1050,9 +1050,9 @@ void print_type(FILE *file, TirContext c, TirId type) {
             }
             return;
         }
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             fprintf(file, "`Affine[");
-            print_type(file, c, get_linear_elem_type(c, type));
+            print_type(file, c, get_affine_elem_type(c, type));
             fprintf(file, "]");
             return;
         }
@@ -1194,7 +1194,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
         case TIR_MUT_PTR_TYPE:
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             TirId param_elem = get_type_elem(c, param);
             TirId arg_elem = get_type_elem(c, arg);
             return match_type_parameters(c, results, param_elem, arg_elem);
@@ -1274,9 +1274,9 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             TirId elem = get_type_elem(info->c, generic);
             return new_mut_slice_type(info->c, replace_type_parameters(elem, info));
         }
-        case TIR_LINEAR_TYPE: {
+        case TIR_AFFINE_TYPE: {
             TirId elem = get_type_elem(info->c, generic);
-            return new_linear_type(info->c, replace_type_parameters(elem, info));
+            return new_affine_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_FUNCTION_TYPE: {
             FunctionType f = get_function_type(info->c, generic);
