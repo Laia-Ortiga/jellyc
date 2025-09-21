@@ -1154,7 +1154,7 @@ static TirId analyze_address(Context *c, AstId node, TirId hint) {
             return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
         case VALUE_MULTIVALUE: {
-            return expect_value(c, operand, hint);
+            return operand_value;
         }
     }
     return null_tir;
