@@ -745,6 +745,9 @@ static TirId analyze_struct(Context *c, AstId node) {
     for (int32_t i = 0; i < s.field_count; i++) {
         AstId param_type = get_ast_unary(s.fields[i], c->ast);
         field_types[i] = expect_type(c, param_type);
+        if (type_is_unknown_size(c->tir, field_types[i])) {
+            type_error(c, s.fields[i], field_types[i], 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
+        }
     }
 
     pop_scope(c);
@@ -821,6 +824,9 @@ static TirId analyze_newtype(Context *c, AstId node) {
     }
 
     TirId inner = expect_type(c, n.type);
+    if (type_is_unknown_size(c->tir, inner)) {
+        type_error(c, n.type, inner, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
+    }
     pop_scope(c);
 
     SourceIndex token = get_ast_token(node, c->ast);
