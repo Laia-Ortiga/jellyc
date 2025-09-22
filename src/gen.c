@@ -72,13 +72,9 @@ static void gen_params(GenContext *ctx, TirId type) {
             }
 
             TirId param_type = get_function_type_param(ctx->tir, type, i);
-            if (type_is_unknown_size(ctx->tir, param_type)) {
-                fprintf(ctx->stream, "void *t%d", i);
-            } else {
                 gen_type_before(ctx, param_type);
                 fprintf(ctx->stream, "t%d", i);
                 gen_type_after(ctx, param_type);
-            }
         }
     } else {
         fprintf(ctx->stream, "void");

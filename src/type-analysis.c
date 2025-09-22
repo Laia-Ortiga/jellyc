@@ -565,6 +565,9 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     for (int32_t i = 0; i < f.param_count; i++) {
         AstId param_type = get_ast_unary(f.params[i], c->ast);
         param_types[i] = expect_type(c, param_type);
+        if (type_is_unknown_size(c->tir, param_types[i])) {
+            type_error(c, f.params[i], param_types[i], 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
+        }
         TirId param_value = new_variable(c->tir, f.params[i], param_types[i], i, false);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
