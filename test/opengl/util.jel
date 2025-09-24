@@ -15,7 +15,7 @@ function free[T](slice @mut T) {
     libc.free(<*mut byte> slice.data)
 }
 
-function read_file(file_name *char) -> @mut char {
+function read_file(file_name *i8) -> @mut i8 {
     let file = libc.fopen(file_name, &"r"[0])
     if file == null {
         return `slice[0, null]
@@ -23,7 +23,7 @@ function read_file(file_name *char) -> @mut char {
     libc.fseek(file, 0, 2)
     let length = libc.ftell(file)
     libc.fseek(file, 0, 0)
-    mut buffer = alloc(<isize> (length + 1), `size_of[char])
+    mut buffer = alloc(<isize> (length + 1), `size_of[i8])
     let n = libc.fread(&buffer[0], 1, length, file)
     libc.fclose(file)
     buffer[n] = 0
@@ -37,7 +37,7 @@ function assert_program_status(program i32, pname i32) {
     if status == gl.FALSE {
         mut log_length = <i32> 0
         gl.glad_glGetProgramiv(program, gl.INFO_LOG_LENGTH, &log_length)
-        mut log = alloc(<isize> `cast[log_length], `size_of[char])
+        mut log = alloc(<isize> `cast[log_length], `size_of[i8])
         gl.glad_glGetProgramInfoLog(program, log_length, null, &log[0])
         libc.puts(&"Couldn't link shader program"[0])
         libc.puts(&log[0])
@@ -45,7 +45,7 @@ function assert_program_status(program i32, pname i32) {
     }
 }
 
-function compile_shader(type i32, file_name *char) -> i32 {
+function compile_shader(type i32, file_name *i8) -> i32 {
     let code = read_file(file_name)
 
     if code.length == 0 {
@@ -54,7 +54,7 @@ function compile_shader(type i32, file_name *char) -> i32 {
     }
 
     let shader = gl.glad_glCreateShader(type)
-    gl.glad_glShaderSource(shader, 1, <**char> `cast[&code.data], null)
+    gl.glad_glShaderSource(shader, 1, <**i8> `cast[&code.data], null)
     free(code)
     gl.glad_glCompileShader(shader)
 
@@ -64,7 +64,7 @@ function compile_shader(type i32, file_name *char) -> i32 {
     if compile_status == gl.FALSE {
         mut log_length = <i32> 0
         gl.glad_glGetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_length)
-        mut log = alloc(<isize> `cast[log_length], `size_of[char])
+        mut log = alloc(<isize> `cast[log_length], `size_of[i8])
         gl.glad_glGetShaderInfoLog(shader, log_length, null, &log[0])
         libc.puts(&"Error in shader"[0])
         libc.puts(&log[0])

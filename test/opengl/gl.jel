@@ -1,6 +1,6 @@
 module gl
 
-public extern function gladLoadGL(loadproc function(name *char) -> function()) -> i32
+public extern function gladLoadGL(loadproc function(name *i8) -> function()) -> i32
 
 public extern mut glad_glAccum function(op i32, value f32)
 public extern mut glad_glActiveShaderProgram function(pipeline i32, program i32)
@@ -14,14 +14,14 @@ public extern mut glad_glBeginConditionalRender function(id i32, mode i32)
 public extern mut glad_glBeginQuery function(target i32, id i32)
 public extern mut glad_glBeginQueryIndexed function(target i32, index i32, id i32)
 public extern mut glad_glBeginTransformFeedback function(primitiveMode i32)
-public extern mut glad_glBindAttribLocation function(program i32, index i32, name *char)
+public extern mut glad_glBindAttribLocation function(program i32, index i32, name *i8)
 public extern mut glad_glBindBuffer function(target i32, buffer i32)
 public extern mut glad_glBindBufferBase function(target i32, index i32, buffer i32)
 public extern mut glad_glBindBufferRange function(target i32, index i32, buffer i32, offset isize, size isize)
 public extern mut glad_glBindBuffersBase function(target i32, first i32, count i32, buffers *i32)
 public extern mut glad_glBindBuffersRange function(target i32, first i32, count i32, buffers *i32, offsets *isize, sizes *isize)
-public extern mut glad_glBindFragDataLocation function(program i32, color i32, name *char)
-public extern mut glad_glBindFragDataLocationIndexed function(program i32, colorNumber i32, index i32, name *char)
+public extern mut glad_glBindFragDataLocation function(program i32, color i32, name *i8)
+public extern mut glad_glBindFragDataLocationIndexed function(program i32, colorNumber i32, index i32, name *i8)
 public extern mut glad_glBindFramebuffer function(target i32, framebuffer i32)
 public extern mut glad_glBindImageTexture function(unit i32, texture i32, level i32, layered bool, layer i32, access i32, format i32)
 public extern mut glad_glBindImageTextures function(first i32, count i32, textures *i32)
@@ -151,14 +151,14 @@ public extern mut glad_glCreateQueries function(target i32, n i32, ids *mut i32)
 public extern mut glad_glCreateRenderbuffers function(n i32, renderbuffers *mut i32)
 public extern mut glad_glCreateSamplers function(n i32, samplers *mut i32)
 public extern mut glad_glCreateShader function(type i32) -> i32
-public extern mut glad_glCreateShaderProgramv function(type i32, count i32, strings **char) -> i32
+public extern mut glad_glCreateShaderProgramv function(type i32, count i32, strings **i8) -> i32
 public extern mut glad_glCreateTextures function(target i32, n i32, textures *mut i32)
 public extern mut glad_glCreateTransformFeedbacks function(n i32, ids *mut i32)
 public extern mut glad_glCreateVertexArrays function(n i32, arrays *mut i32)
 public extern mut glad_glCullFace function(mode i32)
-public extern mut glad_glDebugMessageCallback function(callback function(source i32, type i32, id i32, severity i32, length i32, message *char, userParam *mut byte), userParam *mut byte)
+public extern mut glad_glDebugMessageCallback function(callback function(source i32, type i32, id i32, severity i32, length i32, message *i8, userParam *mut byte), userParam *mut byte)
 public extern mut glad_glDebugMessageControl function(source i32, type i32, severity i32, count i32, ids *i32, enabled bool)
-public extern mut glad_glDebugMessageInsert function(source i32, type i32, id i32, severity i32, length i32, buf *char)
+public extern mut glad_glDebugMessageInsert function(source i32, type i32, id i32, severity i32, length i32, buf *i8)
 public extern mut glad_glDeleteBuffers function(n i32, buffers *i32)
 public extern mut glad_glDeleteFramebuffers function(n i32, framebuffers *i32)
 public extern mut glad_glDeleteLists function(list i32, range i32)
@@ -269,17 +269,17 @@ public extern mut glad_glGenVertexArrays function(n i32, arrays *mut i32)
 public extern mut glad_glGenerateMipmap function(target i32)
 public extern mut glad_glGenerateTextureMipmap function(texture i32)
 public extern mut glad_glGetActiveAtomicCounterBufferiv function(program i32, bufferIndex i32, pname i32, params *mut i32)
-public extern mut glad_glGetActiveAttrib function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut char)
-public extern mut glad_glGetActiveSubroutineName function(program i32, shadertype i32, index i32, bufSize i32, length *mut i32, name *mut char)
-public extern mut glad_glGetActiveSubroutineUniformName function(program i32, shadertype i32, index i32, bufSize i32, length *mut i32, name *mut char)
+public extern mut glad_glGetActiveAttrib function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut i8)
+public extern mut glad_glGetActiveSubroutineName function(program i32, shadertype i32, index i32, bufSize i32, length *mut i32, name *mut i8)
+public extern mut glad_glGetActiveSubroutineUniformName function(program i32, shadertype i32, index i32, bufSize i32, length *mut i32, name *mut i8)
 public extern mut glad_glGetActiveSubroutineUniformiv function(program i32, shadertype i32, index i32, pname i32, values *mut i32)
-public extern mut glad_glGetActiveUniform function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut char)
-public extern mut glad_glGetActiveUniformBlockName function(program i32, uniformBlockIndex i32, bufSize i32, length *mut i32, uniformBlockName *mut char)
+public extern mut glad_glGetActiveUniform function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut i8)
+public extern mut glad_glGetActiveUniformBlockName function(program i32, uniformBlockIndex i32, bufSize i32, length *mut i32, uniformBlockName *mut i8)
 public extern mut glad_glGetActiveUniformBlockiv function(program i32, uniformBlockIndex i32, pname i32, params *mut i32)
-public extern mut glad_glGetActiveUniformName function(program i32, uniformIndex i32, bufSize i32, length *mut i32, uniformName *mut char)
+public extern mut glad_glGetActiveUniformName function(program i32, uniformIndex i32, bufSize i32, length *mut i32, uniformName *mut i8)
 public extern mut glad_glGetActiveUniformsiv function(program i32, uniformCount i32, uniformIndices *i32, pname i32, params *mut i32)
 public extern mut glad_glGetAttachedShaders function(program i32, maxCount i32, count *mut i32, shaders *mut i32)
-public extern mut glad_glGetAttribLocation function(program i32, name *char) -> i32
+public extern mut glad_glGetAttribLocation function(program i32, name *i8) -> i32
 public extern mut glad_glGetBooleani_v function(target i32, index i32, data *mut bool)
 public extern mut glad_glGetBooleanv function(pname i32, data *mut bool)
 public extern mut glad_glGetBufferParameteri64v function(target i32, pname i32, params *mut i64)
@@ -290,14 +290,14 @@ public extern mut glad_glGetClipPlane function(plane i32, equation *mut f64)
 public extern mut glad_glGetCompressedTexImage function(target i32, level i32, img *mut byte)
 public extern mut glad_glGetCompressedTextureImage function(texture i32, level i32, bufSize i32, pixels *mut byte)
 public extern mut glad_glGetCompressedTextureSubImage function(texture i32, level i32, xoffset i32, yoffset i32, zoffset i32, width i32, height i32, depth i32, bufSize i32, pixels *mut byte)
-public extern mut glad_glGetDebugMessageLog function(count i32, bufSize i32, sources *mut i32, types *mut i32, ids *mut i32, severities *mut i32, lengths *mut i32, messageLog *mut char) -> i32
+public extern mut glad_glGetDebugMessageLog function(count i32, bufSize i32, sources *mut i32, types *mut i32, ids *mut i32, severities *mut i32, lengths *mut i32, messageLog *mut i8) -> i32
 public extern mut glad_glGetDoublei_v function(target i32, index i32, data *mut f64)
 public extern mut glad_glGetDoublev function(pname i32, data *mut f64)
 public extern mut glad_glGetError function() -> i32
 public extern mut glad_glGetFloati_v function(target i32, index i32, data *mut f32)
 public extern mut glad_glGetFloatv function(pname i32, data *mut f32)
-public extern mut glad_glGetFragDataIndex function(program i32, name *char) -> i32
-public extern mut glad_glGetFragDataLocation function(program i32, name *char) -> i32
+public extern mut glad_glGetFragDataIndex function(program i32, name *i8) -> i32
+public extern mut glad_glGetFragDataLocation function(program i32, name *i8) -> i32
 public extern mut glad_glGetFramebufferAttachmentParameteriv function(target i32, attachment i32, pname i32, params *mut i32)
 public extern mut glad_glGetFramebufferParameteriv function(target i32, pname i32, params *mut i32)
 public extern mut glad_glGetGraphicsResetStatus function() -> i32
@@ -322,22 +322,22 @@ public extern mut glad_glGetNamedBufferSubData function(buffer i32, offset isize
 public extern mut glad_glGetNamedFramebufferAttachmentParameteriv function(framebuffer i32, attachment i32, pname i32, params *mut i32)
 public extern mut glad_glGetNamedFramebufferParameteriv function(framebuffer i32, pname i32, param *mut i32)
 public extern mut glad_glGetNamedRenderbufferParameteriv function(renderbuffer i32, pname i32, params *mut i32)
-public extern mut glad_glGetObjectLabel function(identifier i32, name i32, bufSize i32, length *mut i32, label *mut char)
-public extern mut glad_glGetObjectPtrLabel function(ptr *mut byte, bufSize i32, length *mut i32, label *mut char)
+public extern mut glad_glGetObjectLabel function(identifier i32, name i32, bufSize i32, length *mut i32, label *mut i8)
+public extern mut glad_glGetObjectPtrLabel function(ptr *mut byte, bufSize i32, length *mut i32, label *mut i8)
 public extern mut glad_glGetPixelMapfv function(map i32, values *mut f32)
 public extern mut glad_glGetPixelMapuiv function(map i32, values *mut i32)
 public extern mut glad_glGetPixelMapusv function(map i32, values *mut i16)
 public extern mut glad_glGetPointerv function(pname i32, params **mut byte)
 public extern mut glad_glGetPolygonStipple function(mask *mut i8)
 public extern mut glad_glGetProgramBinary function(program i32, bufSize i32, length *mut i32, binaryFormat *mut i32, binary *mut byte)
-public extern mut glad_glGetProgramInfoLog function(program i32, bufSize i32, length *mut i32, infoLog *mut char)
+public extern mut glad_glGetProgramInfoLog function(program i32, bufSize i32, length *mut i32, infoLog *mut i8)
 public extern mut glad_glGetProgramInterfaceiv function(program i32, programInterface i32, pname i32, params *mut i32)
-public extern mut glad_glGetProgramPipelineInfoLog function(pipeline i32, bufSize i32, length *mut i32, infoLog *mut char)
+public extern mut glad_glGetProgramPipelineInfoLog function(pipeline i32, bufSize i32, length *mut i32, infoLog *mut i8)
 public extern mut glad_glGetProgramPipelineiv function(pipeline i32, pname i32, params *mut i32)
-public extern mut glad_glGetProgramResourceIndex function(program i32, programInterface i32, name *char) -> i32
-public extern mut glad_glGetProgramResourceLocation function(program i32, programInterface i32, name *char) -> i32
-public extern mut glad_glGetProgramResourceLocationIndex function(program i32, programInterface i32, name *char) -> i32
-public extern mut glad_glGetProgramResourceName function(program i32, programInterface i32, index i32, bufSize i32, length *mut i32, name *mut char)
+public extern mut glad_glGetProgramResourceIndex function(program i32, programInterface i32, name *i8) -> i32
+public extern mut glad_glGetProgramResourceLocation function(program i32, programInterface i32, name *i8) -> i32
+public extern mut glad_glGetProgramResourceLocationIndex function(program i32, programInterface i32, name *i8) -> i32
+public extern mut glad_glGetProgramResourceName function(program i32, programInterface i32, index i32, bufSize i32, length *mut i32, name *mut i8)
 public extern mut glad_glGetProgramResourceiv function(program i32, programInterface i32, index i32, propCount i32, props *i32, count i32, length *mut i32, params *mut i32)
 public extern mut glad_glGetProgramStageiv function(program i32, shadertype i32, pname i32, values *mut i32)
 public extern mut glad_glGetProgramiv function(program i32, pname i32, params *mut i32)
@@ -356,14 +356,14 @@ public extern mut glad_glGetSamplerParameterIiv function(sampler i32, pname i32,
 public extern mut glad_glGetSamplerParameterIuiv function(sampler i32, pname i32, params *mut i32)
 public extern mut glad_glGetSamplerParameterfv function(sampler i32, pname i32, params *mut f32)
 public extern mut glad_glGetSamplerParameteriv function(sampler i32, pname i32, params *mut i32)
-public extern mut glad_glGetShaderInfoLog function(shader i32, bufSize i32, length *mut i32, infoLog *mut char)
+public extern mut glad_glGetShaderInfoLog function(shader i32, bufSize i32, length *mut i32, infoLog *mut i8)
 public extern mut glad_glGetShaderPrecisionFormat function(shadertype i32, precisiontype i32, range *mut i32, precision *mut i32)
-public extern mut glad_glGetShaderSource function(shader i32, bufSize i32, length *mut i32, source *mut char)
+public extern mut glad_glGetShaderSource function(shader i32, bufSize i32, length *mut i32, source *mut i8)
 public extern mut glad_glGetShaderiv function(shader i32, pname i32, params *mut i32)
 public extern mut glad_glGetString function(name i32) -> i8
 public extern mut glad_glGetStringi function(name i32, index i32) -> i8
-public extern mut glad_glGetSubroutineIndex function(program i32, shadertype i32, name *char) -> i32
-public extern mut glad_glGetSubroutineUniformLocation function(program i32, shadertype i32, name *char) -> i32
+public extern mut glad_glGetSubroutineIndex function(program i32, shadertype i32, name *i8) -> i32
+public extern mut glad_glGetSubroutineUniformLocation function(program i32, shadertype i32, name *i8) -> i32
 public extern mut glad_glGetSynciv function(sync *mut byte, pname i32, count i32, length *mut i32, values *mut i32)
 public extern mut glad_glGetTexEnvfv function(target i32, pname i32, params *mut f32)
 public extern mut glad_glGetTexEnviv function(target i32, pname i32, params *mut i32)
@@ -385,13 +385,13 @@ public extern mut glad_glGetTextureParameterIuiv function(texture i32, pname i32
 public extern mut glad_glGetTextureParameterfv function(texture i32, pname i32, params *mut f32)
 public extern mut glad_glGetTextureParameteriv function(texture i32, pname i32, params *mut i32)
 public extern mut glad_glGetTextureSubImage function(texture i32, level i32, xoffset i32, yoffset i32, zoffset i32, width i32, height i32, depth i32, format i32, type i32, bufSize i32, pixels *mut byte)
-public extern mut glad_glGetTransformFeedbackVarying function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut char)
+public extern mut glad_glGetTransformFeedbackVarying function(program i32, index i32, bufSize i32, length *mut i32, size *mut i32, type *mut i32, name *mut i8)
 public extern mut glad_glGetTransformFeedbacki64_v function(xfb i32, pname i32, index i32, param *mut i64)
 public extern mut glad_glGetTransformFeedbacki_v function(xfb i32, pname i32, index i32, param *mut i32)
 public extern mut glad_glGetTransformFeedbackiv function(xfb i32, pname i32, param *mut i32)
-public extern mut glad_glGetUniformBlockIndex function(program i32, uniformBlockName *char) -> i32
-public extern mut glad_glGetUniformIndices function(program i32, uniformCount i32, uniformNames **char, uniformIndices *mut i32)
-public extern mut glad_glGetUniformLocation function(program i32, name *char) -> i32
+public extern mut glad_glGetUniformBlockIndex function(program i32, uniformBlockName *i8) -> i32
+public extern mut glad_glGetUniformIndices function(program i32, uniformCount i32, uniformNames **i8, uniformIndices *mut i32)
+public extern mut glad_glGetUniformLocation function(program i32, name *i8) -> i32
 public extern mut glad_glGetUniformSubroutineuiv function(shadertype i32, location i32, params *mut i32)
 public extern mut glad_glGetUniformdv function(program i32, location i32, params *mut f64)
 public extern mut glad_glGetUniformfv function(program i32, location i32, params *mut f32)
@@ -579,8 +579,8 @@ public extern mut glad_glNormal3sv function(v *i16)
 public extern mut glad_glNormalP3ui function(type i32, coords i32)
 public extern mut glad_glNormalP3uiv function(type i32, coords *i32)
 public extern mut glad_glNormalPointer function(type i32, stride i32, pointer_ *mut byte)
-public extern mut glad_glObjectLabel function(identifier i32, name i32, length i32, label *char)
-public extern mut glad_glObjectPtrLabel function(ptr *mut byte, length i32, label *char)
+public extern mut glad_glObjectLabel function(identifier i32, name i32, length i32, label *i8)
+public extern mut glad_glObjectPtrLabel function(ptr *mut byte, length i32, label *i8)
 public extern mut glad_glOrtho function(left f64, right f64, bottom f64, top f64, zNear f64, zFar f64)
 public extern mut glad_glPassThrough function(token f32)
 public extern mut glad_glPatchParameterfv function(pname i32, values *f32)
@@ -665,7 +665,7 @@ public extern mut glad_glProgramUniformMatrix4x3fv function(program i32, locatio
 public extern mut glad_glProvokingVertex function(mode i32)
 public extern mut glad_glPushAttrib function(mask i32)
 public extern mut glad_glPushClientAttrib function(mask i32)
-public extern mut glad_glPushDebugGroup function(source i32, id i32, length i32, message *char)
+public extern mut glad_glPushDebugGroup function(source i32, id i32, length i32, message *i8)
 public extern mut glad_glPushMatrix function()
 public extern mut glad_glPushName function(name i32)
 public extern mut glad_glQueryCounter function(id i32, target i32)
@@ -747,9 +747,9 @@ public extern mut glad_glSecondaryColorPointer function(size i32, type i32, stri
 public extern mut glad_glSelectBuffer function(size i32, buffer *mut i32)
 public extern mut glad_glShadeModel function(mode i32)
 public extern mut glad_glShaderBinary function(count i32, shaders *i32, binaryFormat i32, binary *mut byte, length i32)
-public extern mut glad_glShaderSource function(shader i32, count i32, string **char, length *i32)
+public extern mut glad_glShaderSource function(shader i32, count i32, string **i8, length *i32)
 public extern mut glad_glShaderStorageBlockBinding function(program i32, storageBlockIndex i32, storageBlockBinding i32)
-public extern mut glad_glSpecializeShader function(shader i32, pEntryPoint *char, numSpecializationConstants i32, pConstantIndex *i32, pConstantValue *i32)
+public extern mut glad_glSpecializeShader function(shader i32, pEntryPoint *i8, numSpecializationConstants i32, pConstantIndex *i32, pConstantValue *i32)
 public extern mut glad_glStencilFunc function(func i32, ref i32, mask i32)
 public extern mut glad_glStencilFuncSeparate function(face i32, func i32, ref i32, mask i32)
 public extern mut glad_glStencilMask function(mask i32)
@@ -848,7 +848,7 @@ public extern mut glad_glTextureSubImage3D function(texture i32, level i32, xoff
 public extern mut glad_glTextureView function(texture i32, target i32, origtexture i32, internalformat i32, minlevel i32, numlevels i32, minlayer i32, numlayers i32)
 public extern mut glad_glTransformFeedbackBufferBase function(xfb i32, index i32, buffer i32)
 public extern mut glad_glTransformFeedbackBufferRange function(xfb i32, index i32, buffer i32, offset isize, size isize)
-public extern mut glad_glTransformFeedbackVaryings function(program i32, count i32, varyings **char, bufferMode i32)
+public extern mut glad_glTransformFeedbackVaryings function(program i32, count i32, varyings **i8, bufferMode i32)
 public extern mut glad_glTranslated function(x f64, y f64, z f64)
 public extern mut glad_glTranslatef function(x f32, y f32, z f32)
 public extern mut glad_glUniform1d function(location i32, x f64)

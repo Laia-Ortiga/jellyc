@@ -118,12 +118,12 @@ function key_callback(window *mut byte, key i32, scancode i32, action i32, mods 
     let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
     let state = &scene.cam_state
     switch key {
-        <i32> `cast['A']    -> state.speed.x = state.speed.x - speed,
-        <i32> `cast['D']    -> state.speed.x = state.speed.x + speed,
-        <i32> `cast['W']    -> state.speed.z = state.speed.z - speed,
-        <i32> `cast['S']    -> state.speed.z = state.speed.z + speed,
+        'A'                 -> state.speed.x = state.speed.x - speed,
+        'D'                 -> state.speed.x = state.speed.x + speed,
+        'W'                 -> state.speed.z = state.speed.z - speed,
+        'S'                 -> state.speed.z = state.speed.z + speed,
         GLFW_KEY_LEFT_SHIFT -> state.speed.y = state.speed.y - speed,
-        <i32> `cast[' ']    -> state.speed.y = state.speed.y + speed,
+        ' '                 -> state.speed.y = state.speed.y + speed,
     }
 }
 

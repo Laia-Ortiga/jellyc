@@ -599,59 +599,6 @@ static int parse_hex_int(Parser *parser, Token token, int64_t *out) {
     return 0;
 }
 
-static int64_t parse_char(Parser *parser, Token const *token) {
-    char c = parser->lexer.source.ptr[token->start.index + 1];
-
-    if (c == '\'') {
-        error(parser, token, &(Diagnostic) {.kind = ERROR_EMPTY_CHAR});
-        return 0;
-    }
-
-    int64_t value;
-    int len;
-    if (c == '\\') {
-        len = 3;
-        switch (parser->lexer.source.ptr[token->start.index + 2]) {
-            case '\\': value = '\\'; break;
-            case '\'': value = '\''; break;
-            case '"': value = '"'; break;
-            case 'n': value = '\n'; break;
-            case 't': value = '\t'; break;
-            case '0': value = '\0'; break;
-            default: error(parser, token, &(Diagnostic) {.kind = ERROR_ESCAPE_SEQUENCE}); return 0;
-        }
-    } else {
-        len = 2;
-        value = (unsigned char) c;
-    }
-
-    if (token->end.index - token->start.index != len + 1) {
-        error(parser, token, &(Diagnostic) {.kind = ERROR_MULTIPLE_CHAR});
-        return 0;
-    }
-
-    return value;
-}
-
-static int32_t parse_str(Parser *parser, Token const *token) {
-    int32_t len = 0;
-
-    for (int32_t i = token->start.index + 1; i < token->end.index - 1; i++) {
-        if (parser->lexer.source.ptr[i] == '\\') {
-            if (parser->lexer.source.ptr[i + 1] == 'x') {
-                len++;
-                i += 3;
-            }
-
-            continue;
-        }
-
-        len++;
-    }
-
-    return len;
-}
-
 static AstId parse_unary(Parser *parser, AstTag tag, SourceIndex token) {
     AstId operand = parse_expr(parser, PREC_AS);
     return add_unary_ast(tag, token, operand, &parser->ast);
@@ -762,14 +709,25 @@ static AstId parse_prefix(Parser *parser) {
             return add_ast_int(AST_INT, token.start, value, &parser->ast);
         }
         case TOK_FLOAT: {
-            double value = parse_float(substring(parser->lexer.source, token.start.index, token.end.index), parser->scratch);
+            String s = substring(parser->lexer.source, token.start.index, token.end.index);
+            double value = parse_float(s, parser->scratch);
             return add_ast_float(AST_FLOAT, token.start, value, &parser->ast);
         }
         case TOK_CHAR: {
-            return add_ast_int(AST_CHAR, token.start, parse_char(parser, &token), &parser->ast);
+            return add_ast_int(
+                AST_CHAR,
+                token.start,
+                token.end.index - token.start.index,
+                &parser->ast
+            );
         }
         case TOK_STRING: {
-            return add_ast_int(AST_STRING, token.start, parse_str(parser, &token), &parser->ast);
+            return add_ast_int(
+                AST_STRING,
+                token.start,
+                token.end.index - token.start.index,
+                &parser->ast
+            );
         }
         case TOK_KW_true: {
             return add_ast_int(AST_BOOL, token.start, 1, &parser->ast);

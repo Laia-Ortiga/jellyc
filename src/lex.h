@@ -34,4 +34,3 @@ Token next_token(Lexer *lexer);
 void poison_lexer(Lexer *lexer);
 char const *token_tag_to_string(TokenTag tag);
 String id_token_to_string(String source, SourceIndex where);
-int64_t string_token_byte_length(String source, SourceIndex where);

@@ -46,7 +46,6 @@ static void gen_type(GenContext *ctx, TirId type) {
                 case TYPE_VOID: fprintf(ctx->stream, "void"); return;
 
                 case TYPE_i8:
-                case TYPE_char:
                 case TYPE_byte: fprintf(ctx->stream, "i8"); return;
 
                 case TYPE_i16: fprintf(ctx->stream, "i16"); return;

@@ -127,7 +127,6 @@ static void gen_type_before(GenContext *ctx, TirId type) {
                 case TYPE_f32: fprintf(ctx->stream, "float "); return;
                 case TYPE_f64: fprintf(ctx->stream, "double "); return;
 
-                case TYPE_char:
                 case TYPE_byte: fprintf(ctx->stream, "char "); return;
 
                 case TYPE_bool: fprintf(ctx->stream, "unsigned char "); return;

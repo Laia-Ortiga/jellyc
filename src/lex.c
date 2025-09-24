@@ -63,7 +63,7 @@ static void comment(Lexer *lexer) {
     }
 }
 
-static TokenTag lit_string(Lexer *lexer, char terminator) {
+static void lit_string(Lexer *lexer, char terminator) {
     bool escape = 0;
     for (;;) {
         int c = peek(lexer);
@@ -77,7 +77,6 @@ static TokenTag lit_string(Lexer *lexer, char terminator) {
         escape = !escape && c == '\\';
         consume(lexer);
     }
-    return TOK_STRING;
 }
 
 static TokenTag resolve_tag(String s) {
@@ -270,23 +269,4 @@ static int32_t find_id_length(String source, SourceIndex where) {
 
 String id_token_to_string(String source, SourceIndex where) {
     return (String) {find_id_length(source, where), &source.ptr[where.index]};
-}
-
-int64_t string_token_byte_length(String source, SourceIndex where) {
-    bool escape = false;
-    int64_t length = 0;
-    for (int32_t i = where.index + 1; i < source.len; i++) {
-        char c = source.ptr[i];
-        if (!escape && c == '"') {
-            break;
-        }
-        if (escape && c == 'x') {
-            length -= 2;
-        }
-        escape = !escape && c == '\\';
-        if (!escape) {
-            length++;
-        }
-    }
-    return length;
 }

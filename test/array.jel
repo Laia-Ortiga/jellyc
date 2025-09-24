@@ -23,7 +23,7 @@ function main() {
     for i = <isize> 0; i < array.length; i += 1 {
         for j = <isize> 0; j < 4; j += 1 {
             std.print_int(array[i][j])
-            std.print_char('\n')
+            std.print_str(&"\n")
         }
     }
 }

@@ -194,7 +194,12 @@ static void add_id(Context *c, AstRef ref, TirId term) {
     }
 
     if (!c->scope) {
-        compiler_error("no local scope");
+        if (c->tir.thread || term.id) {
+            compiler_error("no local scope");
+        } else {
+            // TODO set a flag so that we don't repeat "use of undefined name" msg
+            return;
+        }
     }
     int32_t sym = c->locals.len + 1;
     Local local_ref = {ref.node, term, false};
@@ -1037,12 +1042,7 @@ static TirId analyze_float(Context *c, AstId node, TirId hint) {
     return new_float_constant(c->tir, type, f);
 }
 
-static TirId analyze_char(Context *c, AstId node) {
-    int64_t i = get_ast_int(node, c->ast);
-    return new_int_constant(c->tir, ptype(char), i);
-}
-
-static int parse_hex_char(char c) {
+static int parse_hex_char(int c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
     }
@@ -1055,58 +1055,105 @@ static int parse_hex_char(char c) {
     return -1;
 }
 
-static TirId analyze_string(Context *c, AstId node) {
-    int64_t len = string_token_byte_length(ctx_source(c), get_ast_token(node, c->ast));
-    char *buffer = arena_alloc(c->scratch, char, len + 4);
-    buffer[0] = (unsigned char) (len & 0xFF);
-    buffer[1] = (unsigned char) ((len >> 8) & 0xFF);
-    buffer[2] = (unsigned char) ((len >> 16) & 0xFF);
-    buffer[3] = (unsigned char) ((len >> 24) & 0xFF);
-    int32_t token = get_ast_token(node, c->ast).index;
+static int next_string_char(char const *s, ptrdiff_t *i) {
+    int c = (unsigned char) s[(*i)++];
 
-    char const *str = ctx_source(c).ptr + token;
-    ptrdiff_t i = 1;
-    ptrdiff_t byte_i = 4;
-    while (str[i] != '\"' && str[i] != '\n' && str[i] != '\0') {
-        if (str[i] == '\\') {
-            i++;
-            switch (str[i++]) {
-                case 't': buffer[byte_i++] = '\t'; break;
-                case 'n': buffer[byte_i++] = '\n'; break;
-                case '"': buffer[byte_i++] = '"'; break;
-                case '\'': buffer[byte_i++] = '\''; break;
-                case '\\': buffer[byte_i++] = '\\'; break;
-                case 'x': {
-                    buffer[byte_i++] = (unsigned char) ((parse_hex_char(str[i]) << 4) | parse_hex_char(str[i + 1]));
-                    i += 2;
-                    break;
-                }
-                default: {
-                    SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i - 2}, 2);
-                    loc.mark = loc.where;
-                    print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_ESCAPE_SEQUENCE});
-                    c->error = 1;
-                    break;
-                }
-            }
-            continue;
-        }
-        buffer[byte_i++] = str[i];
-        i++;
+    if (c != '\\') {
+        return c;
     }
 
-    if (str[i] != '\"') {
+    switch ((unsigned char) s[(*i)++]) {
+        case 't': return '\t';
+        case 'n': return '\n';
+        case '"': return '"';
+        case '\'': return '\'';
+        case '\\': return '\\';
+        case 'x': {
+            int high = parse_hex_char((unsigned char) s[(*i)++]);
+
+            if (high == -1) {
+                (*i) -= 2;
+                return '\\';
+            }
+
+            int low = (unsigned char) s[(*i)++];
+
+            if (low == -1) {
+                (*i) -= 3;
+                return '\\';
+            }
+
+            return (unsigned char) ((high << 4) | low);
+        }
+        default: {
+            (*i)--;
+            return '\\';
+        }
+    }
+}
+
+static TirId analyze_char(Context *c, AstId node, TirId hint) {
+    int64_t value = 0;
+    int32_t token = get_ast_token(node, c->ast).index;
+    char const *str = ctx_source(c).ptr + token;
+    ptrdiff_t i = 1;
+    ptrdiff_t byte_i = 0;
+    while (str[i] != '\'' && str[i] != '\n' && str[i] != '\0') {
+        if (byte_i == 8) {
+            SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 2);
+            loc.mark = loc.where;
+            print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_CHAR});
+            c->error = 1;
+            break;
+        }
+        value <<= 8;
+        value |= next_string_char(str, &i);
+        byte_i++;
+    }
+
+    if (str[i] != '\'') {
         SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
         loc.mark = loc.where;
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
         c->error = 1;
     }
 
+    TirId type = int_fits_in_type(value, hint, c->options->target) ? hint : ptype(i64);
+    return new_int_constant(c->tir, type, value);
+}
+
+static TirId analyze_string(Context *c, AstId node) {
+    // Generate a string preceded by 4 bytes that encode its length.
+
+    int64_t token_len = get_ast_int(node, c->ast);
+    char *buffer = arena_alloc(c->scratch, char, token_len + 4);
+    int32_t token = get_ast_token(node, c->ast).index;
+
+    char const *str = ctx_source(c).ptr + token;
+    ptrdiff_t i = 1;
+    ptrdiff_t byte_i = 4;
+    while (str[i] != '"' && str[i] != '\n' && str[i] != '\0') {
+        buffer[byte_i++] += next_string_char(str, &i);
+    }
+
+    if (str[i] != '"') {
+        SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
+        loc.mark = loc.where;
+        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
+        c->error = 1;
+    }
+
+    int64_t len = byte_i - 4;
+    buffer[0] = (unsigned char) (len & 0xFF);
+    buffer[1] = (unsigned char) ((len >> 8) & 0xFF);
+    buffer[2] = (unsigned char) ((len >> 16) & 0xFF);
+    buffer[3] = (unsigned char) ((len >> 24) & 0xFF);
+
     TirId type = new_array_type(c->tir, &(ArrayType) {
         .index = new_array_length_type(c->tir, len),
-        .elem = ptype(char),
+        .elem = ptype(i8),
     });
-    int32_t index = tir_push_str(c->tir, (String) {len + 4, buffer});
+    int32_t index = tir_push_str(c->tir, (String) {byte_i, buffer});
     return new_string_constant(c->tir, type, index);
 }
 
@@ -1278,9 +1325,6 @@ static TirTag get_cast_type(Context *c, TirId operand_type, TirId cast_type) {
     }
 
     if (type_is_int(operand_type) && type_is_int(cast_type)) {
-        if (operand_type.id == TYPE_char) {
-            return TIR_ZEXT;
-        }
         return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_ITRUNC : TIR_SEXT;
     }
 
@@ -2182,7 +2226,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_ID: return analyze_id(c, node);
         case AST_INT: return analyze_int(c, node, hint);
         case AST_FLOAT: return analyze_float(c, node, hint);
-        case AST_CHAR: return analyze_char(c, node);
+        case AST_CHAR: return analyze_char(c, node, hint);
         case AST_STRING: return analyze_string(c, node);
         case AST_BOOL: return analyze_bool(c, node);
         case AST_NULL: return analyze_null(c, hint);

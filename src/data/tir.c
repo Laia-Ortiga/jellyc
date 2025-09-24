@@ -658,9 +658,6 @@ bool is_relative_type(TirContext c, TirId a) {
     if (type_is_arithmetic(a)) {
         return true;
     }
-    if (a.id == TYPE_byte) {
-        return true;
-    }
     switch (get_term_tag(c, a)) {
         case TIR_ENUM_TYPE: return true;
         default: return false;
@@ -683,7 +680,6 @@ static int64_t sizeof_primitive(TirId type, Target target) {
         case TYPE_VOID: return -1;
 
         case TYPE_i8:
-        case TYPE_char:
         case TYPE_bool:
         case TYPE_byte: return 1;
 
@@ -703,7 +699,6 @@ static int64_t sizeof_primitive(TirId type, Target target) {
 
 bool int_fits_in_type(int64_t i, TirId type, Target target) {
     switch (type.id) {
-        case TYPE_char:
         case TYPE_i8:
         case TYPE_i16:
         case TYPE_i32:
@@ -901,13 +896,14 @@ int32_t sizeof_pointer(Target target) {
 
 int32_t alignof_type(TirContext c, TirId type, Target target) {
     switch (get_term_tag(c, type)) {
+        case TIR_ERROR: return -1;
+        case TIR_TYPE_PARAMETER: return -1;
+
         default: {
             switch ((PrimitiveTerm) type.id) {
-                case TYPE_INVALID:
                 case TYPE_VOID: return -1;
 
                 case TYPE_i8:
-                case TYPE_char:
                 case TYPE_bool:
                 case TYPE_byte: return 1;
 
@@ -937,12 +933,14 @@ int32_t alignof_type(TirContext c, TirId type, Target target) {
         case TIR_ENUM_TYPE: return alignof_type(c, get_enum_type(c, type).repr, target);
         case TIR_TAGGED_TYPE: return alignof_type(c, get_tagged_type(c, type).inner, target);
         case TIR_AFFINE_TYPE: return alignof_type(c, get_affine_elem_type(c, type), target);
-        case TIR_TYPE_PARAMETER: return -1;
     }
 }
 
 int64_t sizeof_type(TirContext c, TirId type, Target target) {
     switch (get_term_tag(c, type)) {
+        case TIR_ERROR: return -1;
+        case TIR_TYPE_PARAMETER: return -1;
+
         case TIR_PRIMITIVE_TYPE: return sizeof_primitive(type, target);
 
         case TIR_PTR_TYPE:
@@ -962,7 +960,6 @@ int64_t sizeof_type(TirContext c, TirId type, Target target) {
         case TIR_ENUM_TYPE: return sizeof_type(c, get_enum_type(c, type).repr, target);
         case TIR_TAGGED_TYPE: return sizeof_type(c, get_tagged_type(c, type).inner, target);
         case TIR_AFFINE_TYPE: return sizeof_type(c, get_affine_elem_type(c, type), target);
-        case TIR_TYPE_PARAMETER: return -1;
         default: {
             abort();
         }
@@ -971,9 +968,12 @@ int64_t sizeof_type(TirContext c, TirId type, Target target) {
 
 void print_type(FILE *file, TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
+        case TIR_ERROR: {
+            fprintf(file, "{error}");
+            return;
+        }
         case TIR_PRIMITIVE_TYPE: {
             switch ((PrimitiveTerm) type.id) {
-                case TYPE_INVALID: fprintf(file, "{error}"); return;
                 case TYPE_VOID: fprintf(file, "void"); return;
 
                 #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;

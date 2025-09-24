@@ -5,7 +5,7 @@ const GLFWkeyfun = function(window *mut byte, key i32, scancode i32, action i32,
 const GLFWmousebuttonfun = function(window *mut byte, button i32, action i32, mods i32)
 
 public extern function glfwInit() -> i32
-public extern function glfwCreateWindow(width i32, height i32, title *char, v *i8, a *i8) -> *mut byte
+public extern function glfwCreateWindow(width i32, height i32, title *i8, v *i8, a *i8) -> *mut byte
 public extern function glfwMakeContextCurrent(window *mut byte)
 public extern function glfwGetCursorPos(window *mut byte, xpos *f64, ypos *f64)
 public extern function glfwGetWindowUserPointer(window *mut byte) -> *mut byte
@@ -14,7 +14,7 @@ public extern function glfwSetCursorPosCallback(window *mut byte, callback GLFWc
 public extern function glfwSetMouseButtonCallback(window *mut byte, callback GLFWmousebuttonfun) -> GLFWmousebuttonfun
 public extern function glfwSetKeyCallback(window *mut byte, callback GLFWkeyfun) -> GLFWkeyfun
 public extern function glfwWindowShouldClose(window *mut byte) -> i32
-public extern function glfwGetProcAddress(procname *char) -> function()
+public extern function glfwGetProcAddress(procname *i8) -> function()
 public extern function glfwTerminate()
 public extern function glfwSwapBuffers(window *mut byte)
 public extern function glfwPollEvents()

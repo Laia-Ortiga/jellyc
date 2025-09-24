@@ -10,13 +10,13 @@ public extern function fmaxf(x f32, y f32) -> f32
 # stdio.h
 
 public extern function fclose(file *mut byte) -> i32
-public extern function fopen(filename *char, mode *char) -> *mut byte
+public extern function fopen(filename *i8, mode *i8) -> *mut byte
 public extern function fread(buffer *mut byte, size isize, length isize, file *mut byte) -> isize
 public extern function fwrite(buffer *byte, size isize, length isize, file *mut byte) -> isize
 public extern function fseek(file *mut byte, offset isize, whence i32) -> i32
 public extern function ftell(file *mut byte) -> isize
 public extern function putchar(ch i32) -> i32
-public extern function puts(str *char) -> i32
+public extern function puts(str *i8) -> i32
 
 # stdlib.h
 
