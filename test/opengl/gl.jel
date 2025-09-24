@@ -1,6 +1,6 @@
 module gl
 
-public extern function gladLoadGLLoader(loadproc function(name *i8) -> *mut byte) -> i32
+public extern function gladLoadGL(loadproc function(name *i8) -> function ()) -> i32
 
 extern mut glad_glAccum function(op i32, value f32)
 public const glAccum = glad_glAccum

@@ -7,7 +7,7 @@ tree = et.parse(sys.argv[1])
 
 print('module gl')
 print()
-print('public extern function gladLoadGLLoader(loadproc function(name *i8) -> *mut byte) -> i32')
+print('public extern function gladLoadGL(loadproc function(name *i8) -> function ()) -> i32')
 print()
 
 root = tree.getroot()
