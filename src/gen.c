@@ -340,7 +340,11 @@ static void print_string(GenContext *ctx, char const *str) {
     len |= (uint64_t) str[2] << 16;
     len |= (uint64_t) str[3] << 24;
     for (uint64_t i = 0; i < len; i++) {
-        if (str[i + 4] >= 32 && str[i + 4] <= 126) {
+        if (str[i + 4] == '"') {
+            fprintf(ctx->stream, "\\\"");
+        } else if (str[i + 4] == '\\') {
+            fprintf(ctx->stream, "\\\\");
+        } else if (str[i + 4] >= 32 && str[i + 4] <= 126) {
             fprintf(ctx->stream, "%c", str[i + 4]);
         } else {
             fprintf(ctx->stream, "\\x%02X", (int) (unsigned char) str[i + 4]);

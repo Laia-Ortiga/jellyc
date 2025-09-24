@@ -174,10 +174,10 @@ static void gen_string(GenContext *ctx, int32_t index, char const *str) {
     len |= (uint64_t) str[3] << 24;
     fprintf(ctx->stream, "@s%d = private unnamed_addr constant [%lu x i8] c\"", index, len + 1);
     for (uint64_t i = 0; i < len; i++) {
-        if (str[i + 4] >= 32 && str[i + 4] <= 126) {
-            fprintf(ctx->stream, "%c", str[i + 4]);
-        } else {
+        if (str[i + 4] == '"' || str[i + 4] == '\\' || !(str[i + 4] >= 32 && str[i + 4] <= 126)) {
             fprintf(ctx->stream, "\\%02X", (int) (unsigned char) str[i + 4]);
+        } else {
+            fprintf(ctx->stream, "%c", str[i + 4]);
         }
     }
     fprintf(ctx->stream, "\\00\", align 1\n");
