@@ -20,7 +20,7 @@ public function init_sky() -> Sky {
 
 public function draw_sky(sky Sky, colors [:9]f32) {
     gl.glad_glUseProgram(sky.shader)
-    gl.glad_glUniformMatrix3fv(sky.loc_colors, 1, false, &colors[0])
+    gl.glad_glUniformMatrix3fv(sky.loc_colors, 1, false, &(&colors)[0])
     gl.glad_glDepthMask(false)
     gl.glad_glDrawArrays(gl.TRIANGLE_STRIP, 0, 4)
     gl.glad_glDepthMask(true)

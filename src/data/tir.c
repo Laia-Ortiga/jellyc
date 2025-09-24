@@ -379,7 +379,7 @@ TirId new_slice_type(TirContext c, TirId elem) {
 }
 
 TirId new_mut_slice_type(TirContext c, TirId elem) {
-    TirId pointer = new_mut_ptr_type(c, ptype(byte));
+    TirId pointer = new_mut_ptr_type(c, elem);
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_MUT_SLICE_TYPE,
         .slice = {elem, pointer},
@@ -812,7 +812,10 @@ TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
 }
 
 TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
-    if (get_term_tag(c, type) == TIR_SLICE_TYPE || get_term_tag(c, type) == TIR_MUT_SLICE_TYPE) {
+    type = remove_tags(c, type);
+    TirTag tag = get_term_tag(c, type);
+
+    if (tag == TIR_SLICE_TYPE || tag == TIR_MUT_SLICE_TYPE) {
         switch (index) {
             case 0: return ptype(isize);
             case 1: return (TirId) {get_term_data(c, type)->b};
@@ -820,7 +823,7 @@ TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
         }
     }
 
-    if (get_term_tag(c, type) != TIR_STRUCT_TYPE) {
+    if (tag != TIR_STRUCT_TYPE) {
         return null_tir;
     }
 
@@ -1383,10 +1386,10 @@ TirId new_extern_var(TirContext c, TirId type, int32_t name) {
     });
 }
 
-TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, bool mutable) {
+TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, TirTag tag) {
     return new_tir(
         c,
-        mutable ? TIR_MUTABLE_VARIABLE : TIR_VARIABLE,
+        tag,
         (TermData) {
             .node = node,
             .a = type.id,
@@ -1450,7 +1453,8 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_EXTERN_FUNCTION:
         case TIR_CONST_INT:
         case TIR_CONST_FLOAT:
-        case TIR_CONST_NULL: return VALUE_TEMPORARY;
+        case TIR_CONST_NULL:
+        case TIR_PARAMETER: return VALUE_TEMPORARY;
 
         case TIR_EXTERN_VAR:
         case TIR_STRING:

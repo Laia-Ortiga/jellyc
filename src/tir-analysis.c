@@ -289,6 +289,7 @@ static void check_node(LinearChecker *ctx, TirId node, ExpectedValue expected_ca
         case TIR_STRING: {
             break;
         }
+        case TIR_PARAMETER:
         case TIR_VARIABLE:
         case TIR_MUTABLE_VARIABLE: {
             int32_t var = get_term_data(ctx->tir_ctx, node)->b;

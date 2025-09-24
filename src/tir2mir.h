@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
     Mir mir;
     int32_t *ends;
+    int32_t *data_starts;
 } MirResult;
 
 MirResult tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch);

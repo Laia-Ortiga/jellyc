@@ -625,6 +625,7 @@ static void print_tir_node(TirPrinter *printer, TirId tir_id) {
             printf("\n");
             break;
         }
+        case TIR_PARAMETER:
         case TIR_VARIABLE:
         case TIR_MUTABLE_VARIABLE: {
             print_indent(printer->depth);

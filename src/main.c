@@ -452,7 +452,7 @@ int main(int argc, char **argv) {
             break;
         }
         case BACKEND_LLVM: {
-            gen_llvm(&gen_input, options.target, scratch_arena);
+            gen_llvm(&gen_input, options.target);
             break;
         }
     }

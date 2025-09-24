@@ -568,7 +568,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
         if (type_is_unknown_size(c->tir, param_types[i])) {
             type_error(c, f.params[i], param_types[i], 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
         }
-        TirId param_value = new_variable(c->tir, f.params[i], param_types[i], i, false);
+        TirId param_value = new_variable(c->tir, f.params[i], param_types[i], i, TIR_PARAMETER);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
 
@@ -671,7 +671,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     for (int32_t i = 0; i < func_type.param_count; i++) {
         TirId param_type = get_function_type_param(c->tir, type, i);
         int32_t var = c->local_tir->local_count++;
-        TirId param_value = new_variable(c->tir, f.params[i], param_type, var, false);
+        TirId param_value = new_variable(c->tir, f.params[i], param_type, var, TIR_PARAMETER);
         add_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
     c->current_function_type = type;
@@ -925,7 +925,7 @@ static TirId analyze_let(Context *c, AstId node, bool mutable) {
         type_error(c, node, init_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
     }
     int32_t var = c->local_tir->local_count++;
-    TirId value = new_variable(c->tir, node, init_type, var, mutable);
+    TirId value = new_variable(c->tir, node, init_type, var, mutable ? TIR_MUTABLE_VARIABLE : TIR_VARIABLE);
     add_id(c, (AstRef) {node, c->file}, value);
     return new_binary_tir(
         c->tir,

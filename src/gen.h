@@ -10,4 +10,4 @@ typedef struct {
 } GenInput;
 
 void gen_c(GenInput *input, Target target);
-void gen_llvm(GenInput *input, Target target, Arena scratch);
+void gen_llvm(GenInput *input, Target target);

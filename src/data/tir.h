@@ -40,6 +40,7 @@ typedef enum {
     TIR_CONST_NULL,
     TIR_STRING,
 
+    TIR_PARAMETER,
     TIR_VARIABLE,
     TIR_MUTABLE_VARIABLE,
 
@@ -341,7 +342,7 @@ TirId new_string_constant(TirContext c, TirId type, int32_t s);
 TirId new_function(TirContext c, TirId type, int32_t name);
 TirId new_extern_function(TirContext c, TirId type, int32_t name);
 TirId new_extern_var(TirContext c, TirId type, int32_t name);
-TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, bool mutable);
+TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, TirTag tag);
 TirId new_unary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a);
 TirId new_binary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a, TirId b);
 TirId new_instr(TirContext c, TirTag tag, AstId node, TirId type, int32_t a, int32_t b);
