@@ -202,8 +202,9 @@ static void transform_slice(Context *c, TirId tir_id) {
     vec_push(&c->mir.data, get_any_struct_type_field(c->tir, get_value_type(c->tir, tir_id), 1).id);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 
-    vec_push(&c->mir.insts, MIR_STACK_POP_N);
-    vec_push(&c->mir.data, 3);
+    vec_push(&c->mir.insts, MIR_STACK_POP);
+    vec_push(&c->mir.insts, MIR_STACK_POP);
+    vec_push(&c->mir.insts, MIR_STACK_POP);
 }
 
 static void transform_array_to_slice(Context *c, TirId tir_id) {
@@ -281,8 +282,7 @@ static void transform_statement(Context *c, TirId tir_id) {
     TirId type = get_value_type(c->tir, tir_id);
 
     if (type.id && type.id != TYPE_VOID) {
-        vec_push(&c->mir.insts, MIR_STACK_POP_N);
-        vec_push(&c->mir.data, 1);
+        vec_push(&c->mir.insts, MIR_STACK_POP);
     }
 }
 
@@ -402,8 +402,7 @@ static void transform_switch(Context *c, TirId tir_id) {
     }
 
     if (switch_.id) {
-        vec_push(&c->mir.insts, MIR_STACK_POP_N);
-        vec_push(&c->mir.data, 1);
+        vec_push(&c->mir.insts, MIR_STACK_POP);
     }
 }
 

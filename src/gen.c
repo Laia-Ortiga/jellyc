@@ -512,9 +512,8 @@ static void stack_copy_at(GenContext *ctx) {
     vec_push(&ctx->stack, a);
 }
 
-static void stack_pop_n(GenContext *ctx) {
-    int32_t n = pop_data(ctx);
-    ctx->stack.len -= n;
+static void stack_pop(GenContext *ctx) {
+    ctx->stack.len -= 1;
 }
 
 static void gen_int(GenContext *ctx) {
@@ -826,7 +825,7 @@ static void gen_instruction(GenContext *ctx, int32_t i) {
         case MIR_ALLOC_VAR: gen_alloc_var(ctx); break;
         case MIR_STACK_COPY: stack_copy(ctx); break;
         case MIR_STACK_COPY_AT: stack_copy_at(ctx); break;
-        case MIR_STACK_POP_N: stack_pop_n(ctx); break;
+        case MIR_STACK_POP: stack_pop(ctx); break;
         case MIR_INT: gen_int(ctx); break;
         case MIR_TIR_VALUE: gen_tir_value(ctx); break;
         case MIR_ASSIGN: gen_assign(ctx); break;

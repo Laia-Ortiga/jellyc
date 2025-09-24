@@ -458,9 +458,8 @@ static void stack_copy_at(GenContext *ctx) {
     vec_push(&ctx->stack, a);
 }
 
-static void stack_pop_n(GenContext *ctx) {
-    int32_t n = pop_data(ctx);
-    ctx->stack.len -= n;
+static void stack_pop(GenContext *ctx) {
+    ctx->stack.len -= 1;
 }
 
 static void gen_int(GenContext *ctx) {
@@ -754,7 +753,7 @@ static void gen_instruction(GenContext *ctx, MirTag tag) {
     switch (tag) {
         case MIR_STACK_COPY: stack_copy(ctx); break;
         case MIR_STACK_COPY_AT: stack_copy_at(ctx); break;
-        case MIR_STACK_POP_N: stack_pop_n(ctx); break;
+        case MIR_STACK_POP: stack_pop(ctx); break;
         case MIR_ALLOC: gen_alloc2(ctx); break;
         case MIR_ALLOC_VAR: gen_alloc_var2(ctx); break;
         case MIR_INT: gen_int(ctx); break;
@@ -837,6 +836,7 @@ static void gen_function(GenContext *ctx, GenInput *input, int32_t f_index) {
             case MIR_CALL: gen_call_alloc(ctx); break;
 
             case MIR_STACK_COPY:
+            case MIR_STACK_POP:
             case MIR_NEG:
             case MIR_NOT:
             case MIR_DEREF:
@@ -864,7 +864,6 @@ static void gen_function(GenContext *ctx, GenInput *input, int32_t f_index) {
                 break;
             }
             case MIR_STACK_COPY_AT:
-            case MIR_STACK_POP_N:
             case MIR_TIR_VALUE:
             case MIR_ITOF:
             case MIR_ITRUNC:

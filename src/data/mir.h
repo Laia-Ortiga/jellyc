@@ -11,7 +11,7 @@ typedef enum {
     MIR_ALLOC_VAR,
     MIR_STACK_COPY,
     MIR_STACK_COPY_AT,
-    MIR_STACK_POP_N,
+    MIR_STACK_POP,
 
     // Value
 
