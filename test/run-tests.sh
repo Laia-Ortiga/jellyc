@@ -7,10 +7,15 @@ test() {
 
 export PATH=build:$PATH
 
-test jellyc test/hello_world.jel
-test jellyc lib/*.jel test/array.jel
-test jellyc lib/*.jel test/basic_lexer.jel
-test jellyc lib/*.jel test/fibonacci.jel
-test jellyc lib/*.jel test/opengl/*.jel
+test jellyc -backend=c    test/hello_world.jel
+test jellyc -backend=llvm test/hello_world.jel
+test jellyc -backend=c    lib/*.jel test/array.jel
+test jellyc -backend=llvm lib/*.jel test/array.jel
+test jellyc -backend=c    lib/*.jel test/basic_lexer.jel
+test jellyc -backend=llvm lib/*.jel test/basic_lexer.jel
+test jellyc -backend=c    lib/*.jel test/fibonacci.jel
+test jellyc -backend=llvm lib/*.jel test/fibonacci.jel
+test jellyc -backend=c    lib/*.jel test/opengl/*.jel
+test jellyc -backend=llvm lib/*.jel test/opengl/*.jel
 test jellyc -print-debug test/print_type.jel
 rm -f a.c a.ll
