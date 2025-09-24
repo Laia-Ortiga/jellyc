@@ -125,17 +125,18 @@ static TokenTag number(Lexer *lexer, int c) {
     }
 
     if (accept(lexer, '.')) {
-        if (!is_digit(consume(lexer))) {
-            return TOK_INVALID;
+        if (!is_digit(peek(lexer))) {
+            return TOK_INVALID_FLOAT;
         }
         while (is_digit(peek(lexer)) || peek(lexer) == '_') {
             consume(lexer);
         }
         if (accept(lexer, 'e')) {
             accept(lexer, '-');
-            if (!is_digit(consume(lexer))) {
-                return TOK_INVALID;
+            if (!is_digit(peek(lexer))) {
+                return TOK_INVALID_FLOAT;
             }
+            consume(lexer);
             while (is_digit(peek(lexer)) || peek(lexer) == '_') {
                 consume(lexer);
             }

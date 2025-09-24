@@ -107,6 +107,10 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "unterminated double quote string");
             break;
         }
+        case ERROR_INVALID_FLOAT: {
+            fprintf(stderr, "invalid float literal");
+            break;
+        }
         case ERROR_RECURSIVE_DEPENDENCY: {
             fprintf(stderr, "recursive dependency");
             break;

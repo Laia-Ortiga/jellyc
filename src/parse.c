@@ -134,18 +134,29 @@ static AstTag bin_ast_tag(TokenTag token_tag) {
     }
 }
 
+static void error(Parser *parser, Token const *token, Diagnostic const *diagnostic) {
+    if (parser->error) {
+        return;
+    }
+
+    SourceLoc loc = {
+        .path = parser->path,
+        .source = parser->lexer.source,
+        .where = token->start,
+        .len = token->end.index - token->start.index,
+        .mark = token->start,
+    };
+    print_diagnostic(&loc, diagnostic);
+    poison_lexer(&parser->lexer);
+    parser->lookahead = next_token(&parser->lexer);
+    parser->error = true;
+}
+
 static Token next_valid_token(Parser *parser) {
     Token token = next_token(&parser->lexer);
 
     while (token.tag == TOK_INVALID) {
-        SourceLoc loc = {
-            .path = parser->path,
-            .source = parser->lexer.source,
-            .where = token.start,
-            .len = 1,
-            .mark = token.start,
-        };
-        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_INVALID_TOKEN});
+        error(parser, &token, &(Diagnostic) {.kind = ERROR_INVALID_TOKEN});
         token = next_token(&parser->lexer);
     }
 
@@ -165,24 +176,6 @@ static bool accept(Parser *parser, TokenTag tag) {
 
     consume(parser);
     return true;
-}
-
-static void error(Parser *parser, Token const *token, Diagnostic const *diagnostic) {
-    if (parser->error) {
-        return;
-    }
-
-    SourceLoc loc = {
-        .path = parser->path,
-        .source = parser->lexer.source,
-        .where = token->start,
-        .len = token->end.index - token->start.index,
-        .mark = token->start,
-    };
-    print_diagnostic(&loc, diagnostic);
-    poison_lexer(&parser->lexer);
-    parser->lookahead = next_token(&parser->lexer);
-    parser->error = true;
 }
 
 static SourceIndex expect(Parser *parser, TokenTag tag) {
@@ -712,6 +705,10 @@ static AstId parse_prefix(Parser *parser) {
             String s = substring(parser->lexer.source, token.start.index, token.end.index);
             double value = parse_float(s, parser->scratch);
             return add_ast_float(AST_FLOAT, token.start, value, &parser->ast);
+        }
+        case TOK_INVALID_FLOAT: {
+            error(parser, &token, &(Diagnostic) {.kind = ERROR_INVALID_FLOAT});
+            return null_ast;
         }
         case TOK_CHAR: {
             return add_ast_int(
