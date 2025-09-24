@@ -28,26 +28,26 @@ function index_count() -> i32 {
 
 function create_height_map_texture(seed i32) -> i32 {
     mut texture = <i32> 0
-    gl.glad_glGenTextures(1, &texture)
-	gl.glad_glBindTexture(gl.TEXTURE_2D, texture)
-	gl.glad_glTexStorage2D(gl.TEXTURE_2D, 1, gl.R16F, terrain_grid_size + 1, terrain_grid_size + 1)
-	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.glad_glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-    gl.glad_glBindImageTexture(0, texture, 0, false, 0, gl.WRITE_ONLY, gl.R16F)
+    gl.glGenTextures(1, &texture)
+	gl.glBindTexture(gl.TEXTURE_2D, texture)
+	gl.glTexStorage2D(gl.TEXTURE_2D, 1, gl.R16F, terrain_grid_size + 1, terrain_grid_size + 1)
+	gl.glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.glTexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.glBindImageTexture(0, texture, 0, false, 0, gl.WRITE_ONLY, gl.R16F)
 
     let central_island_min = <f32> 46.0  # ceil(64 * sqrt(0.5))
     let central_island_max = central_island_min + 128.0
     let program = compile_shader_program(&[
         compile_shader(gl.COMPUTE_SHADER, &"shaders/terrain/height_gen.comp"[0]),
     ])
-    gl.glad_glUseProgram(program)
-    gl.glad_glUniform1ui(gl.glad_glGetUniformLocation(program, &"seed"[0]), seed)
-    gl.glad_glUniform2f(gl.glad_glGetUniformLocation(program, &"central_island"[0]), central_island_min, central_island_max)
-    gl.glad_glDispatchCompute(terrain_grid_size + 1, terrain_grid_size + 1, 1)
-    gl.glad_glUseProgram(0)
-    gl.glad_glDeleteProgram(program)
+    gl.glUseProgram(program)
+    gl.glUniform1ui(gl.glGetUniformLocation(program, &"seed"[0]), seed)
+    gl.glUniform2f(gl.glGetUniformLocation(program, &"central_island"[0]), central_island_min, central_island_max)
+    gl.glDispatchCompute(terrain_grid_size + 1, terrain_grid_size + 1, 1)
+    gl.glUseProgram(0)
+    gl.glDeleteProgram(program)
 
     texture
 }
@@ -65,9 +65,9 @@ function create_ebo() -> i32 {
         }
     }
     mut buffer = <i32> 0
-    gl.glad_glGenBuffers(1, &buffer)
-    gl.glad_glBindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
-    gl.glad_glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * <isize> `cast[index_count()], indices.data, 0)
+    gl.glGenBuffers(1, &buffer)
+    gl.glBindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
+    gl.glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * <isize> `cast[index_count()], indices.data, 0)
     free(indices)
     buffer
 }
@@ -81,18 +81,18 @@ public function init_terrain(seed i32) -> Terrain {
         compile_shader(gl.TESS_EVALUATION_SHADER, &"shaders/terrain/terrain.tese"[0]),
         compile_shader(gl.FRAGMENT_SHADER, &"shaders/terrain/terrain.frag"[0]),
     ])
-    gl.glad_glUseProgram(shader)
-    gl.glad_glUniform1f(gl.glad_glGetUniformLocation(shader, &"tile_size"[0]), 1.0 / <f32> `cast[terrain_grid_size])
+    gl.glUseProgram(shader)
+    gl.glUniform1f(gl.glGetUniformLocation(shader, &"tile_size"[0]), 1.0 / <f32> `cast[terrain_grid_size])
     mut vao = <i32> 0
-    gl.glad_glGenVertexArrays(1, &vao)
-    gl.glad_glBindVertexArray(vao)
+    gl.glGenVertexArrays(1, &vao)
+    gl.glBindVertexArray(vao)
     let ebo = create_ebo()
-    gl.glad_glBindVertexArray(0)
-	gl.glad_glPatchParameteri(gl.PATCH_VERTICES, 4)
+    gl.glBindVertexArray(0)
+	gl.glPatchParameteri(gl.PATCH_VERTICES, 4)
 
-    gl.glad_glBindTexture(gl.TEXTURE_2D, height_map_texture)
+    gl.glBindTexture(gl.TEXTURE_2D, height_map_texture)
     let height_map = alloc(<isize> `cast[(terrain_grid_size + 1) * (terrain_grid_size + 1)], `size_of[f32])
-    gl.glad_glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
+    gl.glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
     Terrain(
         height_map_texture,
         shader,
@@ -103,10 +103,10 @@ public function init_terrain(seed i32) -> Terrain {
 }
 
 public function draw_terrain(terrain Terrain) {
-    gl.glad_glActiveTexture(gl.TEXTURE3)
-    gl.glad_glBindTexture(gl.TEXTURE_2D, terrain.height_map_texture)
-    gl.glad_glUseProgram(terrain.shader)
-    gl.glad_glBindVertexArray(terrain.vao)
-    gl.glad_glDrawElements(gl.PATCHES, index_count(), gl.UNSIGNED_SHORT, null)
-    gl.glad_glBindVertexArray(0)
+    gl.glActiveTexture(gl.TEXTURE3)
+    gl.glBindTexture(gl.TEXTURE_2D, terrain.height_map_texture)
+    gl.glUseProgram(terrain.shader)
+    gl.glBindVertexArray(terrain.vao)
+    gl.glDrawElements(gl.PATCHES, index_count(), gl.UNSIGNED_SHORT, null)
+    gl.glBindVertexArray(0)
 }

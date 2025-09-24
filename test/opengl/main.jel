@@ -196,10 +196,10 @@ function main() {
         return
     }
 
-    gl.glad_glEnable(gl.CULL_FACE)
-    gl.glad_glEnable(gl.DEPTH_TEST)
-    gl.glad_glCullFace(gl.BACK)
-    gl.glad_glDepthFunc(gl.LEQUAL)
+    gl.glEnable(gl.CULL_FACE)
+    gl.glEnable(gl.DEPTH_TEST)
+    gl.glCullFace(gl.BACK)
+    gl.glDepthFunc(gl.LEQUAL)
     let ubo = create_ubo(`size_of[UniformBlock])
     let sky = init_sky()
     let terrain = init_terrain(13337)
@@ -217,7 +217,7 @@ function main() {
         let uniform_block = init_uniform_block(16.0 / 9.0, scene.cam)
         write_ubo(ubo, 0, `size_of[UniformBlock], &uniform_block)
 
-        gl.glad_glClear(gl.DEPTH_BUFFER_BIT)
+        gl.glClear(gl.DEPTH_BUFFER_BIT)
         draw_sky(sky, colors)
         draw_terrain(terrain)
         glfwSwapBuffers(window)

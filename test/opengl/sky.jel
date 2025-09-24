@@ -14,14 +14,14 @@ public function init_sky() -> Sky {
     ])
     Sky(
         shader,
-        gl.glad_glGetUniformLocation(shader, &"colors"[0]),
+        gl.glGetUniformLocation(shader, &"colors"[0]),
     )
 }
 
 public function draw_sky(sky Sky, colors [:9]f32) {
-    gl.glad_glUseProgram(sky.shader)
-    gl.glad_glUniformMatrix3fv(sky.loc_colors, 1, false, &(&colors)[0])
-    gl.glad_glDepthMask(false)
-    gl.glad_glDrawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    gl.glad_glDepthMask(true)
+    gl.glUseProgram(sky.shader)
+    gl.glUniformMatrix3fv(sky.loc_colors, 1, false, &(&colors)[0])
+    gl.glDepthMask(false)
+    gl.glDrawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    gl.glDepthMask(true)
 }

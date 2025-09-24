@@ -7,7 +7,7 @@ tree = et.parse(sys.argv[1])
 
 print('module gl')
 print()
-print('public extern function gladLoadGLLoader(loadproc function(name *char) -> *mut byte) -> i32')
+print('public extern function gladLoadGLLoader(loadproc function(name *i8) -> *mut byte) -> i32')
 print()
 
 root = tree.getroot()
@@ -28,13 +28,13 @@ type_map = {
     "GLclampf": "f32",
     "GLdouble": "f64",
     "GLclampd": "f64",
-    "GLchar": "char",
+    "GLchar": "i8",
     "GLintptr": "isize",
     "GLsizeiptr": "isize",
     "GLint64": "i64",
     "GLuint64": "i64",
     "GLsync": "*mut byte",
-    "GLDEBUGPROC": "function(source i32, type i32, id i32, severity i32, length i32, message *char, userParam *mut byte)",
+    "GLDEBUGPROC": "function(source i32, type i32, id i32, severity i32, length i32, message *i8, userParam *mut byte)",
 }
 
 for feature in root.iter('feature'):
@@ -74,7 +74,8 @@ for commands in root.iter('commands'):
             ret_type_str = ' -> ' + type_map[ret_type.text]
         elif proto.text != 'void ':
             ret_type_str = ' -> *mut byte'
-        print("public extern mut glad_", name, " function(", ", ".join(params), ")", ret_type_str, sep='')
+        print("extern mut glad_", name, " function(", ", ".join(params), ")", ret_type_str, sep='')
+        print("public const ", name, " = glad_", name, sep='')
 
 print()
 
@@ -87,4 +88,4 @@ for groups in root.iter('enums'):
             name = '_' + name[3:]
         else:
             name = name[3:]
-        print("public const", name, "=", e.attrib['value'], "as i32")
+        print("public const", name, "= <i32>", e.attrib['value'])
