@@ -262,7 +262,8 @@ static void print_ast_node(AstPrinter *printer, AstId node) {
         case AST_MINUS: print_ast_unary(printer, "Minus", node); break;
         case AST_NOT: print_ast_unary(printer, "Not", node); break;
         case AST_ADDRESS: print_ast_unary(printer, "Address", node); break;
-        case AST_DEREF: print_ast_unary(printer, "*", node); break;
+        case AST_DEREF: print_ast_unary(printer, "Deref", node); break;
+        case AST_POINTER_TYPE: print_ast_unary(printer, "*", node); break;
         case AST_POINTER_MUT_TYPE: print_ast_unary(printer, "*mut", node); break;
         case AST_SLICE_TYPE: print_ast_unary(printer, "@", node); break;
         case AST_SLICE_MUT_TYPE: print_ast_unary(printer, "@mut", node); break;

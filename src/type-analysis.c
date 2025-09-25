@@ -1219,12 +1219,7 @@ static TirId analyze_address(Context *c, AstId node, TirId hint) {
 static TirId analyze_deref(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
 
-    TirId operand_value = analyze_term(c, operand, null_tir);
-
-    if (is_tir_type(get_term_tag(c->tir, operand_value))) {
-        return new_ptr_type(c->tir, operand_value);
-    }
-
+    TirId operand_value = expect_value(c, operand, null_tir);
     TirId operand_type = get_value_type(c->tir, operand_value);
 
     TirId type = remove_pointer(c->tir, operand_type);
@@ -1234,6 +1229,12 @@ static TirId analyze_deref(Context *c, AstId node) {
     }
 
     return new_unary_tir(c->tir, TIR_DEREF, node, type, operand_value);
+}
+
+static TirId analyze_ptr_type(Context *c, AstId node) {
+    AstId operand = get_ast_unary(node, c->ast);
+    TirId operand_type = expect_type(c, operand);
+    return new_ptr_type(c->tir, operand_type);
 }
 
 static TirId analyze_mut_ptr_type(Context *c, AstId node) {
@@ -1539,15 +1540,6 @@ static TirId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
     return new_binary_tir(c->tir, tag, node, ptype(VOID), left_value, right_value);
 }
 
-static TirId implicit_pointer_deref(Context *c, AstId node, TirId value) {
-    TirId type = get_value_type(c->tir, value);
-    TirId inner_type = remove_pointer(c->tir, type);
-    if (!inner_type.id) {
-        return value;
-    }
-    return new_unary_tir(c->tir, TIR_DEREF, node, inner_type, value);
-}
-
 static int32_t find_field(Context *c, TirId type, String name) {
     int32_t scope = get_struct_type(c->tir, type).scope;
     int32_t *sym = htable_lookup(&c->tir.global->type_scopes.ptr[scope], name);
@@ -1660,7 +1652,6 @@ static TirId analyze_access(Context *c, AstId node) {
         return null_tir;
     }
 
-    operand_value = implicit_pointer_deref(c, node, operand_value);
     TirId operand_type = get_value_type(c->tir, operand_value);
     TirId type = remove_tags(c->tir, operand_type);
     TirId slice_elem_type = remove_slice(c->tir, type);
@@ -1925,7 +1916,6 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
         return null_tir;
     }
 
-    operand_value = implicit_pointer_deref(c, node, operand_value);
     TirId operand_type = get_value_type(c->tir, operand_value);
     bool error = false;
 
@@ -2219,6 +2209,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
     switch (get_ast_tag(node, c->ast)) {
         case AST_ARRAY_TYPE: return analyze_array_type(c, node);
         case AST_ARRAY_TYPE_SUGAR: return analyze_array_type_sugar(c, node);
+        case AST_POINTER_TYPE: return analyze_ptr_type(c, node);
         case AST_POINTER_MUT_TYPE: return analyze_mut_ptr_type(c, node);
         case AST_SLICE_TYPE: return analyze_slice_type(c, node);
         case AST_SLICE_MUT_TYPE: return analyze_mut_slice_type(c, node);

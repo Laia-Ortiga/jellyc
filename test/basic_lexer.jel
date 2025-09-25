@@ -57,7 +57,7 @@ function init_lexer(path @i8, source @i8) -> Lexer {
 }
 
 function next(lexer *mut Lexer) -> Token {
-    let start = lexer.cursor
+    let start = lexer!.cursor
     let c = consume(lexer)
     switch c {
         '\x00' -> Token(.sentinel, start, 0),
@@ -125,7 +125,7 @@ function print(lexer *mut Lexer) {
         }
 
         std.print_str(&"  ")
-        print_token(token, *lexer)
+        print_token(token, lexer!)
     }
 
     std.print_str(&"]\n")
@@ -182,14 +182,14 @@ function tag_to_str(tag TokenKind) -> @i8 {
 }
 
 function peek(lexer *Lexer) -> i8 {
-    lexer.source[lexer.cursor]
+    lexer!.source[lexer!.cursor]
 }
 
 function consume(lexer *mut Lexer) -> i8 {
     let c = peek(lexer)
 
     if c != 0 {
-        lexer.cursor += 1
+        lexer!.cursor += 1
     }
 
     c
@@ -242,7 +242,7 @@ function comment(lexer *mut Lexer) -> Token {
 }
 
 function character(lexer *mut Lexer) -> Token {
-    let start = lexer.cursor - 1
+    let start = lexer!.cursor - 1
     mut escape = false
     while true {
         let c = peek(lexer)
@@ -256,11 +256,11 @@ function character(lexer *mut Lexer) -> Token {
         escape = !escape and c == '\\'
         consume(lexer)
     }
-    Token(.character, start, lexer.cursor - start)
+    Token(.character, start, lexer!.cursor - start)
 }
 
 function string(lexer *mut Lexer) -> Token {
-    let start = lexer.cursor - 1
+    let start = lexer!.cursor - 1
     mut escape = false
     while true {
         let c = peek(lexer)
@@ -274,30 +274,30 @@ function string(lexer *mut Lexer) -> Token {
         escape = !escape and c == '\\'
         consume(lexer)
     }
-    Token(.string, start, lexer.cursor - start)
+    Token(.string, start, lexer!.cursor - start)
 }
 
 function id(lexer *mut Lexer) -> Token {
-    let start = lexer.cursor - 1
+    let start = lexer!.cursor - 1
     while is_id_char(peek(lexer)) {
         consume(lexer)
     }
-    let str = &lexer.source[start:lexer.cursor]
+    let str = &lexer!.source[start:lexer!.cursor]
     let kind = <TokenKind> switch {
         mem_eq(str, &"function") -> .kw_function,
         mem_eq(str, &"let") -> .kw_let,
         mem_eq(str, &"return") -> .kw_return,
         else -> .id,
     }
-    Token(kind, start, lexer.cursor - start)
+    Token(kind, start, lexer!.cursor - start)
 }
 
 function num(lexer *mut Lexer, c i8) -> Token {
-    let start = lexer.cursor - 1
+    let start = lexer!.cursor - 1
     while is_digit(peek(lexer)) {
         consume(lexer)
     }
-    Token(.int, start, lexer.cursor - start)
+    Token(.int, start, lexer!.cursor - start)
 }
 
 function read_file(path *i8) -> @mut i8 {
@@ -325,7 +325,7 @@ function read_file(path *i8) -> @mut i8 {
 
 function main() {
     let path = &"test/fibonacci.jel"
-    let source = read_file(&path[0])
+    let source = read_file(&path![0])
 
     if source.length == 0 {
         std.print_str(&"No such file\n")

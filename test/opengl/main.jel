@@ -116,14 +116,14 @@ function key_callback(window *mut byte, key i32, scancode i32, action i32, mods 
         else -> 0.0,
     }
     let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
-    let state = &scene.cam_state
+    let state = &scene!.cam_state
     switch key {
-        'A'                 -> state.speed.x = state.speed.x - speed,
-        'D'                 -> state.speed.x = state.speed.x + speed,
-        'W'                 -> state.speed.z = state.speed.z - speed,
-        'S'                 -> state.speed.z = state.speed.z + speed,
-        GLFW_KEY_LEFT_SHIFT -> state.speed.y = state.speed.y - speed,
-        ' '                 -> state.speed.y = state.speed.y + speed,
+        'A'                 -> state!.speed.x = state!.speed.x - speed,
+        'D'                 -> state!.speed.x = state!.speed.x + speed,
+        'W'                 -> state!.speed.z = state!.speed.z - speed,
+        'S'                 -> state!.speed.z = state!.speed.z + speed,
+        GLFW_KEY_LEFT_SHIFT -> state!.speed.y = state!.speed.y - speed,
+        ' '                 -> state!.speed.y = state!.speed.y + speed,
     }
 }
 
@@ -134,39 +134,39 @@ function mouse_button_callback(window *mut byte, button i32, action i32, mods i3
 
     let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
     if action == GLFW_PRESS {
-        glfwGetCursorPos(window, &scene.cam_state.last_x, &scene.cam_state.last_y)
+        glfwGetCursorPos(window, &scene!.cam_state.last_x, &scene!.cam_state.last_y)
     }
-    scene.cam_state.rotating = action == GLFW_PRESS
+    scene!.cam_state.rotating = action == GLFW_PRESS
 }
 
 function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
     let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
-    if !scene.cam_state.rotating {
+    if !scene!.cam_state.rotating {
         return
     }
 
     let factor = <f32> 0.005
-    scene.cam_state.target.pitch = scene.cam_state.target.pitch - <f32> `cast[y - scene.cam_state.last_y] * factor
-    scene.cam_state.target.yaw = scene.cam_state.target.yaw - <f32> `cast[x - scene.cam_state.last_x] * factor
-    scene.cam_state.last_x = x
-    scene.cam_state.last_y = y
+    scene!.cam_state.target.pitch = scene!.cam_state.target.pitch - <f32> `cast[y - scene!.cam_state.last_y] * factor
+    scene!.cam_state.target.yaw = scene!.cam_state.target.yaw - <f32> `cast[x - scene!.cam_state.last_x] * factor
+    scene!.cam_state.last_x = x
+    scene!.cam_state.last_y = y
     let limit = <f32> (3.14 / 3.0)
-    scene.cam_state.target.pitch = libc.fminf(libc.fmaxf(scene.cam_state.target.pitch, -limit), limit)
+    scene!.cam_state.target.pitch = libc.fminf(libc.fmaxf(scene!.cam_state.target.pitch, -limit), limit)
 }
 
 function update_cam(cam *mut Camera, cam_state *mut CameraState) {
-    let sin_y = libc.sinf(cam.yaw)
-    let cos_y = libc.cosf(cam.yaw)
+    let sin_y = libc.sinf(cam!.yaw)
+    let cos_y = libc.cosf(cam!.yaw)
 
-    cam_state.target.pos.x += cam_state.speed.x * cos_y + cam_state.speed.z * sin_y
-    cam_state.target.pos.y += cam_state.speed.y
-    cam_state.target.pos.z += cam_state.speed.z * cos_y - cam_state.speed.x * sin_y
+    cam_state!.target.pos.x += cam_state!.speed.x * cos_y + cam_state!.speed.z * sin_y
+    cam_state!.target.pos.y += cam_state!.speed.y
+    cam_state!.target.pos.z += cam_state!.speed.z * cos_y - cam_state!.speed.x * sin_y
 
-    cam.pos.x = 0.75 * cam.pos.x + 0.25 * cam_state.target.pos.x
-    cam.pos.y = 0.75 * cam.pos.y + 0.25 * cam_state.target.pos.y
-    cam.pos.z = 0.75 * cam.pos.z + 0.25 * cam_state.target.pos.z
-    cam.pitch = 0.75 * cam.pitch + 0.25 * cam_state.target.pitch
-    cam.yaw = 0.75 * cam.yaw + 0.25 * cam_state.target.yaw
+    cam!.pos.x = 0.75 * cam!.pos.x + 0.25 * cam_state!.target.pos.x
+    cam!.pos.y = 0.75 * cam!.pos.y + 0.25 * cam_state!.target.pos.y
+    cam!.pos.z = 0.75 * cam!.pos.z + 0.25 * cam_state!.target.pos.z
+    cam!.pitch = 0.75 * cam!.pitch + 0.25 * cam_state!.target.pitch
+    cam!.yaw = 0.75 * cam!.yaw + 0.25 * cam_state!.target.yaw
 }
 
 function main() {

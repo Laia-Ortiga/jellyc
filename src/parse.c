@@ -650,7 +650,7 @@ static AstId parse_prefix(Parser *parser) {
             return parse_unary(parser, AST_ADDRESS, token.start);
         }
         case TOK_MUL: {
-            return parse_unary(parser, accept(parser, TOK_KW_mut) ? AST_POINTER_MUT_TYPE : AST_DEREF, token.start);
+            return parse_unary(parser, accept(parser, TOK_KW_mut) ? AST_POINTER_MUT_TYPE : AST_POINTER_TYPE, token.start);
         }
         case TOK_ADDRESS: {
             return parse_unary(parser, accept(parser, TOK_KW_mut) ? AST_SLICE_MUT_TYPE : AST_SLICE_TYPE, token.start);
@@ -797,6 +797,10 @@ static AstId parse_expr(Parser *parser, Precedence prec) {
             }
             case TOK_SQUAREL: {
                 left = parse_index(parser, op.start, left);
+                break;
+            }
+            case TOK_NOT: {
+                left = add_unary_ast(AST_DEREF, op.start, left, &parser->ast);
                 break;
             }
             case TOK_DOT: {
