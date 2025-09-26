@@ -127,8 +127,7 @@ typedef enum {
     VALUE_INVALID,
     VALUE_TEMPORARY,
     VALUE_PLACE,
-    VALUE_MUTABLE_PLACE,
-    VALUE_MULTIVALUE,
+    VALUE_SLICE,
 } ValueCategory;
 
 typedef struct {
@@ -349,6 +348,7 @@ TirId new_instr(TirContext c, TirTag tag, AstId node, TirId type, int32_t a, int
 
 TirId get_value_type(TirContext c, TirId value);
 ValueCategory get_value_category(TirContext c, TirId value);
+bool is_value_mutable(TirContext c, TirId value);
 char const *get_value_str(TirContext c, TirId value);
 int64_t get_value_int(TirContext c, TirId value);
 double get_value_float(TirContext c, TirId value);

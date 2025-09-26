@@ -1454,20 +1454,8 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_CONST_INT:
         case TIR_CONST_FLOAT:
         case TIR_CONST_NULL:
-        case TIR_PARAMETER: return VALUE_TEMPORARY;
-
-        case TIR_EXTERN_VAR:
-        case TIR_STRING:
-        case TIR_VARIABLE: return VALUE_PLACE;
-
-        case TIR_MUTABLE_VARIABLE: return VALUE_MUTABLE_PLACE;
-
+        case TIR_PARAMETER:
         case TIR_LET:
-        case TIR_IF:
-        case TIR_LOOP:
-        case TIR_BREAK:
-        case TIR_CONTINUE:
-        case TIR_RETURN:
         case TIR_PLUS:
         case TIR_MINUS:
         case TIR_NOT:
@@ -1511,25 +1499,109 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_CALL:
         case TIR_NEW_STRUCT:
         case TIR_NEW_ARRAY:
-        case TIR_SWITCH: return VALUE_TEMPORARY;
+        case TIR_IF:
+        case TIR_SWITCH:
+        case TIR_LOOP:
+        case TIR_BREAK:
+        case TIR_CONTINUE:
+        case TIR_RETURN: return VALUE_TEMPORARY;
 
+        case TIR_EXTERN_VAR:
+        case TIR_STRING:
+        case TIR_VARIABLE:
+        case TIR_MUTABLE_VARIABLE:
         case TIR_DEREF:
-        case TIR_INDEX: {
-            TirId operand = {get_term_data(c, value)->b};
-            switch (get_term_tag(c, get_value_type(c, operand))) {
-                case TIR_PTR_TYPE: return VALUE_PLACE;
-                case TIR_MUT_PTR_TYPE: return VALUE_MUTABLE_PLACE;
-                default: return get_value_category(c, operand);
-            }
-        }
-        case TIR_ACCESS: {
-            TirId operand = {get_term_data(c, value)->b};
-            return get_value_category(c, operand);
-        }
-        case TIR_SLICE: return VALUE_MULTIVALUE;
+        case TIR_INDEX:
+        case TIR_ACCESS: return VALUE_PLACE;
+
+        case TIR_SLICE: return VALUE_SLICE;
         default: break;
     }
     return VALUE_INVALID;
+}
+
+bool is_value_mutable(TirContext c, TirId value) {
+    switch (get_term_tag(c, value)) {
+        case TIR_FUNCTION:
+        case TIR_EXTERN_FUNCTION:
+        case TIR_CONST_INT:
+        case TIR_CONST_FLOAT:
+        case TIR_CONST_NULL:
+        case TIR_PARAMETER:
+        case TIR_LET:
+        case TIR_PLUS:
+        case TIR_MINUS:
+        case TIR_NOT:
+        case TIR_ADDRESS:
+        case TIR_ADDRESS_OF_TEMPORARY:
+        case TIR_ADD:
+        case TIR_SUB:
+        case TIR_MUL:
+        case TIR_DIV:
+        case TIR_MOD:
+        case TIR_AND:
+        case TIR_OR:
+        case TIR_XOR:
+        case TIR_SHL:
+        case TIR_SHR:
+        case TIR_EQ:
+        case TIR_NE:
+        case TIR_LT:
+        case TIR_GT:
+        case TIR_LE:
+        case TIR_GE:
+        case TIR_ASSIGN:
+        case TIR_ASSIGN_ADD:
+        case TIR_ASSIGN_SUB:
+        case TIR_ASSIGN_MUL:
+        case TIR_ASSIGN_DIV:
+        case TIR_ASSIGN_MOD:
+        case TIR_ASSIGN_AND:
+        case TIR_ASSIGN_OR:
+        case TIR_ASSIGN_XOR:
+        case TIR_ITOF:
+        case TIR_ITRUNC:
+        case TIR_SEXT:
+        case TIR_ZEXT:
+        case TIR_FTOI:
+        case TIR_FTRUNC:
+        case TIR_FEXT:
+        case TIR_PTR_CAST:
+        case TIR_NOP:
+        case TIR_ARRAY_TO_SLICE:
+        case TIR_CALL:
+        case TIR_NEW_STRUCT:
+        case TIR_NEW_ARRAY:
+        case TIR_IF:
+        case TIR_SWITCH:
+        case TIR_LOOP:
+        case TIR_BREAK:
+        case TIR_CONTINUE:
+        case TIR_RETURN:
+        case TIR_MUTABLE_VARIABLE: return true;
+
+        case TIR_EXTERN_VAR:
+        case TIR_STRING:
+        case TIR_VARIABLE: return false;
+
+        case TIR_DEREF: {
+            TirId operand = {get_term_data(c, value)->b};
+            switch (get_term_tag(c, get_value_type(c, operand))) {
+                case TIR_PTR_TYPE: return false;
+                case TIR_MUT_PTR_TYPE: return true;
+                default: break;
+            }
+            break;
+        }
+        case TIR_INDEX:
+        case TIR_SLICE:
+        case TIR_ACCESS: {
+            TirId operand = {get_term_data(c, value)->b};
+            return is_value_mutable(c, operand);
+        }
+        default: break;
+    }
+    return false;
 }
 
 char const *get_value_str(TirContext c, TirId value) {

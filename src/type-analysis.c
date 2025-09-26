@@ -324,7 +324,12 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
     TirId result = analyze_term(c, node, hint);
     switch (get_value_category(c->tir, result)) {
         case VALUE_INVALID: return null_tir;
-        case VALUE_MUTABLE_PLACE: return result;
+        case VALUE_PLACE: {
+            if (!is_value_mutable(c->tir, result)) {
+                break;
+            }
+            return result;
+        }
         default: break;
     }
 
@@ -1202,14 +1207,15 @@ static TirId analyze_address(Context *c, AstId node, TirId hint) {
             return new_unary_tir(c->tir, TIR_ADDRESS_OF_TEMPORARY, node, type, operand_value);
         }
         case VALUE_PLACE: {
-            TirId type = new_ptr_type(c->tir, operand_type);
+            TirId type;
+            if (is_value_mutable(c->tir, operand_value)) {
+                type = new_mut_ptr_type(c->tir, operand_type);
+            } else {
+                type = new_ptr_type(c->tir, operand_type);
+            }
             return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
         }
-        case VALUE_MUTABLE_PLACE: {
-            TirId type = new_mut_ptr_type(c->tir, operand_type);
-            return new_unary_tir(c->tir, TIR_ADDRESS, node, type, operand_value);
-        }
-        case VALUE_MULTIVALUE: {
+        case VALUE_SLICE: {
             return operand_value;
         }
     }
@@ -1958,7 +1964,7 @@ static TirId analyze_slice(Context *c, AstId node) {
     if (remove_slice(c->tir, operand_type).id) {
         type = operand_type;
     } else if (get_term_tag(c->tir, operand_type) == TIR_ARRAY_TYPE
-        && get_value_category(c->tir, operand_value) == VALUE_MUTABLE_PLACE)
+        && is_value_mutable(c->tir, operand_value))
     {
         type = new_mut_slice_type(c->tir, elem_type);
     } else {
