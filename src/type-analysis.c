@@ -2060,32 +2060,62 @@ static TirId analyze_while(Context *c, AstId node) {
     c->loop_depth--;
     int32_t extra[] = {
         0,
+        0,
         block_tir.index,
         block_tir.length,
     };
     return new_instr(c->tir, TIR_LOOP, node, ptype(VOID), cond_result.id, push_extra(c, extra, ArrayLength(extra)));
 }
 
-static TirId analyze_for_helper(Context *c, AstId node) {
-    AstFor for_ = get_ast_for(get_ast_unary(node, c->ast), c->ast);
-    push_scope(c);
-    return analyze_term(c, for_.init, null_tir);
-}
-
 static TirId analyze_for(Context *c, AstId node) {
     AstFor for_ = get_ast_for(node, c->ast);
+    push_scope(c);
+
+    TirId init_value = expect_value(c, for_.init, null_tir);
+    TirId init_type = get_value_type(c->tir, init_value);
+    if (type_is_unknown_size(c->tir, init_type)) {
+        type_error(c, node, init_type, 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
+    }
+    int32_t var = c->local_tir->local_count++;
+    TirId value = new_variable(c->tir, node, init_type, var, TIR_VARIABLE);
+    add_id(c, (AstRef) {node, c->file}, value);
+    TirId let = new_binary_tir(
+        c->tir,
+        TIR_LET,
+        node,
+        ptype(VOID),
+        value,
+        init_value
+    );
+
     c->loop_depth++;
     TirId cond_result = expect_value_type(c, for_.condition, ptype(bool));
     TirBlock block_tir = analyze_block(c, for_.block, null_tir);
-    TirId next_tir = expect_value(c, for_.next, null_tir);
+    TirId next_tir = expect_value_type(c, for_.next, init_type);
+    next_tir = new_binary_tir(
+        c->tir,
+        TIR_ASSIGN,
+        node,
+        ptype(VOID),
+        value,
+        next_tir
+    );
     c->loop_depth--;
     int32_t extra[] = {
+        let.id,
         next_tir.id,
         block_tir.index,
         block_tir.length,
     };
     pop_scope(c);
-    return new_instr(c->tir, TIR_LOOP, node, ptype(VOID), cond_result.id, push_extra(c, extra, ArrayLength(extra)));
+    return new_instr(
+        c->tir,
+        TIR_LOOP,
+        node,
+        ptype(VOID),
+        cond_result.id,
+        push_extra(c, extra, ArrayLength(extra))
+    );
 }
 
 static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *type, int32_t *branches) {
@@ -2273,7 +2303,6 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_CONST: return analyze_const(c, node);
         case AST_IF: return analyze_if(c, node);
         case AST_WHILE: return analyze_while(c, node);
-        case AST_FOR_HELPER: return analyze_for_helper(c, node);
         case AST_FOR: return analyze_for(c, node);
         case AST_BREAK: return analyze_break(c, node);
         case AST_CONTINUE: return analyze_continue(c, node);

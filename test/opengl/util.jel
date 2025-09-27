@@ -77,14 +77,14 @@ function compile_shader(type i32, file_name *i8) -> i32 {
 function compile_shader_program(shaders @i32) -> i32 {
     let program = gl.glCreateProgram()
 
-    for i = <isize> 0; i < shaders.length; i += 1 {
+    for i = <isize> 0; i < shaders.length; i + 1 {
         gl.glAttachShader(program, shaders[i])
     }
 
     gl.glLinkProgram(program)
     assert_program_status(program, gl.LINK_STATUS)
 
-    for i = <isize> 0; i < shaders.length; i += 1 {
+    for i = <isize> 0; i < shaders.length; i + 1 {
         gl.glDetachShader(program, shaders[i])
         gl.glDeleteShader(shaders[i])
     }

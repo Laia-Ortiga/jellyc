@@ -410,9 +410,13 @@ static void transform_loop(Context *c, TirId tir_id) {
     TermData const *data = get_term_data(c->tir, tir_id);
     TirId condition = {data->b};
     int32_t extra = data->c;
-    TirId next = {get_term_extra(c->tir, extra)};
-    int32_t block = get_term_extra(c->tir, extra + 1);
-    int32_t block_length = get_term_extra(c->tir, extra + 2);
+    TirId let = {get_term_extra(c->tir, extra)};
+    if (let.id) {
+        transform_statement(c, let);
+    }
+    TirId next = {get_term_extra(c->tir, extra + 1)};
+    int32_t block = get_term_extra(c->tir, extra + 2);
+    int32_t block_length = get_term_extra(c->tir, extra + 3);
 
     int32_t entry_br = add_br_instruction(c, MIR_BR);
     int32_t condition_basic_block = c->basic_block;

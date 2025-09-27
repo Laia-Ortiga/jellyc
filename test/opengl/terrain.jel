@@ -55,8 +55,8 @@ function create_height_map_texture(seed i32) -> i32 {
 function create_ebo() -> i32 {
     mut indices = alloc(<isize> `cast[index_count()], `size_of[i16])
     mut i = <isize> 0
-    for z = <i16> 0; z < small_grid_size(); z += 1 {
-        for x = <i16> 0; x < small_grid_size(); x += 1 {
+    for z = <i16> 0; z < small_grid_size(); z + 1 {
+        for x = <i16> 0; x < small_grid_size(); x + 1 {
             indices[i] = (z + 1) * small_grid_rows() + x
             indices[i + 1] = z * small_grid_rows() + x
             indices[i + 2] = z * small_grid_rows() + x + 1

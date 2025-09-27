@@ -306,7 +306,6 @@ static void print_ast_node(AstPrinter *printer, AstId node) {
         case AST_BLOCK: print_ast_list(printer, "Block", node); break;
         case AST_IF: print_ast_if(printer, node); break;
         case AST_WHILE: print_ast_binary(printer, "While", node); break;
-        case AST_FOR_HELPER: break;
         case AST_FOR: print_ast_for(printer, node); break;
         case AST_SWITCH: print_ast_call(printer, "Switch", node); break;
         case AST_BREAK: print_ast_leaf(printer, "Break"); break;

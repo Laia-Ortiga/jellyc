@@ -248,9 +248,13 @@ static void check_switch(LinearChecker *c, TirId node) {
 static void check_loop(LinearChecker *c, TirId node) {
     TirId condition = {get_term_data(c->tir, node)->b};
     int32_t extra = get_term_data(c->tir, node)->c;
-    TirId next = {get_term_extra(c->tir, extra)};
-    int32_t block = get_term_extra(c->tir, extra + 1);
-    int32_t block_length = get_term_extra(c->tir, extra + 2);
+    TirId let = {get_term_extra(c->tir, extra)};
+    if (let.id) {
+        check_value(c, let, STATEMENT);
+    }
+    TirId next = {get_term_extra(c->tir, extra + 1)};
+    int32_t block = get_term_extra(c->tir, extra + 2);
+    int32_t block_length = get_term_extra(c->tir, extra + 3);
 
     check_value(c, condition, RVALUE);
     int32_t prev_loop_top = c->var_states_loop_top;

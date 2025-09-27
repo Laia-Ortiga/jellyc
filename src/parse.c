@@ -296,8 +296,10 @@ static AstId parse_while(Parser *parser) {
 }
 
 static AstId parse_for(Parser *parser) {
-    SourceIndex token = parser->lookahead.start;
-    AstId init = parse_var(parser, AST_MUT);
+    consume(parser);
+    SourceIndex token = expect_id(parser);
+    expect(parser, TOK_ASSIGN);
+    AstId init = parse_expr(parser, PREC_NONE);
     expect(parser, TOK_SEMICOLON);
     AstId cond = parse_expr(parser, PREC_NONE);
     expect(parser, TOK_SEMICOLON);
@@ -378,11 +380,7 @@ static AstId parse_block(Parser *parser) {
                 break;
             }
             case TOK_KW_for: {
-                SourceIndex token = parser->lookahead.start;
-                AstId node = parse_for(parser);
-                // Add an extra statement so that TIR can replace it with the initializer.
-                push(parser, &stmts, add_unary_ast(AST_FOR_HELPER, token, node, &parser->ast));
-                push(parser, &stmts, node);
+                push(parser, &stmts, parse_for(parser));
                 break;
             }
             case TOK_KW_break: {
@@ -417,7 +415,15 @@ static AstId parse_block(Parser *parser) {
         }
     }
     int32_t index = push_extra(&parser->ast, stmts);
-    return add_node(AST_BLOCK, (AstData) {block_token, stmts.count, index}, &parser->ast);
+    return add_node(
+        AST_BLOCK,
+        (AstData) {
+            block_token,
+            stmts.count,
+            index,
+        },
+        &parser->ast
+    );
 }
 
 static AstId parse_extern_function(Parser *parser) {

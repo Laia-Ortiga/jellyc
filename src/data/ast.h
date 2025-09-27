@@ -32,7 +32,6 @@ typedef enum {
     AST_IF,
     AST_WHILE,
     AST_FOR,
-    AST_FOR_HELPER,
     AST_SWITCH,
     AST_SWITCH_CASE,
     AST_BREAK,
