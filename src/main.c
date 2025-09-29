@@ -313,19 +313,42 @@ int main(int argc, char **argv) {
 
     init_diagnostic_module();
     Ast *asts = arena_alloc(&permanent_arena, Ast, file_count);
+    ParseErrorList *parse_errors = arena_alloc(&permanent_arena, ParseErrorList, file_count);
     int err = 0;
     #pragma omp parallel for reduction (||:err)
-    for (int i = 0; i < file_count; i++) {
-        String source = sources[i];
-        if (!source.len || parse_ast(&asts[i], paths[i], source)) {
+    for (int32_t i = 0; i < file_count; i++) {
+        ParseInfo info = {
+            .path = paths[i],
+            .source = sources[i],
+            .ast = &asts[i],
+            .errors = &parse_errors[i],
+        };
+        if (!info.source.len || parse_ast(&info)) {
             err = 1;
+        }
+    }
+    for (int32_t i = 0; i < file_count; i++) {
+        for (int32_t j = 0; j < parse_errors[i].len; i++) {
+            ParseError *e = &parse_errors[i].ptr[j];
+            Diagnostic d = {
+                .kind = e->kind,
+                .expected_token = e->token,
+            };
+            SourceLoc s = {
+                .path = paths[i],
+                .source = sources[i],
+                .where = e->start,
+                .len = e->end.index - e->start.index,
+                .mark = e->start,
+            };
+            print_diagnostic(&s, &d);
         }
     }
     if (err) {
         return -1;
     }
     if (options.print_debug) {
-        for (int i = 0; i < file_count; i++) {
+        for (int32_t i = 0; i < file_count; i++) {
             print_ast(paths[i], sources[i], &asts[i]);
         }
     }
@@ -345,7 +368,7 @@ int main(int argc, char **argv) {
     }
 
     Module *modules = arena_alloc(&permanent_arena, Module, module_table.count);
-    for (int32_t i = 0; i < (int32_t) module_table.count; i++) {
+    for (int32_t i = 0; i < module_table.count; i++) {
         modules[i].public_scope = htable_init();
         modules[i].private_scope = htable_init();
     }

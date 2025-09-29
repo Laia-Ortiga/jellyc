@@ -3,7 +3,6 @@
 #include "adt.h"
 #include "arena.h"
 #include "data/ast.h"
-#include "diagnostic.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
@@ -97,6 +96,7 @@ typedef struct {
     Lexer lexer;
     Token lookahead;
     Ast ast;
+    ParseErrorList errors;
     Arena scratch;
     bool internal;
     bool error;
@@ -134,19 +134,12 @@ static AstTag bin_ast_tag(TokenTag token_tag) {
     }
 }
 
-static void error(Parser *parser, Token const *token, Diagnostic const *diagnostic) {
+static void error(Parser *parser, ParseError const *diagnostic) {
     if (parser->error) {
         return;
     }
 
-    SourceLoc loc = {
-        .path = parser->path,
-        .source = parser->lexer.source,
-        .where = token->start,
-        .len = token->end.index - token->start.index,
-        .mark = token->start,
-    };
-    print_diagnostic(&loc, diagnostic);
+    vec_push(&parser->errors, *diagnostic);
     poison_lexer(&parser->lexer);
     parser->lookahead = next_token(&parser->lexer);
     parser->error = true;
@@ -156,7 +149,11 @@ static Token next_valid_token(Parser *parser) {
     Token token = next_token(&parser->lexer);
 
     while (token.tag == TOK_INVALID) {
-        error(parser, &token, &(Diagnostic) {.kind = ERROR_INVALID_TOKEN});
+        error(parser, &(ParseError) {
+            .kind = ERROR_INVALID_TOKEN,
+            .start = token.start,
+            .end = token.end,
+        });
         token = next_token(&parser->lexer);
     }
 
@@ -180,7 +177,12 @@ static bool accept(Parser *parser, TokenTag tag) {
 
 static SourceIndex expect(Parser *parser, TokenTag tag) {
     if (parser->lookahead.tag != tag) {
-        error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_EXPECTED_TOKEN, .expected_token = tag});
+        error(parser, &(ParseError) {
+            .kind = ERROR_EXPECTED_TOKEN,
+            .token = tag,
+            .start = parser->lookahead.start,
+            .end = parser->lookahead.end,
+        });
     }
 
     return consume(parser).start;
@@ -188,7 +190,12 @@ static SourceIndex expect(Parser *parser, TokenTag tag) {
 
 static SourceIndex expect_id(Parser *parser) {
     if (parser->lookahead.tag != TOK_ID && (!parser->internal || parser->lookahead.tag != TOK_BUILTIN_ID)) {
-        error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_EXPECTED_TOKEN, .expected_token = TOK_ID});
+        error(parser, &(ParseError) {
+            .kind = ERROR_EXPECTED_TOKEN,
+            .token = TOK_ID,
+            .start = parser->lookahead.start,
+            .end = parser->lookahead.end,
+        });
     }
 
     return consume(parser).start;
@@ -459,7 +466,12 @@ static AstId parse_extern(Parser *parser) {
             return parse_extern_mut(parser);
 
         default:
-            error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_INVALID_TOKEN_AFTER_EXTERN, .expected_token = parser->lookahead.tag});
+            error(parser, &(ParseError) {
+                .kind = ERROR_INVALID_TOKEN_AFTER_EXTERN,
+                .token = parser->lookahead.tag,
+                .start = parser->lookahead.start,
+                .end = parser->lookahead.end,
+            });
             return null_ast;
     }
 }
@@ -691,7 +703,11 @@ static AstId parse_prefix(Parser *parser) {
         case TOK_INT: {
             int64_t value = 0;
             if (parse_int(parser, token, &value)) {
-                error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_CONST_INT_OVERFLOW});
+                error(parser, &(ParseError) {
+                    .kind = ERROR_CONST_INT_OVERFLOW,
+                    .start = token.start,
+                    .end = token.end,
+                });
                 return null_ast;
             }
             return add_ast_int(AST_INT, token.start, value, &parser->ast);
@@ -699,7 +715,11 @@ static AstId parse_prefix(Parser *parser) {
         case TOK_HEX_INT: {
             int64_t value = 0;
             if (parse_hex_int(parser, token, &value)) {
-                error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_CONST_INT_OVERFLOW});
+                error(parser, &(ParseError) {
+                    .kind = ERROR_CONST_INT_OVERFLOW,
+                    .start = token.start,
+                    .end = token.end,
+                });
                 return null_ast;
             }
             if (value >= 0x80000000 && value < 0x100000000) {
@@ -713,7 +733,11 @@ static AstId parse_prefix(Parser *parser) {
             return add_ast_float(AST_FLOAT, token.start, value, &parser->ast);
         }
         case TOK_INVALID_FLOAT: {
-            error(parser, &token, &(Diagnostic) {.kind = ERROR_INVALID_FLOAT});
+            error(parser, &(ParseError) {
+                .kind = ERROR_INVALID_FLOAT,
+                .start = token.start,
+                .end = token.end,
+            });
             return null_ast;
         }
         case TOK_CHAR: {
@@ -742,7 +766,11 @@ static AstId parse_prefix(Parser *parser) {
             return add_leaf_ast(AST_NULL, token.start, &parser->ast);
         }
         default: {
-            error(parser, &token, &(Diagnostic) {.kind = ERROR_EXPECTED_EXPRESSION});
+            error(parser, &(ParseError) {
+                .kind = ERROR_EXPECTED_EXPRESSION,
+                .start = token.start,
+                .end = token.end,
+            });
             return null_ast;
         }
     }
@@ -872,7 +900,11 @@ static void parse_root(Parser *parser) {
                 break;
 
             default:
-                error(parser, &parser->lookahead, &(Diagnostic) {.kind = ERROR_EXPECTED_DEFINITION});
+                error(parser, &(ParseError) {
+                    .kind = ERROR_EXPECTED_DEFINITION,
+                    .start = parser->lookahead.start,
+                    .end = parser->lookahead.end,
+                });
         }
 
         if (!is_ast_null(def)) {
@@ -889,20 +921,21 @@ static void parse_root(Parser *parser) {
     parser->ast.nodes.datas[0].right = index;
 }
 
-int parse_ast(Ast *result, char const *path, String source) {
+int parse_ast(ParseInfo *info) {
     Arena scratch = new_arena(64 << 20);
     Parser parser = {0};
-    parser.path = path;
-    parser.lexer = new_lexer(source);
+    parser.path = info->path;
+    parser.lexer = new_lexer(info->source);
     parser.lookahead = next_valid_token(&parser);
     parser.scratch = scratch;
     parse_root(&parser);
     delete_arena(&scratch);
 
     if (parser.error) {
+        *info->errors = parser.errors;
         return 1;
+    } else {
+        *info->ast = parser.ast;
+        return 0;
     }
-
-    *result = parser.ast;
-    return 0;
 }
