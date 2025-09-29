@@ -37,8 +37,10 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
 
     if (diagnostic->kind < ERROR_END) {
         color = "\033[31;1m";
-    } else {
+    } else if (diagnostic->kind < NOTE_END) {
         color = "\033[96;1m";
+    } else {
+        color = "\033[35;1m";
     }
 
     fprintf(stderr, "\033[0;1m%s:%d:%d: ", loc->path, line_num, (int) (loc->where.index - line_start.index + 1));
@@ -46,13 +48,16 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
 
     if (diagnostic->kind < ERROR_END) {
         fprintf(stderr, "error[E%04d]\033[0m: ", diagnostic->kind);
-    } else {
+    } else if (diagnostic->kind < NOTE_END) {
         fprintf(stderr, "note\033[0m: ");
+    } else {
+        fprintf(stderr, "warning\033[0m: ");
     }
 
     switch (diagnostic->kind) {
         case ERROR_END:
-        case NOTE_END: {
+        case NOTE_END:
+        case WARNING_END: {
             abort();
         }
         case ERROR_INVALID_TOKEN: {
@@ -405,6 +410,10 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
         }
         case NOTE_RECURSION: {
             fprintf(stderr, "recursion happens here");
+            break;
+        }
+        case WARNING_UNUSED_LOCAL: {
+            fprintf(stderr, "unused name, add a leading _ to remove this warning");
             break;
         }
     }

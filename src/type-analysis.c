@@ -30,6 +30,7 @@ typedef struct {
     AstId node;
     TirId tir_ref;
     bool notes_shown;  // Whether a note to fix an error has been shown already.
+    bool used;
 } Local;
 
 typedef struct {
@@ -41,6 +42,7 @@ typedef struct {
 } SemaError;
 
 typedef Vec(SemaError) SemaErrorList;
+typedef Vec(Local) LocalList;
 
 typedef struct {
     Options *options;
@@ -67,12 +69,13 @@ typedef struct {
     int32_t file;
     Ast *ast;
 
-    Vec(Local) locals;
+    LocalList locals;
+    LocalList *function_locals;
     SemaErrorList diagnostics;
 
     TirContext tir;
-    LocalTir *local_tirs;
     LocalTir *local_tir;
+    DefId *functions;
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
@@ -90,7 +93,10 @@ static String ctx_source(Context const *c) {
 
 static void diagnostic(Context *c, SemaError e) {
     vec_push(&c->diagnostics, e);
-    c->error = 1;
+
+    if (e.diag.kind < ERROR_END) {
+        c->error = 1;
+    }
 }
 
 static void ref_diagnostic(Context *c, AstRef ref, ErrorKind kind) {
@@ -242,6 +248,13 @@ static void add_id(Context *c, AstRef ref, TirId term) {
     if (prev_symbol.kind == SYM_GLOBAL
         && c->rirs[prev_symbol.global.id] == ROLE_VISITING) {
         c->tir_refs[prev_symbol.global.id] = term;
+
+        if (get_ast_tag(ref.node, &c->asts[ref.file]) == AST_FUNCTION) {
+            int32_t f_index = c->tir.global->functions.len;
+            c->functions[f_index] = prev_symbol.global;
+            c->function_locals[f_index] = c->locals;
+        }
+
         return;
     }
 
@@ -279,7 +292,12 @@ static void add_id(Context *c, AstRef ref, TirId term) {
         }
     }
     int32_t sym = c->locals.len + 1;
-    Local local_ref = {ref.node, term, false};
+    Local local_ref = {
+        .node = ref.node,
+        .tir_ref = term,
+        .notes_shown = false,
+        .used = name.ptr[0] == '_',
+    };
     vec_push(&c->locals, local_ref);
     htable_try_insert(&c->scope->table, name, sym);
 }
@@ -595,7 +613,6 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     });
 
     pop_scope(c);
-    c->locals.len = 0;
 
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
@@ -681,14 +698,18 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     FunctionType func_type = get_function_type(c->tir, type);
     push_scope(c);
     for (int32_t i = 0; i < g.type_count; i++) {
-        add_id(c, (AstRef) {f.type_params[i], c->file}, g.types[i]);
+        AstRef ref = {f.type_params[i], c->file};
+        String name = get_id_source(c, ref);
+        int32_t sym = i + 1;
+        htable_try_insert(&c->scope->table, name, sym);
     }
     for (int32_t i = 0; i < func_type.param_count; i++) {
-        TirId param_type = get_function_type_param(c->tir, type, i);
-        int32_t var = c->local_tir->local_count++;
-        TirId param_value = new_variable(c->tir, f.params[i], param_type, var, TIR_PARAMETER);
-        add_id(c, (AstRef) {f.params[i], c->file}, param_value);
+        AstRef ref = {f.params[i], c->file};
+        String name = get_id_source(c, ref);
+        int32_t sym = g.type_count + i + 1;
+        htable_try_insert(&c->scope->table, name, sym);
     }
+    c->local_tir->local_count = func_type.param_count;
     c->current_function_type = type;
     TirBlock tir_block = analyze_block(c, f.body, func_type.ret);
     if (tir_block.length == 0 && func_type.ret.id != TYPE_VOID) {
@@ -697,6 +718,16 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     pop_scope(c);
     c->local_tir->body_first = tir_block.index;
     c->local_tir->body_length = tir_block.length;
+
+    for (int32_t i = 0; i < c->locals.len; i++) {
+        if (!c->locals.ptr[i].used) {
+            ref_diagnostic(
+                c,
+                (AstRef) {c->locals.ptr[i].node, c->file},
+                WARNING_UNUSED_LOCAL
+            );
+        }
+    }
 }
 
 static TirId analyze_enum(Context *c, AstId node) {
@@ -999,6 +1030,7 @@ static TirId analyze_id(Context *c, AstId node) {
         if (!info.tir_ref.id) {
             return null_tir;
         }
+        c->locals.ptr[local.id - 1].used = true;
         return info.tir_ref;
     }
 
@@ -2358,8 +2390,9 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     global_tc.rirs = arena_alloc(&scratch, Role, input->def_count);
     global_tc.tir_refs = arena_alloc(&scratch, TirId, input->def_count);
     global_tc.tir.global = &global_tir;
-    LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_count);
-    global_tc.local_tirs = tirs;
+    LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
+    global_tc.functions = arena_alloc(permanent, DefId, input->function_body_count);
+    global_tc.function_locals = arena_alloc(&scratch, LocalList, input->function_body_count);
     global_tc.module_import_notes = arena_alloc(&scratch, bool, input->module_table->count);
 
     for (int32_t i = 0; i < input->def_count; i++) {
@@ -2395,11 +2428,10 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         local_tc.rirs = global_tc.rirs;
         local_tc.tir_refs = global_tc.tir_refs;
         local_tc.tir.global = &global_tir;
-        local_tc.local_tirs = tirs;
 
         #pragma omp for reduction (||:err)
-        for (int32_t i = 0; i < input->function_count; i++) {
-            DefId def = input->functions[i];
+        for (int32_t i = 0; i < input->function_body_count; i++) {
+            DefId def = global_tc.functions[i];
             TirId value = global_tc.tir_refs[def.id];
             AstRef ref = input->ast_refs[def.id];
 
@@ -2407,6 +2439,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             local_tc.ast = &input->asts[ref.file];
             local_tc.tir.thread = &tirs[i].deps;
             local_tc.local_tir = &tirs[i];
+            local_tc.locals = global_tc.function_locals[i];
 
             analyze_function(&local_tc, ref.node, value);
 
@@ -2438,6 +2471,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     return (TirOutput) {
         .global_deps = global_tir,
         .insts = tirs,
+        .functions = global_tc.functions,
         .error = err,
     };
 }

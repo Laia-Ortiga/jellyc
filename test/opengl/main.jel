@@ -108,7 +108,7 @@ function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
     )
 }
 
-function key_callback(window *mut byte, key i32, scancode i32, action i32, mods i32) {
+function key_callback(window *mut byte, key i32, _scancode i32, action i32, _mods i32) {
     let magnitude = <f32> 0.15
     let speed = <f32> switch action {
         GLFW_RELEASE -> -magnitude,
@@ -127,7 +127,7 @@ function key_callback(window *mut byte, key i32, scancode i32, action i32, mods 
     }
 }
 
-function mouse_button_callback(window *mut byte, button i32, action i32, mods i32) {
+function mouse_button_callback(window *mut byte, button i32, action i32, _mods i32) {
     if button != GLFW_MOUSE_BUTTON_RIGHT {
         return
     }

@@ -18,13 +18,13 @@ typedef struct {
     AstRef *ast_refs;
     int32_t def_count;
 
-    DefId *functions;
-    int32_t function_count;
+    int32_t function_body_count;
 } TirInput;
 
 typedef struct {
     Tir global_deps;
     LocalTir *insts;
+    DefId *functions;
     int error;
 } TirOutput;
 

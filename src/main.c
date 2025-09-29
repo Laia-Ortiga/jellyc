@@ -105,7 +105,7 @@ typedef struct {
     HashTable *global_scope;
     HashTable *extern_symbols;
     AstRefVec *ast_refs;
-    DefVec *functions;
+    int32_t *function_body_count;
 } GlobalScopeBuilder;
 
 static SourceLoc get_ast_location(GlobalScopeBuilder *b, AstRef def) {
@@ -163,14 +163,13 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     }
 
     bool is_extern = false;
-    bool is_function = false;
     switch (get_ast_tag(def.node, ast)) {
         case AST_IMPORT: {
             scope = &b->files[def.file].scope;
             break;
         }
         case AST_FUNCTION: {
-            is_function = true;
+            (*b->function_body_count)++;
             break;
         }
         case AST_STRUCT:
@@ -224,9 +223,6 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     htable_try_insert(scope, name, entry);
     if (is_extern) {
         htable_try_insert(b->extern_symbols, name, entry);
-    }
-    if (is_function) {
-        vec_push(b->functions, (DefId) {entry});
     }
     return 0;
 }
@@ -420,7 +416,7 @@ int main(int argc, char **argv) {
     htable_try_insert(&global_scope, Str("`ArrayLength"), BUILTIN_ARRAY_LENGTH_TYPE);
 
     AstRefVec ast_refs = {0};
-    DefVec functions = {0};
+    int32_t function_body_count = 0;
     {
         HashTable extern_symbols = htable_init();
         GlobalScopeBuilder b = {0};
@@ -432,7 +428,7 @@ int main(int argc, char **argv) {
         b.global_scope = &global_scope;
         b.extern_symbols = &extern_symbols;
         b.ast_refs = &ast_refs;
-        b.functions = &functions;
+        b.function_body_count = &function_body_count;
         for (int32_t i = 0; i < file_count; i++) {
             AstList list = get_ast_list(null_ast, &asts[i]);
             for (int32_t j = 0; j < list.count; j++) {
@@ -454,8 +450,7 @@ int main(int argc, char **argv) {
     tir_input.global_scope = &global_scope;
     tir_input.ast_refs = ast_refs.ptr;
     tir_input.def_count = ast_refs.len;
-    tir_input.functions = functions.ptr;
-    tir_input.function_count = functions.len;
+    tir_input.function_body_count = function_body_count;
     TirOutput tir_output = analyze_types(&tir_input, &permanent_arena, scratch_arena);
     if (tir_output.error) {
         return -1;
@@ -478,8 +473,8 @@ int main(int argc, char **argv) {
             .ast_refs = ast_refs.ptr,
             .global_deps = &tir_output.global_deps,
             .insts = tir_output.insts,
-            .functions = functions.ptr,
-            .function_count = functions.len,
+            .functions = tir_output.functions,
+            .function_count = function_body_count,
         },
         scratch_arena
     );

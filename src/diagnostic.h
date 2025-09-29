@@ -91,6 +91,11 @@ typedef enum {
     NOTE_RECURSION,
 
     NOTE_END,
+
+    // Warnings
+    WARNING_UNUSED_LOCAL,
+
+    WARNING_END,
 } ErrorKind;
 
 typedef struct {
