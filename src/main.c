@@ -327,10 +327,6 @@ int main(int argc, char **argv) {
     Arena permanent_arena = new_arena(64 << 20);
     Arena scratch_arena = new_arena(64 << 20);
 
-    if (init_lex_module()) {
-        abort();
-    }
-
     // Source File Paths
 
     int file_count = argc - o + 1;
@@ -365,6 +361,10 @@ int main(int argc, char **argv) {
 
     // Parsing
 
+    if (init_lex_module()) {
+        abort();
+    }
+
     Ast *asts = arena_alloc(&permanent_arena, Ast, file_count);
     int err = parse_all(&(ParseStageInfo) {
         .file_count = file_count,
@@ -373,9 +373,11 @@ int main(int argc, char **argv) {
         .asts = asts,
         .scratch = scratch_arena,
     });
+
     if (err) {
         return -1;
     }
+
     if (options.print_debug) {
         for (int32_t i = 0; i < file_count; i++) {
             print_ast(paths[i], sources[i], &asts[i]);
