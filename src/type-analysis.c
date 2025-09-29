@@ -33,7 +33,10 @@ typedef struct {
 } Local;
 
 typedef struct {
-    SourceLoc loc;
+    int32_t file;
+    SourceIndex where;
+    int32_t len;
+    SourceIndex mark;
     Diagnostic diag;
 } SemaError;
 
@@ -73,6 +76,105 @@ typedef struct {
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
+
+static String get_id_source(Context const *c, AstRef ref) {
+    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
+    return id_token_to_string(c->sources[ref.file], token);
+}
+
+static String ctx_source(Context const *c) {
+    return c->sources[c->file];
+}
+
+// Diagnostics
+
+static void diagnostic(Context *c, SemaError e) {
+    vec_push(&c->diagnostics, e);
+    c->error = 1;
+}
+
+static void ref_diagnostic(Context *c, AstRef ref, ErrorKind kind) {
+    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
+    String name = id_token_to_string(c->sources[ref.file], token);
+    diagnostic(c, (SemaError) {
+        .file = ref.file,
+        .where = token,
+        .len = name.len,
+        .mark = token,
+        .diag = {
+            .kind = kind,
+        },
+    });
+}
+
+static void error(Context *c, AstId child, Diagnostic d) {
+    SourceIndex child_token = get_ast_token(child, c->ast);
+    diagnostic(c, (SemaError) {
+        .file = c->file,
+        .where = child_token,
+        .len = 1,
+        .mark = child_token,
+        .diag = d,
+    });
+}
+
+static void type_error(
+    Context *c,
+    AstId child,
+    TirId type,
+    int32_t extra,
+    ErrorKind kind
+) {
+    if (!type.id) {
+        return;
+    }
+
+    SourceIndex child_token = get_ast_token(child, c->ast);
+    diagnostic(c, (SemaError) {
+        .file = c->file,
+        .where = child_token,
+        .len = 1,
+        .mark = child_token,
+        .diag = {
+            .kind = kind,
+            .type_error = {c->tir, type, extra},
+        },
+    });
+}
+
+static void double_type_error(
+    Context *c,
+    AstId child,
+    TirId type1,
+    TirId type2,
+    ErrorKind kind
+) {
+    if (!type1.id) {
+        return;
+    }
+
+    if (!type2.id) {
+        return;
+    }
+
+    SourceIndex child_token = get_ast_token(child, c->ast);
+    diagnostic(c, (SemaError) {
+        .file = c->file,
+        .where = child_token,
+        .len = 1,
+        .mark = child_token,
+        .diag = {
+            .kind = kind,
+            .double_type_error = {
+                c->tir,
+                type1,
+                type2,
+            },
+        },
+    });
+}
+
+// Name Resolution
 
 static void push_scope(Context *c) {
     Scope *parent = c->scope;
@@ -115,29 +217,6 @@ static Symbol lookup(Context *c, int32_t file, String name) {
     return (Symbol) {0};
 }
 
-static String get_id_source(Context const *c, AstRef ref) {
-    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
-    return id_token_to_string(c->sources[ref.file], token);
-}
-
-static void diagnostic2(Context *c, SourceLoc s, Diagnostic d) {
-    vec_push(&c->diagnostics, (SemaError) {s, d});
-    c->error = 1;
-}
-
-static void diagnostic(Context *c, AstRef ref, ErrorKind kind) {
-    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
-    String name = id_token_to_string(c->sources[ref.file], token);
-    SourceLoc loc = {
-        .path = c->paths[ref.file],
-        .source = c->sources[ref.file],
-        .where = token,
-        .len = name.len,
-        .mark = token,
-    };
-    diagnostic2(c, loc, (Diagnostic) {.kind = kind});
-}
-
 static LocalId lookup_local(Context *c, String name) {
     for (Scope *scope = c->scope; scope; scope = scope->parent) {
         int32_t *symbol = htable_lookup(&scope->table, name);
@@ -156,18 +235,6 @@ static Symbol find_symbol(Context *c, int32_t file, String name) {
     return lookup(c, file, name);
 }
 
-static SourceLoc get_ast_location(Context *c, AstRef def) {
-    SourceIndex token = get_ast_token(def.node, &c->asts[def.file]);
-    String name = id_token_to_string(c->sources[def.file], token);
-    return (SourceLoc) {
-        .path = c->paths[def.file],
-        .source = c->sources[def.file],
-        .where = token,
-        .len = name.len,
-        .mark = token,
-    };
-}
-
 static void add_id(Context *c, AstRef ref, TirId term) {
     String name = get_id_source(c, ref);
     Symbol prev_symbol = find_symbol(c, ref.file, name);
@@ -179,12 +246,11 @@ static void add_id(Context *c, AstRef ref, TirId term) {
     }
 
     if (prev_symbol.kind != SYM_UNDEFINED) {
-        diagnostic(c, ref, ERROR_MULTIPLE_DEFINITION);
+        ref_diagnostic(c, ref, ERROR_MULTIPLE_DEFINITION);
         AstRef prev_ref;
         switch (prev_symbol.kind) {
             case SYM_BUILTIN: {
-                SourceLoc loc = get_ast_location(c, ref);
-                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PREVIOUS_BUILTIN_DEFINITION});
+                ref_diagnostic(c, ref, NOTE_PREVIOUS_BUILTIN_DEFINITION);
                 return;
             }
             case SYM_GLOBAL: {
@@ -200,8 +266,7 @@ static void add_id(Context *c, AstRef ref, TirId term) {
                 return;
             }
         }
-        SourceLoc loc = get_ast_location(c, prev_ref);
-        diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+        ref_diagnostic(c, prev_ref, NOTE_PREVIOUS_DEFINITION);
         return;
     }
 
@@ -219,6 +284,8 @@ static void add_id(Context *c, AstRef ref, TirId term) {
     htable_try_insert(&c->scope->table, name, sym);
 }
 
+// Analysis
+
 static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
     int32_t index = c->tir.thread->terms.extra.len;
     int32_t *result = vec_grow(&c->tir.thread->terms.extra, count);
@@ -227,78 +294,6 @@ static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
     }
     return index;
 }
-
-static String ctx_source(Context const *c) {
-    return c->sources[c->file];
-}
-
-static SourceLoc ctx_init_loc(Context const *c, SourceIndex start, ptrdiff_t len) {
-    SourceLoc loc = {
-        .path = c->paths[c->file],
-        .source = c->sources[c->file],
-        .where = start,
-        .len = len,
-        .mark = start,
-    };
-    return loc;
-}
-
-static void add_error(Context *c) {
-    c->error = 1;
-}
-
-static void error(Context *c, AstId child, Diagnostic const *diagnostic) {
-    SourceIndex child_token = get_ast_token(child, c->ast);
-    SourceLoc loc = {
-        .path = c->paths[c->file],
-        .source = c->sources[c->file],
-        .where = child_token,
-        .len = 1,
-        .mark = child_token,
-    };
-    diagnostic2(c, loc, *diagnostic);
-    c->error = 1;
-}
-
-static void type_error(Context *c, AstId child, TirId type, int32_t extra, ErrorKind kind) {
-    if (!type.id) {
-        return;
-    }
-
-    SourceIndex child_token = get_ast_token(child, c->ast);
-    SourceLoc loc = {
-        .path = c->paths[c->file],
-        .source = c->sources[c->file],
-        .where = child_token,
-        .len = 1,
-        .mark = child_token,
-    };
-    diagnostic2(c, loc, (Diagnostic) {.kind = kind, .type_error = {c->tir, type, extra}});
-    c->error = 1;
-}
-
-static void double_type_error(Context *c, AstId child, TirId type1, TirId type2, ErrorKind kind) {
-    if (!type1.id) {
-        return;
-    }
-
-    if (!type2.id) {
-        return;
-    }
-
-    SourceIndex child_token = get_ast_token(child, c->ast);
-    SourceLoc loc = {
-        .path = c->paths[c->file],
-        .source = c->sources[c->file],
-        .where = child_token,
-        .len = 1,
-        .mark = child_token,
-    };
-    diagnostic2(c, loc, (Diagnostic) {.kind = kind, .double_type_error = {c->tir, type1, type2}});
-    c->error = 1;
-}
-
-// Analysis
 
 static TirId analyze_term(Context *c, AstId node, TirId hint);
 
@@ -309,7 +304,7 @@ static int analyze_def(Context *c, DefId def) {
     }
     AstRef ref = c->ast_refs[def.id];
     if (prev_role == ROLE_VISITING) {
-        diagnostic(c, ref, ERROR_RECURSIVE_DEPENDENCY);
+        ref_diagnostic(c, ref, ERROR_RECURSIVE_DEPENDENCY);
         return 1;
     }
     c->rirs[def.id] = ROLE_VISITING;
@@ -327,7 +322,7 @@ static int analyze_def(Context *c, DefId def) {
 
 static TirId resolve_global(Context *c, AstRef ref, DefId global) {
     if (analyze_def(c, global)) {
-        diagnostic(c, ref, NOTE_RECURSION);
+        ref_diagnostic(c, ref, NOTE_RECURSION);
     }
     return c->tir_refs[global.id];
 }
@@ -345,18 +340,16 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
         default: break;
     }
 
-    error(c, node, &(Diagnostic) {.kind = ERROR_EXPECTED_MUTABLE_PLACE});
+    error(c, node, (Diagnostic) {.kind = ERROR_EXPECTED_MUTABLE_PLACE});
 
     if (get_term_tag(c->tir, result) == TIR_VARIABLE) {
         int32_t var_index = get_term_data(c->tir, result)->b;
-        AstTag tag = get_ast_tag(get_term_data(c->tir, result)->node, c->ast);
+        AstId var_node = get_term_data(c->tir, result)->node;
+        AstTag tag = get_ast_tag(var_node, c->ast);
 
         if (!c->locals.ptr[var_index].notes_shown && tag == AST_LET) {
             c->locals.ptr[var_index].notes_shown = true;
-            SourceIndex token = get_ast_token(get_term_data(c->tir, result)->node, c->ast);
-            String name = id_token_to_string(ctx_source(c), token);
-            SourceLoc note = ctx_init_loc(c, token, name.len);
-            diagnostic2(c, note, (Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
+            error(c, var_node, (Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
         }
     }
 
@@ -370,7 +363,7 @@ static TirId expect_type(Context *c, AstId node) {
     }
 
     if (result.id) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_EXPECTED_TYPE});
+        error(c, node, (Diagnostic) {.kind = ERROR_EXPECTED_TYPE});
     }
 
     return null_tir;
@@ -383,7 +376,7 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
     }
 
     if (result.id) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_EXPECTED_VALUE});
+        error(c, node, (Diagnostic) {.kind = ERROR_EXPECTED_VALUE});
     }
 
     return null_tir;
@@ -562,7 +555,7 @@ static TirId analyze_import(Context *c, AstId node) {
     int32_t *module = htable_lookup(c->module_table, name);
 
     if (!module) {
-        diagnostic(c, ref, ERROR_UNDEFINED_MODULE);
+        ref_diagnostic(c, ref, ERROR_UNDEFINED_MODULE);
         return null_tir;
     }
 
@@ -623,7 +616,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
 
     if (equals(name, Str("main"))) {
         if (f.type_param_count || f.param_count || !is_ast_null(f.ret)) {
-            error(c, node, &(Diagnostic) {.kind = ERROR_MAIN_SIGNATURE});
+            error(c, node, (Diagnostic) {.kind = ERROR_MAIN_SIGNATURE});
         }
         c->tir.global->main = inner_value;
     }
@@ -648,7 +641,7 @@ static TirId analyze_return(Context *c, AstId operand) {
         TirId operand_hint = func_type.ret;
 
         if (func_type.ret.id == TYPE_VOID) {
-            error(c, operand, &(Diagnostic) {.kind = ERROR_RETURN_EXPECTED_VALUE});
+            error(c, operand, (Diagnostic) {.kind = ERROR_RETURN_EXPECTED_VALUE});
             operand_hint = null_tir;
         }
 
@@ -656,7 +649,7 @@ static TirId analyze_return(Context *c, AstId operand) {
         return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, operand_value);
     } else {
         if (func_type.ret.id != TYPE_VOID) {
-            error(c, operand, &(Diagnostic) {.kind = ERROR_RETURN_MISSING_VALUE});
+            error(c, operand, (Diagnostic) {.kind = ERROR_RETURN_MISSING_VALUE});
         }
 
         return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, null_tir);
@@ -699,7 +692,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     c->current_function_type = type;
     TirBlock tir_block = analyze_block(c, f.body, func_type.ret);
     if (tir_block.length == 0 && func_type.ret.id != TYPE_VOID) {
-        error(c, f.body, &(Diagnostic) {.kind = ERROR_MISSING_RETURN});
+        error(c, f.body, (Diagnostic) {.kind = ERROR_MISSING_RETURN});
     }
     pop_scope(c);
     c->local_tir->body_first = tir_block.index;
@@ -734,13 +727,9 @@ static TirId analyze_enum(Context *c, AstId node) {
         int64_t prev = htable_try_insert(table, member_name, member_sym);
 
         if (prev >= 0) {
-            SourceLoc loc = ctx_init_loc(c, member_token, member_name.len);
-            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
+            error(c, e.members[i], (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
             AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
-            SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
-            SourceLoc prev_loc = ctx_init_loc(c, prev_token, member_name.len);
-            diagnostic2(c, prev_loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
-            add_error(c);
+            error(c, prev_ref, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         }
 
         TirId value = new_int_constant(c->tir, type, i);
@@ -785,13 +774,9 @@ static TirId analyze_struct(Context *c, AstId node) {
         int64_t prev = htable_try_insert(&table, field_name, field_sym);
 
         if (prev >= 0) {
-            SourceLoc loc = ctx_init_loc(c, field_token, field_name.len);
-            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
+            error(c, s.fields[i], (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
             AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
-            SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
-            SourceLoc prev_loc = ctx_init_loc(c, prev_token, field_name.len);
-            diagnostic2(c, prev_loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
-            add_error(c);
+            error(c, prev_ref, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         }
 
         index++;
@@ -804,7 +789,7 @@ static TirId analyze_struct(Context *c, AstId node) {
     String name = id_token_to_string(ctx_source(c), token);
 
     if (!s.field_count) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_EMPTY_STRUCT});
+        error(c, node, (Diagnostic) {.kind = ERROR_EMPTY_STRUCT});
     }
 
     int32_t name_i = tir_push_cstr(c->tir, name);
@@ -931,7 +916,7 @@ static TirId analyze_const(Context *c, AstId node) {
             return init_result;
         }
         default: {
-            error(c, init, &(Diagnostic) {.kind = ERROR_CONST_INIT});
+            error(c, init, (Diagnostic) {.kind = ERROR_CONST_INIT});
             return (TirId) {0};
         }
     }
@@ -1020,13 +1005,12 @@ static TirId analyze_id(Context *c, AstId node) {
     Symbol symbol = lookup(c, c->file, name);
     switch (symbol.kind) {
         case SYM_UNDEFINED: {
-            diagnostic(c, ref, ERROR_UNDEFINED_NAME);
+            ref_diagnostic(c, ref, ERROR_UNDEFINED_NAME);
 
             // Check module names for hints.
             int32_t *m = htable_lookup(c->module_table, name);
             if (m && !c->module_import_notes[*m]) {
-                SourceLoc loc = get_ast_location(c, (AstRef) {ref.node, ref.file});
-                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_FORGOT_IMPORT});
+                ref_diagnostic(c, ref, NOTE_FORGOT_IMPORT);
                 c->module_import_notes[*m] = true;
             }
 
@@ -1117,10 +1101,15 @@ static TirId analyze_char(Context *c, AstId node, TirId hint) {
     ptrdiff_t byte_i = 0;
     while (str[i] != '\'' && str[i] != '\n' && str[i] != '\0') {
         if (byte_i == 8) {
-            SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 2);
-            loc.mark = loc.where;
-            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_CHAR});
-            c->error = 1;
+            diagnostic(c, (SemaError) {
+                .file = c->file,
+                .where = {token + i},
+                .len = 2,
+                .mark = {token + i},
+                .diag = {
+                    .kind = ERROR_MULTIPLE_CHAR,
+                },
+            });
             break;
         }
         value <<= 8;
@@ -1129,10 +1118,15 @@ static TirId analyze_char(Context *c, AstId node, TirId hint) {
     }
 
     if (str[i] != '\'') {
-        SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
-        loc.mark = loc.where;
-        diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
-        c->error = 1;
+        diagnostic(c, (SemaError) {
+            .file = c->file,
+            .where = {token + i},
+            .len = 1,
+            .mark = {token + i},
+            .diag = {
+                .kind = ERROR_UNTERMINATED_STRING,
+            },
+        });
     }
 
     TirId type = int_fits_in_type(value, hint, c->options->target) ? hint : ptype(i64);
@@ -1154,10 +1148,15 @@ static TirId analyze_string(Context *c, AstId node) {
     }
 
     if (str[i] != '"') {
-        SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
-        loc.mark = loc.where;
-        diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
-        c->error = 1;
+        diagnostic(c, (SemaError) {
+            .file = c->file,
+            .where = {token + i},
+            .len = 1,
+            .mark = {token + i},
+            .diag = {
+                .kind = ERROR_UNTERMINATED_STRING,
+            },
+        });
     }
 
     int64_t len = byte_i - 4;
@@ -1282,7 +1281,7 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
     if (call.arg_count == param_count) {
         return true;
     }
-    error(c, call.operand, &(Diagnostic) {.kind = ERROR_WRONG_COUNT, .count_error = {param_count, call.arg_count}});
+    error(c, call.operand, (Diagnostic) {.kind = ERROR_WRONG_COUNT, .count_error = {param_count, call.arg_count}});
     return false;
 }
 
@@ -1358,7 +1357,7 @@ static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
     AstCall call = get_ast_call(node, c->ast);
 
     if (!cast_type.id) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
+        error(c, node, (Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
         return null_tir;
     }
 
@@ -1385,7 +1384,7 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
     expect_arg_count(c, node, 1);
 
     if (!hint.id || !type_is_fixed_int(hint)) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
+        error(c, node, (Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
         return null_tir;
     }
 
@@ -1598,7 +1597,7 @@ static TirId analyze_enum_member(Context *c, AstId node) {
 
 static TirId analyze_enum_member_inferred(Context *c, AstId node, TirId hint) {
     if (!hint.id || get_term_tag(c->tir, hint) != TIR_ENUM_TYPE) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
+        error(c, node, (Diagnostic) {.kind = ERROR_TYPE_INFERENCE});
         return null_tir;
     }
 
@@ -1642,14 +1641,13 @@ static TirId analyze_access(Context *c, AstId node) {
         int32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
 
         if (!def_ptr) {
-            diagnostic(c, (AstRef) {operand, c->file}, ERROR_UNDEFINED_NAME_FROM_MODULE);
+            ref_diagnostic(c, (AstRef) {operand, c->file}, ERROR_UNDEFINED_NAME_FROM_MODULE);
 
             // Check private namespace for hints.
             def_ptr = htable_lookup(&c->modules[module].private_scope, field_name);
             if (def_ptr) {
                 AstRef ast_ref = c->ast_refs[*def_ptr];
-                SourceLoc loc = get_ast_location(c, ast_ref);
-                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PRIVATE_DEFINITION});
+                ref_diagnostic(c, ast_ref, NOTE_PRIVATE_DEFINITION);
             }
 
             return null_tir;
@@ -1666,7 +1664,7 @@ static TirId analyze_access(Context *c, AstId node) {
     }
 
     if (!is_tir_value(tag)) {
-        diagnostic(c, (AstRef) {node, c->file}, ERROR_ACCESS_OPERAND_ROLE);
+        ref_diagnostic(c, (AstRef) {node, c->file}, ERROR_ACCESS_OPERAND_ROLE);
         return null_tir;
     }
 
@@ -1884,7 +1882,7 @@ static TirId analyze_call(Context *c, AstId node) {
         return analyze_function_call(c, node, &g);
     }
 
-    diagnostic(c, (AstRef) {node, c->file}, ERROR_CALL_OPERAND_ROLE);
+    ref_diagnostic(c, (AstRef) {node, c->file}, ERROR_CALL_OPERAND_ROLE);
     return null_tir;
 }
 
@@ -1930,7 +1928,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
     }
 
     if (!is_tir_value(get_term_tag(c->tir, operand_value))) {
-        diagnostic(c, (AstRef) {node, c->file}, ERROR_INDEX_OPERAND_ROLE);
+        ref_diagnostic(c, (AstRef) {node, c->file}, ERROR_INDEX_OPERAND_ROLE);
         return null_tir;
     }
 
@@ -2030,7 +2028,7 @@ static TirId analyze_list(Context *c, AstId node, TirId hint) {
     }
 
     if (!list.count) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_EMPTY_ARRAY});
+        error(c, node, (Diagnostic) {.kind = ERROR_EMPTY_ARRAY});
         return null_tir;
     }
 
@@ -2147,7 +2145,7 @@ static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *ty
         int64_t value = 0;
         try_get_int_const(c, (TirId) {branches[i * 2]}, &value);
         if (seen_enum_values[value]) {
-            error(c, branch.left, &(Diagnostic) {.kind = ERROR_DUPLICATE_SWITCH_CASE});
+            error(c, branch.left, (Diagnostic) {.kind = ERROR_DUPLICATE_SWITCH_CASE});
         } else {
             seen_enum_values[value] = true;
         }
@@ -2162,11 +2160,11 @@ static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *ty
     }
 
     if (has_all && !is_ast_null(else_case)) {
-        error(c, else_case, &(Diagnostic) {.kind = ERROR_ELSE_CASE_UNREACHABLE});
+        error(c, else_case, (Diagnostic) {.kind = ERROR_ELSE_CASE_UNREACHABLE});
     }
 
     if (!has_all && is_ast_null(else_case)) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_SWITCH_NOT_EXHAUSTIVE});
+        error(c, node, (Diagnostic) {.kind = ERROR_SWITCH_NOT_EXHAUSTIVE});
     }
 }
 
@@ -2217,14 +2215,14 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
 
     if (result_type.id) {
         if (!consistent_types) {
-            error(c, first_incompatible_case, &(Diagnostic) {.kind = ERROR_SWITCH_INCOMPATIBLE_CASES});
+            error(c, first_incompatible_case, (Diagnostic) {.kind = ERROR_SWITCH_INCOMPATIBLE_CASES});
         } else {
             if (result_type.id != TYPE_VOID) {
                 if (get_term_tag(c->tir, pattern_type) == TIR_ENUM_TYPE) {
                     EnumType enum_type = get_enum_type(c->tir, pattern_type);
                     validate_exhaustive_enum_switch(c, node, &enum_type, branches_tir);
                 } else if (is_ast_null(else_case)) {
-                    error(c, node, &(Diagnostic) {.kind = ERROR_SWITCH_NOT_EXHAUSTIVE});
+                    error(c, node, (Diagnostic) {.kind = ERROR_SWITCH_NOT_EXHAUSTIVE});
                 }
             }
         }
@@ -2239,7 +2237,7 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
 
 static TirId analyze_break(Context *c, AstId node) {
     if (!c->loop_depth) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_MISPLACED_BREAK});
+        error(c, node, (Diagnostic) {.kind = ERROR_MISPLACED_BREAK});
     }
 
     return new_instr(c->tir, TIR_BREAK, node, ptype(VOID), 0, 0);
@@ -2247,7 +2245,7 @@ static TirId analyze_break(Context *c, AstId node) {
 
 static TirId analyze_continue(Context *c, AstId node) {
     if (!c->loop_depth) {
-        error(c, node, &(Diagnostic) {.kind = ERROR_MISPLACED_CONTINUE});
+        error(c, node, (Diagnostic) {.kind = ERROR_MISPLACED_CONTINUE});
     }
 
     return new_instr(c->tir, TIR_CONTINUE, node, ptype(VOID), 0, 0);
@@ -2330,6 +2328,17 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
 
         default: abort();
     }
+}
+
+static void print_sema_error(TirInput *input, SemaError *e) {
+    SourceLoc loc = {
+        .path = input->paths[e->file],
+        .source = input->sources[e->file],
+        .where = e->where,
+        .len = e->len,
+        .mark = e->mark,
+    };
+    print_diagnostic(&loc, &e->diag);
 }
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
@@ -2418,13 +2427,11 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     }
 
     for (int32_t i = 0; i < global_tc.diagnostics.len; i++) {
-        SemaError *e = &global_tc.diagnostics.ptr[i];
-        print_diagnostic(&e->loc, &e->diag);
+        print_sema_error(input, &global_tc.diagnostics.ptr[i]);
     }
     for (int32_t i = 0; i < n; i++) {
         for (int32_t j = 0; j < local_errors[i].len; j++) {
-            SemaError *e = &local_errors[i].ptr[j];
-            print_diagnostic(&e->loc, &e->diag);
+            print_sema_error(input, &local_errors[i].ptr[j]);
         }
     }
 
