@@ -1,6 +1,6 @@
 #pragma once
 
-#include "data/ast.h"
+#include "ast.h"
 #include "hash.h"
 
 #include <limits.h>

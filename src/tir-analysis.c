@@ -1,11 +1,11 @@
 #include "tir-analysis.h"
 
 #include "arena.h"
-#include "data/ast.h"
+#include "ast.h"
 #include "diagnostic.h"
 #include "fwd.h"
 #include "lex.h"
-#include "data/tir.h"
+#include "tir.h"
 
 #include <stdlib.h>
 #include <string.h>

@@ -1,4 +1,4 @@
-#include "data/tir.h"
+#include "tir.h"
 
 #include "adt.h"
 #include "arena.h"

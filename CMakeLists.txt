@@ -7,7 +7,6 @@ find_package(OpenMP)
 
 set(SOURCE
     src/arena.c
-    src/data/tir.c
     src/diagnostic.c
     src/float.c
     src/gen.c
@@ -17,6 +16,7 @@ set(SOURCE
     src/main.c
     src/parse.c
     src/print.c
+    src/tir.c
     src/tir-analysis.c
     src/tir2mir.c
     src/type-analysis.c

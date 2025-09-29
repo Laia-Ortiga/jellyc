@@ -2,8 +2,8 @@
 
 #include "adt.h"
 #include "arena.h"
-#include "data/ast.h"
-#include "data/tir.h"
+#include "ast.h"
+#include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
 #include "hash.h"
@@ -621,7 +621,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
 
     add_id(c, (AstRef) {node, c->file}, value);
 
-    if (equals(name, (String) Str("main"))) {
+    if (equals(name, Str("main"))) {
         if (f.type_param_count || f.param_count || !is_ast_null(f.ret)) {
             error(c, node, &(Diagnostic) {.kind = ERROR_MAIN_SIGNATURE});
         }
@@ -1675,11 +1675,11 @@ static TirId analyze_access(Context *c, AstId node) {
     TirId slice_elem_type = remove_slice(c->tir, type);
 
     if (slice_elem_type.id) {
-        if (equals(field_name, (String) Str("length"))) {
+        if (equals(field_name, Str("length"))) {
             return resolve_length(c, node, operand_value);
         }
 
-        if (equals(field_name, (String) Str("data"))) {
+        if (equals(field_name, Str("data"))) {
             return resolve_slice_data(c, node, operand_value);
         }
 
@@ -1690,7 +1690,7 @@ static TirId analyze_access(Context *c, AstId node) {
     TirId array_elem_type = remove_array_like(c->tir, type);
 
     if (array_elem_type.id) {
-        if (equals(field_name, (String) Str("length"))) {
+        if (equals(field_name, Str("length"))) {
             return resolve_length(c, node, operand_value);
         }
 

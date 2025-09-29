@@ -2,7 +2,7 @@
 
 #include "adt.h"
 #include "arena.h"
-#include "data/ast.h"
+#include "ast.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"

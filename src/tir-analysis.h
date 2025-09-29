@@ -2,8 +2,8 @@
 
 #include "arena.h"
 #include "fwd.h"
-#include "data/ast.h"
-#include "data/tir.h"
+#include "ast.h"
+#include "tir.h"
 
 typedef struct {
     char **paths;

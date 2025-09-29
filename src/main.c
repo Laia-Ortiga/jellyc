@@ -1,7 +1,7 @@
 #include "adt.h"
 #include "arena.h"
-#include "data/ast.h"
-#include "data/tir.h"
+#include "ast.h"
+#include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
 #include "gen.h"
@@ -27,9 +27,9 @@ static void print_help(void) {
 }
 
 static Backend parse_backend(String value) {
-    static struct { String value; Backend backend; } backends[] = {
-        {Str("c"), BACKEND_C},
-        {Str("llvm"), BACKEND_LLVM},
+    static struct { String value; Backend backend; } const backends[] = {
+        {Str2("c"), BACKEND_C},
+        {Str2("llvm"), BACKEND_LLVM},
     };
 
     for (int i = 0; i < ArrayLength(backends); i++) {
@@ -297,7 +297,7 @@ int main(int argc, char **argv) {
             String key = substring(arg, 1, eq - arg.ptr);
             String value = substring(arg, (eq + 1) - arg.ptr, arg.len);
 
-            if (equals(key, (String) Str("backend"))) {
+            if (equals(key, Str("backend"))) {
                 options.backend = parse_backend(value);
                 continue;
             }
@@ -308,12 +308,12 @@ int main(int argc, char **argv) {
         } else {
             String option = substring(arg, 1, arg.len);
 
-            if (equals(option, (String) Str("help"))) {
+            if (equals(option, Str("help"))) {
                 print_help();
                 continue;
             }
 
-            if (equals(option, (String) Str("print-debug"))) {
+            if (equals(option, Str("print-debug"))) {
                 options.print_debug = true;
                 continue;
             }
@@ -407,17 +407,17 @@ int main(int argc, char **argv) {
     }
 
     HashTable global_scope = htable_init();
-    #define TYPE(type) htable_try_insert(&global_scope, (String) Str(#type), TYPE_##type);
+    #define TYPE(type) htable_try_insert(&global_scope, Str(#type), TYPE_##type);
     #include "simple-types"
-    htable_try_insert(&global_scope, (String) Str("`Size"), BUILTIN_SIZE);
-    htable_try_insert(&global_scope, (String) Str("`Alignment"), BUILTIN_ALIGNMENT);
-    htable_try_insert(&global_scope, (String) Str("`align_of"), BUILTIN_ALIGNOF);
-    htable_try_insert(&global_scope, (String) Str("`size_of"), BUILTIN_SIZEOF);
-    htable_try_insert(&global_scope, (String) Str("`cast"), BUILTIN_CAST);
-    htable_try_insert(&global_scope, (String) Str("`zero_extend"), BUILTIN_ZERO_EXTEND);
-    htable_try_insert(&global_scope, (String) Str("`slice"), BUILTIN_SLICE);
-    htable_try_insert(&global_scope, (String) Str("`Affine"), BUILTIN_AFFINE);
-    htable_try_insert(&global_scope, (String) Str("`ArrayLength"), BUILTIN_ARRAY_LENGTH_TYPE);
+    htable_try_insert(&global_scope, Str("`Size"), BUILTIN_SIZE);
+    htable_try_insert(&global_scope, Str("`Alignment"), BUILTIN_ALIGNMENT);
+    htable_try_insert(&global_scope, Str("`align_of"), BUILTIN_ALIGNOF);
+    htable_try_insert(&global_scope, Str("`size_of"), BUILTIN_SIZEOF);
+    htable_try_insert(&global_scope, Str("`cast"), BUILTIN_CAST);
+    htable_try_insert(&global_scope, Str("`zero_extend"), BUILTIN_ZERO_EXTEND);
+    htable_try_insert(&global_scope, Str("`slice"), BUILTIN_SLICE);
+    htable_try_insert(&global_scope, Str("`Affine"), BUILTIN_AFFINE);
+    htable_try_insert(&global_scope, Str("`ArrayLength"), BUILTIN_ARRAY_LENGTH_TYPE);
 
     AstRefVec ast_refs = {0};
     DefVec functions = {0};

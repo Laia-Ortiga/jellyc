@@ -1,7 +1,7 @@
 #pragma once
 
 #include "adt.h"
-#include "data/ast.h"
+#include "ast.h"
 #include "diagnostic.h"
 #include "lex.h"
 

@@ -1,8 +1,8 @@
 #include "print.h"
 
 #include "adt.h"
-#include "data/ast.h"
-#include "data/tir.h"
+#include "ast.h"
+#include "tir.h"
 #include "lex.h"
 
 static void print_indent(int indent) {

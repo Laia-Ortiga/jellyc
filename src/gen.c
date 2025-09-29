@@ -1,7 +1,7 @@
 #include "gen.h"
 
-#include "data/mir.h"
-#include "data/tir.h"
+#include "mir.h"
+#include "tir.h"
 #include "fwd.h"
 #include "util.h"
 

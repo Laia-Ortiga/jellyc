@@ -1,6 +1,6 @@
 #pragma once
 
-#include "data/tir.h"
+#include "tir.h"
 #include "lex.h"
 
 typedef enum {

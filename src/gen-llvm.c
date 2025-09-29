@@ -1,8 +1,8 @@
 #include "gen.h"
 
 #include "adt.h"
-#include "data/mir.h"
-#include "data/tir.h"
+#include "mir.h"
+#include "tir.h"
 #include "fwd.h"
 
 #include <assert.h>

@@ -1,8 +1,8 @@
 #include "tir2mir.h"
 
 #include "arena.h"
-#include "data/mir.h"
-#include "data/tir.h"
+#include "mir.h"
+#include "tir.h"
 #include "util.h"
 
 #include <stdint.h>

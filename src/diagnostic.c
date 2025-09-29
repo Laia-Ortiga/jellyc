@@ -1,7 +1,7 @@
 #include "diagnostic.h"
 
 #include "lex.h"
-#include "data/tir.h"
+#include "tir.h"
 
 #include <inttypes.h>
 #include <stdio.h>

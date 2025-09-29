@@ -1,9 +1,9 @@
 #pragma once
 
 #include "arena.h"
-#include "data/ast.h"
+#include "ast.h"
 #include "fwd.h"
-#include "data/tir.h"
+#include "tir.h"
 
 typedef struct {
     Options *options;
