@@ -363,8 +363,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    init_diagnostic_module();
-
     // Parsing
 
     Ast *asts = arena_alloc(&permanent_arena, Ast, file_count);
@@ -383,6 +381,8 @@ int main(int argc, char **argv) {
             print_ast(paths[i], sources[i], &asts[i]);
         }
     }
+
+    // Files & Modules
 
     File *files = arena_alloc(&permanent_arena, File, file_count);
     HashTable module_table = htable_init();

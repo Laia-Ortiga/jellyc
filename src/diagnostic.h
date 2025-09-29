@@ -122,5 +122,4 @@ typedef struct {
     };
 } Diagnostic;
 
-void init_diagnostic_module(void);
 void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic);

@@ -33,6 +33,13 @@ typedef struct {
 } Local;
 
 typedef struct {
+    SourceLoc loc;
+    Diagnostic diag;
+} SemaError;
+
+typedef Vec(SemaError) SemaErrorList;
+
+typedef struct {
     Options *options;
     char **paths;
     String *sources;
@@ -58,6 +65,7 @@ typedef struct {
     Ast *ast;
 
     Vec(Local) locals;
+    SemaErrorList diagnostics;
 
     TirContext tir;
     LocalTir *local_tirs;
@@ -112,6 +120,11 @@ static String get_id_source(Context const *c, AstRef ref) {
     return id_token_to_string(c->sources[ref.file], token);
 }
 
+static void diagnostic2(Context *c, SourceLoc s, Diagnostic d) {
+    vec_push(&c->diagnostics, (SemaError) {s, d});
+    c->error = 1;
+}
+
 static void diagnostic(Context *c, AstRef ref, ErrorKind kind) {
     SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
     String name = id_token_to_string(c->sources[ref.file], token);
@@ -122,8 +135,7 @@ static void diagnostic(Context *c, AstRef ref, ErrorKind kind) {
         .len = name.len,
         .mark = token,
     };
-    print_diagnostic(&loc, &(Diagnostic) {.kind = kind});
-    c->error = 1;
+    diagnostic2(c, loc, (Diagnostic) {.kind = kind});
 }
 
 static LocalId lookup_local(Context *c, String name) {
@@ -172,7 +184,7 @@ static void add_id(Context *c, AstRef ref, TirId term) {
         switch (prev_symbol.kind) {
             case SYM_BUILTIN: {
                 SourceLoc loc = get_ast_location(c, ref);
-                print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_BUILTIN_DEFINITION});
+                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PREVIOUS_BUILTIN_DEFINITION});
                 return;
             }
             case SYM_GLOBAL: {
@@ -189,7 +201,7 @@ static void add_id(Context *c, AstRef ref, TirId term) {
             }
         }
         SourceLoc loc = get_ast_location(c, prev_ref);
-        print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+        diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         return;
     }
 
@@ -244,7 +256,7 @@ static void error(Context *c, AstId child, Diagnostic const *diagnostic) {
         .len = 1,
         .mark = child_token,
     };
-    print_diagnostic(&loc, diagnostic);
+    diagnostic2(c, loc, *diagnostic);
     c->error = 1;
 }
 
@@ -261,7 +273,7 @@ static void type_error(Context *c, AstId child, TirId type, int32_t extra, Error
         .len = 1,
         .mark = child_token,
     };
-    print_diagnostic(&loc, &(Diagnostic) {.kind = kind, .type_error = {c->tir, type, extra}});
+    diagnostic2(c, loc, (Diagnostic) {.kind = kind, .type_error = {c->tir, type, extra}});
     c->error = 1;
 }
 
@@ -282,7 +294,7 @@ static void double_type_error(Context *c, AstId child, TirId type1, TirId type2,
         .len = 1,
         .mark = child_token,
     };
-    print_diagnostic(&loc, &(Diagnostic) {.kind = kind, .double_type_error = {c->tir, type1, type2}});
+    diagnostic2(c, loc, (Diagnostic) {.kind = kind, .double_type_error = {c->tir, type1, type2}});
     c->error = 1;
 }
 
@@ -344,7 +356,7 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
             SourceIndex token = get_ast_token(get_term_data(c->tir, result)->node, c->ast);
             String name = id_token_to_string(ctx_source(c), token);
             SourceLoc note = ctx_init_loc(c, token, name.len);
-            print_diagnostic(&note, &(Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
+            diagnostic2(c, note, (Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
         }
     }
 
@@ -723,11 +735,11 @@ static TirId analyze_enum(Context *c, AstId node) {
 
         if (prev >= 0) {
             SourceLoc loc = ctx_init_loc(c, member_token, member_name.len);
-            print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
+            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
             AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
             SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
             SourceLoc prev_loc = ctx_init_loc(c, prev_token, member_name.len);
-            print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+            diagnostic2(c, prev_loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
             add_error(c);
         }
 
@@ -774,11 +786,11 @@ static TirId analyze_struct(Context *c, AstId node) {
 
         if (prev >= 0) {
             SourceLoc loc = ctx_init_loc(c, field_token, field_name.len);
-            print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
+            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
             AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
             SourceIndex prev_token = get_ast_token(prev_ref, &c->asts[c->file]);
             SourceLoc prev_loc = ctx_init_loc(c, prev_token, field_name.len);
-            print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+            diagnostic2(c, prev_loc, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
             add_error(c);
         }
 
@@ -1014,7 +1026,7 @@ static TirId analyze_id(Context *c, AstId node) {
             int32_t *m = htable_lookup(c->module_table, name);
             if (m && !c->module_import_notes[*m]) {
                 SourceLoc loc = get_ast_location(c, (AstRef) {ref.node, ref.file});
-                print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_FORGOT_IMPORT});
+                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_FORGOT_IMPORT});
                 c->module_import_notes[*m] = true;
             }
 
@@ -1107,7 +1119,7 @@ static TirId analyze_char(Context *c, AstId node, TirId hint) {
         if (byte_i == 8) {
             SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 2);
             loc.mark = loc.where;
-            print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_CHAR});
+            diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_MULTIPLE_CHAR});
             c->error = 1;
             break;
         }
@@ -1119,7 +1131,7 @@ static TirId analyze_char(Context *c, AstId node, TirId hint) {
     if (str[i] != '\'') {
         SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
         loc.mark = loc.where;
-        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
+        diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
         c->error = 1;
     }
 
@@ -1144,7 +1156,7 @@ static TirId analyze_string(Context *c, AstId node) {
     if (str[i] != '"') {
         SourceLoc loc = ctx_init_loc(c, (SourceIndex) {token + i}, 1);
         loc.mark = loc.where;
-        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
+        diagnostic2(c, loc, (Diagnostic) {.kind = ERROR_UNTERMINATED_STRING});
         c->error = 1;
     }
 
@@ -1637,7 +1649,7 @@ static TirId analyze_access(Context *c, AstId node) {
             if (def_ptr) {
                 AstRef ast_ref = c->ast_refs[*def_ptr];
                 SourceLoc loc = get_ast_location(c, ast_ref);
-                print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_PRIVATE_DEFINITION});
+                diagnostic2(c, loc, (Diagnostic) {.kind = NOTE_PRIVATE_DEFINITION});
             }
 
             return null_tir;
@@ -2347,6 +2359,14 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
     int err = global_tc.error;
 
+    #ifdef _OPENMP
+    int n = omp_get_max_threads();
+    #else
+    int n = 1;
+    #endif
+
+    SemaErrorList *local_errors = arena_alloc(&scratch, SemaErrorList, n);
+
     #pragma omp parallel
     {
         Arena thread_base_scratch = new_arena(64 << 20);
@@ -2387,6 +2407,25 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         }
 
         delete_arena(&thread_base_scratch);
+
+        #ifdef _OPENMP
+        int tid = omp_get_thread_num();
+        #else
+        int tid = 0;
+        #endif
+
+        local_errors[tid] = local_tc.diagnostics;
+    }
+
+    for (int32_t i = 0; i < global_tc.diagnostics.len; i++) {
+        SemaError *e = &global_tc.diagnostics.ptr[i];
+        print_diagnostic(&e->loc, &e->diag);
+    }
+    for (int32_t i = 0; i < n; i++) {
+        for (int32_t j = 0; j < local_errors[i].len; j++) {
+            SemaError *e = &local_errors[i].ptr[j];
+            print_diagnostic(&e->loc, &e->diag);
+        }
     }
 
     return (TirOutput) {

@@ -3,21 +3,9 @@
 #include "lex.h"
 #include "data/tir.h"
 
-#include <omp.h>
-
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#ifdef _OPENMP
-static omp_lock_t print_lock;
-#endif
-
-void init_diagnostic_module(void) {
-#ifdef _OPENMP
-    omp_init_lock(&print_lock);
-#endif
-}
 
 static int find_line_num(String source, SourceIndex where) {
     int line_num = 1;
@@ -52,10 +40,6 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
     } else {
         color = "\033[96;1m";
     }
-
-#ifdef _OPENMP
-    omp_set_lock(&print_lock);
-#endif
 
     fprintf(stderr, "\033[0;1m%s:%d:%d: ", loc->path, line_num, (int) (loc->where.index - line_start.index + 1));
     fprintf(stderr, "\033[0m%s", color);
@@ -446,8 +430,4 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
     }
 
     fputs("\033[0m\n", stderr);
-
-#ifdef _OPENMP
-    omp_unset_lock(&print_lock);
-#endif
 }
