@@ -233,6 +233,54 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
 #include "internal.h"
 
+typedef struct {
+    int32_t file_count;
+    char **paths;
+    String *sources;
+    Ast *asts;
+    Arena scratch;
+} ParseStageInfo;
+
+static int parse_all(ParseStageInfo *info) {
+    ParseErrorList *parse_errors = arena_alloc(&info->scratch, ParseErrorList, info->file_count);
+
+    int err = 0;
+
+    #pragma omp parallel for reduction (||:err)
+    for (int32_t i = 0; i < info->file_count; i++) {
+        ParseInfo p = {
+            .path = info->paths[i],
+            .source = info->sources[i],
+            .ast = &info->asts[i],
+            .errors = &parse_errors[i],
+        };
+        if (!p.source.len || parse_ast(&p)) {
+            err = 1;
+        }
+    }
+
+    for (int32_t i = 0; i < info->file_count; i++) {
+        for (int32_t j = 0; j < parse_errors[i].len; i++) {
+            ParseError *e = &parse_errors[i].ptr[j];
+            Diagnostic d = {
+                .kind = e->kind,
+                .expected_token = e->token,
+            };
+            SourceLoc s = {
+                .path = info->paths[i],
+                .source = info->sources[i],
+                .where = e->start,
+                .len = e->end.index - e->start.index,
+                .mark = e->start,
+            };
+            print_diagnostic(&s, &d);
+        }
+        free(parse_errors[i].ptr);
+    }
+
+    return err;
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         print_help();
@@ -283,6 +331,8 @@ int main(int argc, char **argv) {
         abort();
     }
 
+    // Source File Paths
+
     int file_count = argc - o + 1;
     char **paths = arena_alloc(&permanent_arena, char *, file_count);
     paths[0] = "internal.jel";
@@ -290,6 +340,8 @@ int main(int argc, char **argv) {
     for (int i = 0; i < file_count - 1; i++) {
         paths[i + 1] = argv[o + i];
     }
+
+    // Source Files
 
     String *sources = arena_alloc(&permanent_arena, String, file_count);
     sources[0].len = internal_jel_len;
@@ -312,38 +364,17 @@ int main(int argc, char **argv) {
     }
 
     init_diagnostic_module();
+
+    // Parsing
+
     Ast *asts = arena_alloc(&permanent_arena, Ast, file_count);
-    ParseErrorList *parse_errors = arena_alloc(&permanent_arena, ParseErrorList, file_count);
-    int err = 0;
-    #pragma omp parallel for reduction (||:err)
-    for (int32_t i = 0; i < file_count; i++) {
-        ParseInfo info = {
-            .path = paths[i],
-            .source = sources[i],
-            .ast = &asts[i],
-            .errors = &parse_errors[i],
-        };
-        if (!info.source.len || parse_ast(&info)) {
-            err = 1;
-        }
-    }
-    for (int32_t i = 0; i < file_count; i++) {
-        for (int32_t j = 0; j < parse_errors[i].len; i++) {
-            ParseError *e = &parse_errors[i].ptr[j];
-            Diagnostic d = {
-                .kind = e->kind,
-                .expected_token = e->token,
-            };
-            SourceLoc s = {
-                .path = paths[i],
-                .source = sources[i],
-                .where = e->start,
-                .len = e->end.index - e->start.index,
-                .mark = e->start,
-            };
-            print_diagnostic(&s, &d);
-        }
-    }
+    int err = parse_all(&(ParseStageInfo) {
+        .file_count = file_count,
+        .paths = paths,
+        .sources = sources,
+        .asts = asts,
+        .scratch = scratch_arena,
+    });
     if (err) {
         return -1;
     }
