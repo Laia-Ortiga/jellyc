@@ -65,8 +65,8 @@ typedef struct {
 
     Arena *scratch;
 
-    Table(DefId, unsigned char) visited;
-    Table(DefId, TirId) tir_refs;
+    Table(GlobalId, unsigned char) visited;
+    Table(GlobalId, TirId) tir_refs;
 
     int error;
 
@@ -79,7 +79,7 @@ typedef struct {
 
     TirContext tir;
     LocalTir *local_tir;
-    DefId *functions;
+    GlobalId *functions;
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
@@ -212,7 +212,7 @@ static void pop_scope(Context *c) {
 }
 
 typedef struct {
-    DefId def;
+    GlobalId def;
     bool is_public;
 } ModuleSymbol;
 
@@ -364,7 +364,7 @@ static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
 
 static TirId analyze_term(Context *c, AstId node, TirId hint);
 
-static int analyze_def(Context *c, DefId def) {
+static int analyze_def(Context *c, GlobalId def) {
     VisitStatus prev_role = nth(c->visited, def);
     if (prev_role == VISITED) {
         return 0;
@@ -387,7 +387,7 @@ static int analyze_def(Context *c, DefId def) {
     return 0;
 }
 
-static TirId resolve_global(Context *c, AstRef ref, DefId global) {
+static TirId resolve_global(Context *c, AstRef ref, GlobalId global) {
     if (analyze_def(c, global)) {
         ref_diagnostic(c, ref, NOTE_RECURSION);
     }
@@ -416,7 +416,9 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
 
         if (!c->locals.ptr[var_index].notes_shown && tag == AST_LET) {
             c->locals.ptr[var_index].notes_shown = true;
-            error(c, var_node, (Diagnostic) {.kind = NOTE_REPLACE_LET_WITH_MUT});
+            error(c, var_node, (Diagnostic) {
+                .kind = NOTE_REPLACE_LET_WITH_MUT,
+            });
         }
     }
 
@@ -430,7 +432,9 @@ static TirId expect_type(Context *c, AstId node) {
     }
 
     if (result.id) {
-        error(c, node, (Diagnostic) {.kind = ERROR_EXPECTED_TYPE});
+        error(c, node, (Diagnostic) {
+            .kind = ERROR_EXPECTED_TYPE,
+        });
     }
 
     return null_tir;
@@ -1364,7 +1368,7 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
 }
 
 static TirId get_internal_term(Context *c, PrimitiveTerm p) {
-    return nth(c->tir_refs, (DefId) {p - TERM_COUNT});
+    return nth(c->tir_refs, (GlobalId) {p - TERM_COUNT});
 }
 
 static TirId analyze_alignof(Context *c, AstId node) {
@@ -2439,14 +2443,14 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .tir = {
             .global = &global_tir,
         },
-        .functions = arena_alloc(permanent, DefId, input->function_body_count),
+        .functions = arena_alloc(permanent, GlobalId, input->function_body_count),
         .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
         .module_import_notes = {arena_alloc(&scratch, bool, input->module_table->count)},
     };
     LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
 
     for (int32_t i = 0; i < input->def_count; i++) {
-        analyze_def(&global_tc, (DefId) {i});
+        analyze_def(&global_tc, (GlobalId) {i});
     }
 
     int err = global_tc.error;
@@ -2483,7 +2487,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_body_count; i++) {
-            DefId def = global_tc.functions[i];
+            GlobalId def = global_tc.functions[i];
             TirId value = nth(global_tc.tir_refs, def);
             AstRef ref = nth(input->ast_refs, def);
 

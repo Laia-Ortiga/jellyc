@@ -1,7 +1,6 @@
 #pragma once
 
 #include "arena.h"
-#include "ast.h"
 #include "fwd.h"
 #include "tir.h"
 
@@ -24,7 +23,7 @@ typedef struct {
 typedef struct {
     Tir global_deps;
     LocalTir *insts;
-    DefId *functions;
+    GlobalId *functions;
     int error;
 } TirOutput;
 

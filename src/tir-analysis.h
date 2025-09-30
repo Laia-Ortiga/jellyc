@@ -10,7 +10,7 @@ typedef struct {
     Sources sources;
     Asts asts;
     AstRefs ast_refs;
-    DefId *functions;
+    GlobalId *functions;
     Tir *global_deps;
     LocalTir *insts;
     int32_t function_count;

@@ -28,11 +28,19 @@ typedef struct {
     int32_t private_field_id;
 } FileId;
 
-static FileId const internal_file_id = {0};
-
 typedef struct {
     int32_t private_field_id;
 } ModuleId;
+
+typedef struct {
+    int32_t private_field_id;
+} GlobalId;
+
+typedef struct {
+    int32_t private_field_id;
+} LocalId;
+
+static FileId const internal_file_id = {0};
 
 typedef struct {
     ModuleId module;
@@ -42,14 +50,6 @@ typedef struct {
 typedef struct {
     HashTable scope;
 } Module;
-
-typedef struct {
-    int32_t private_field_id;
-} DefId;
-
-typedef struct {
-    int32_t private_field_id;
-} LocalId;
 
 typedef enum {
     SYM_UNDEFINED,
@@ -89,7 +89,7 @@ typedef struct {
     SymbolKind kind;
     union {
         PrimitiveTerm builtin;
-        DefId global;
+        GlobalId global;
         LocalId local;
     };
 } Symbol;
@@ -105,6 +105,6 @@ typedef Table(FileId, Ast) Asts;
 typedef Table(FileId, File) Files;
 typedef Table(ModuleId, Module) Modules;
 
-typedef VecTable(DefId, AstRef) AstRefVec;
+typedef VecTable(GlobalId, AstRef) AstRefVec;
 typedef typeof((AstRefVec) {0}.table) AstRefs;
-typedef Vec(DefId) DefVec;
+typedef Vec(GlobalId) DefVec;

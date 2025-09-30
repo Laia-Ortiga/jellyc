@@ -189,7 +189,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     int32_t *prev_extern_sym = is_extern ? htable_lookup(b->extern_symbols, name) : NULL;
     if (prev_extern_sym) {
-        DefId prev_extern_def = {*prev_extern_sym};
+        GlobalId prev_extern_def = {*prev_extern_sym};
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_EXTERN_DEFINITION});
         AstRef prev_ref = nth(b->ast_refs->table, prev_extern_def);
         SourceLoc prev_loc = get_ast_location(b, prev_ref);
