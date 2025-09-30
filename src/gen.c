@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-typedef enum : char {
+typedef enum {
     OPERAND_INT,
     OPERAND_TIR,
     OPERAND_TMP,

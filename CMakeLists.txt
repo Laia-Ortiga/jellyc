@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 11)
 
 project(jellyc)
 
