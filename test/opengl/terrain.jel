@@ -1,6 +1,7 @@
 module main
 
 import gl
+import std
 
 struct Terrain {
     height_map_texture i32,
@@ -39,7 +40,7 @@ function create_height_map_texture(seed i32) -> i32 {
     let central_island_min = <f32> 46.0  # ceil(64 * sqrt(0.5))
     let central_island_max = central_island_min + 128.0
     let program = compile_shader_program(&[
-        compile_shader(gl.COMPUTE_SHADER, &"shaders/terrain/height_gen.comp"[0]),
+        compile_shader(gl.COMPUTE_SHADER, &"shaders/terrain/height_gen.comp"),
     ])
     gl.glUseProgram(program)
     gl.glUniform1ui(gl.glGetUniformLocation(program, &"seed"[0]), seed)
@@ -52,7 +53,7 @@ function create_height_map_texture(seed i32) -> i32 {
 }
 
 function create_ebo() -> i32 {
-    mut indices = alloc(<isize> `cast[index_count()], `size_of[i16])
+    mut indices = std.alloc(<isize> `cast[index_count()], `size_of[i16])
     mut i = <isize> 0
     for z = <i16> 0; z < small_grid_size(); z + 1 {
         for x = <i16> 0; x < small_grid_size(); x + 1 {
@@ -67,7 +68,7 @@ function create_ebo() -> i32 {
     gl.glGenBuffers(1, &buffer)
     gl.glBindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
     gl.glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * <isize> `cast[index_count()], indices.data, 0)
-    free(indices)
+    std.free(indices)
     buffer
 }
 
@@ -75,10 +76,10 @@ public function init_terrain(seed i32) -> Terrain {
     let height_map_texture = create_height_map_texture(seed)
 
     let shader = compile_shader_program(&[
-        compile_shader(gl.VERTEX_SHADER, &"shaders/terrain/terrain.vert"[0]),
-        compile_shader(gl.TESS_CONTROL_SHADER, &"shaders/terrain/terrain.tesc"[0]),
-        compile_shader(gl.TESS_EVALUATION_SHADER, &"shaders/terrain/terrain.tese"[0]),
-        compile_shader(gl.FRAGMENT_SHADER, &"shaders/terrain/terrain.frag"[0]),
+        compile_shader(gl.VERTEX_SHADER, &"shaders/terrain/terrain.vert"),
+        compile_shader(gl.TESS_CONTROL_SHADER, &"shaders/terrain/terrain.tesc"),
+        compile_shader(gl.TESS_EVALUATION_SHADER, &"shaders/terrain/terrain.tese"),
+        compile_shader(gl.FRAGMENT_SHADER, &"shaders/terrain/terrain.frag"),
     ])
     gl.glUseProgram(shader)
     gl.glUniform1f(gl.glGetUniformLocation(shader, &"tile_size"[0]), 1.0 / <f32> `cast[terrain_grid_size])
@@ -90,7 +91,7 @@ public function init_terrain(seed i32) -> Terrain {
 	gl.glPatchParameteri(gl.PATCH_VERTICES, 4)
 
     gl.glBindTexture(gl.TEXTURE_2D, height_map_texture)
-    let height_map = alloc(<isize> `cast[{terrain_grid_size + 1} * {terrain_grid_size + 1}], `size_of[f32])
+    let height_map = std.alloc(<isize> `cast[{terrain_grid_size + 1} * {terrain_grid_size + 1}], `size_of[f32])
     gl.glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
     (
         height_map_texture = height_map_texture,

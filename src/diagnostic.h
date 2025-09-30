@@ -19,7 +19,7 @@ typedef struct {
 } SourceLoc;
 
 #define VARIANT(name, ...) typedef struct { __VA_ARGS__ } Diagnostic##name;
-#define X(...) __VA_ARGS__;
+#define X(name, type) type name;
 #define EXTRA(...)
 #include "diagnostic-defs"
 
@@ -27,7 +27,7 @@ typedef struct {
     ErrorKind kind;
     union {
 #define VARIANT(name, ...) Diagnostic##name Diagnostic##name;
-#define X(...) __VA_ARGS__;
+#define X(name, type) type name;
 #define EXTRA(...)
 #include "diagnostic-defs"
     };

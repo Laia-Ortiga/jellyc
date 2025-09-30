@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct Scope {
     struct Scope *parent;
@@ -75,7 +76,7 @@ typedef struct {
     Table(GlobalId, TirId) tir_refs;
     Globals globals;
 
-    int node_diagnostic;
+    int error;
 
     FileId file;
     Ast *ast;
@@ -117,11 +118,30 @@ static String ctx_source(Context const *c) {
 // Diagnostics
 
 static void diagnostic(Context *c, SemaError e) {
-    vec_push(&c->diagnostics, e);
-
     if (e.diag.kind < ERROR_END) {
-        c->node_diagnostic = 1;
+        c->error = 1;
     }
+
+    switch (e.diag.kind) {
+        #define VARIANT(name, ...) case DIAGNOSTIC_##name: { \
+            Diagnostic##name v = e.diag.Diagnostic##name; \
+            __VA_ARGS__ \
+            break; \
+        }
+        #define X(name, type) \
+            if (_Generic(v.name, \
+                TirId: !*(int32_t *) &v.name, \
+                default: false \
+            )) { \
+                return; \
+            }
+        #define EXTRA(...)
+        #include "diagnostic-defs"
+
+        default: abort();
+    }
+
+    vec_push(&c->diagnostics, e);
 }
 
 static void name_diagnostic(Context *c, AstRef ref, Diagnostic d) {
@@ -299,7 +319,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
         .node = ref.node,
         .tir_ref = term,
         .notes_shown = false,
-        .used = name.ptr[0] == '_',
+        .used = name.ptr[0] == '_' || !term.id,
     };
     vec_push(&c->locals, local_ref);
     htable_try_insert(&c->scope->table, name, sym);
@@ -337,6 +357,7 @@ static int analyze_def(Context *c, GlobalId def) {
     new_c.current_function_type = null_tir;
     new_c.tir.thread = NULL;
     analyze_term(&new_c, ref.ref.node, null_tir);
+    c->diagnostics = new_c.diagnostics;
     nth(c->visited, def) = VISITED;
     if (ref.is_public) {
         nth(c->globals, def).used = true;
@@ -763,7 +784,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     c->local_tir->body_length = tir_block.length;
 
     for (int32_t i = 0; i < c->locals.len; i++) {
-        if (!c->locals.ptr[i].used) {
+        if (!c->locals.ptr[i].used && c->locals.ptr[i].tir_ref.id) {
             name_diagnostic(
                 c,
                 (AstRef) {c->locals.ptr[i].node, c->file},
@@ -1108,9 +1129,6 @@ static TirId analyze_id(Context *c, AstId node) {
         }
         case SYM_LOCAL: {
             Local info = nth(c->locals.table, symbol.local);
-            if (!info.tir_ref.id) {
-                return null_tir;
-            }
             nth(c->locals.table, symbol.local).used = true;
             return info.tir_ref;
         }
@@ -2124,7 +2142,14 @@ static TirId analyze_call(Context *c, AstId node) {
         return analyze_function_call(c, node, &g);
     }
 
-    name_diagnostic(c, (AstRef) {node, c->file}, Diagnostic(ErrorCallOperandRole, {0}));
+    name_diagnostic(
+        c,
+        (AstRef) {node, c->file},
+        Diagnostic(ErrorCallOperandRole, {
+            .ctx = c->tir,
+            .provided = operand_value,
+        })
+    );
     return null_tir;
 }
 
@@ -2650,7 +2675,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         analyze_def(&global_tc, (GlobalId) {i});
     }
 
-    int err = global_tc.node_diagnostic;
+    int err = global_tc.error;
 
     SemaErrorList *local_errors = arena_alloc(&scratch, SemaErrorList, n);
 
@@ -2704,7 +2729,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
             analyze_function(&local_tc, ref.node, value);
 
-            if (local_tc.node_diagnostic) {
+            if (local_tc.error) {
                 err = 1;
             }
         }
@@ -2722,7 +2747,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     }
     for (int32_t j = TERM_GLOBAL_COUNT; j < input->def_count; j++) {
         GlobalId g = {j};
-        if (!nth(global_lists[0], g).used) {
+        if (!nth(global_lists[0], g).used && nth(global_tc.tir_refs, g).id) {
             name_diagnostic(
                 &global_tc,
                 nth(global_tc.ast_refs, g).ref,

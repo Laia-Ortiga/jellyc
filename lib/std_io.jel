@@ -1,0 +1,57 @@
+module std
+
+import libc
+
+# Print
+
+public function print_byte(c i8) {
+    libc.putchar(`zero_extend[c])
+}
+
+public function print_str(s @i8) {
+    for i = <isize> 0; i < s.length; i + 1 {
+        print_byte(s[i])
+    }
+}
+
+function print_int_rec(x i64) {
+    if x / 10 != 0 {
+        print_int_rec(x / 10)
+    }
+    print_byte(<i8> `cast[x % 10] + '0')
+}
+
+public function print_int(x i64) {
+    if x < 0 {
+        print_byte('-')
+        if x / -10 != 0 {
+            print_int_rec(x / -10)
+        }
+        print_byte(<i8> `cast[-{x % 10}] + '0')
+    } else {
+        print_int_rec(x)
+    }
+}
+
+# File
+
+public function read_file(file_name @i8) -> @mut i8 {
+    mut c_str = alloc(file_name.length + 1, `size_of[i8])
+    for i = <isize> 0; i < file_name.length; i + 1 {
+        c_str[i] = file_name[i]
+    }
+    c_str[file_name.length] = 0
+    let file = libc.fopen(&c_str[0], &"r"[0])
+    free(c_str)
+    if file == null {
+        return `slice[0, null]
+    }
+    libc.fseek(file, 0, 2)
+    let length = libc.ftell(file)
+    libc.fseek(file, 0, 0)
+    mut buffer = alloc(<isize> {length + 1}, `size_of[i8])
+    let n = libc.fread(&buffer[0], 1, length, file)
+    libc.fclose(file)
+    buffer[n] = 0
+    buffer
+}

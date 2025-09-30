@@ -30,7 +30,7 @@
             "args": [
                 "test/fibonacci.jel",
                 "lib/std_heap.jel",
-                "lib/std_print.jel",
+                "lib/std_io.jel",
                 "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
@@ -44,7 +44,7 @@
             "args": [
                 "test/array.jel",
                 "lib/std_heap.jel",
-                "lib/std_print.jel",
+                "lib/std_io.jel",
                 "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
@@ -58,7 +58,7 @@
             "args": [
                 "test/basic_lexer.jel",
                 "lib/std_heap.jel",
-                "lib/std_print.jel",
+                "lib/std_io.jel",
                 "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
@@ -122,6 +122,8 @@
                 "test/opengl/terrain.jel",
                 "test/opengl/util.jel",
                 "lib/libc.jel",
+                "lib/std_heap.jel",
+                "lib/std_io.jel",
             ],
             "cwd": "${workspaceFolder}"
         }

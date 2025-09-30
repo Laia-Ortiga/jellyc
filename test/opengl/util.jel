@@ -2,33 +2,7 @@ module main
 
 import gl
 import libc
-
-function alloc[T](count isize, size `Size[T]) -> @mut T {
-    let p = <*mut T> `cast[libc.malloc(count * size)]
-    if p == null {
-        libc.exit(-1)
-    }
-    `slice[count, p]
-}
-
-function free[T](slice @mut T) {
-    libc.free(<*mut byte> slice.data)
-}
-
-function read_file(file_name *i8) -> @mut i8 {
-    let file = libc.fopen(file_name, &"r"[0])
-    if file == null {
-        return `slice[0, null]
-    }
-    libc.fseek(file, 0, 2)
-    let length = libc.ftell(file)
-    libc.fseek(file, 0, 0)
-    mut buffer = alloc(<isize> {length + 1}, `size_of[i8])
-    let n = libc.fread(&buffer[0], 1, length, file)
-    libc.fclose(file)
-    buffer[n] = 0
-    buffer
-}
+import std
 
 function assert_program_status(program i32, pname i32) {
     mut status = <i32> 0
@@ -37,7 +11,7 @@ function assert_program_status(program i32, pname i32) {
     if status == gl.FALSE {
         mut log_length = <i32> 0
         gl.glGetProgramiv(program, gl.INFO_LOG_LENGTH, &log_length)
-        mut log = alloc(<isize> `cast[log_length], `size_of[i8])
+        mut log = std.alloc(<isize> `cast[log_length], `size_of[i8])
         gl.glGetProgramInfoLog(program, log_length, null, &log[0])
         libc.puts(&"Couldn't link shader program"[0])
         libc.puts(&log[0])
@@ -45,17 +19,17 @@ function assert_program_status(program i32, pname i32) {
     }
 }
 
-function compile_shader(type i32, file_name *i8) -> i32 {
-    let code = read_file(file_name)
+function compile_shader(type i32, file_name @i8) -> i32 {
+    let code = std.read_file(file_name)
 
     if code.length == 0 {
-        libc.puts(&"Couldn't load shader"[0])
+        std.print_str(&"Couldn't load shader")
         libc.exit(-1)
     }
 
     let shader = gl.glCreateShader(type)
     gl.glShaderSource(shader, 1, <**i8> `cast[&code.data], null)
-    free(code)
+    std.free(code)
     gl.glCompileShader(shader)
 
     mut compile_status = <i32> 0
@@ -64,9 +38,9 @@ function compile_shader(type i32, file_name *i8) -> i32 {
     if compile_status == gl.FALSE {
         mut log_length = <i32> 0
         gl.glGetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_length)
-        mut log = alloc(<isize> `cast[log_length], `size_of[i8])
+        mut log = std.alloc(<isize> `cast[log_length], `size_of[i8])
         gl.glGetShaderInfoLog(shader, log_length, null, &log[0])
-        libc.puts(&"Error in shader"[0])
+        std.print_str(&"Error in shader")
         libc.puts(&log[0])
         libc.exit(-1)
     }

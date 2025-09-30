@@ -19,6 +19,33 @@ static int find_line_num(String source, SourceIndex where) {
     return line_num;
 }
 
+static void print_term(TirContext c, TirId term) {
+    TirTag tag = get_term_tag(c, term);
+
+    if (is_tir_type(tag)) {
+        print_type(stderr, c, term);
+        return;
+    }
+
+    if (is_tir_value(tag)) {
+        fprintf(stderr, "value of type ");
+        print_type(stderr, c, get_value_type(c, term));
+        return;
+    }
+
+    if (tag == TIR_MODULE) {
+        fprintf(stderr, "module");
+        return;
+    }
+
+    if (tag == TIR_GENERIC) {
+        fprintf(stderr, "generic");
+        return;
+    }
+
+    fprintf(stderr, "{error}");
+}
+
 void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
     SourceIndex line_start = loc->where;
 
@@ -159,13 +186,13 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         })
         CASE(ErrorAccessOperandRole, d, {
-            (void) d;
-            fprintf(stderr, "expected value, type or module");
+            fprintf(stderr, "expected value, type or module, but found ");
+            print_term(d.ctx, d.provided);
             break;
         })
         CASE(ErrorCallOperandRole, d, {
-            (void) d;
-            fprintf(stderr, "expected value or type");
+            fprintf(stderr, "expected value or type, but found ");
+            print_term(d.ctx, d.provided);
             break;
         })
         CASE(ErrorIndexOperandRole, d, {
