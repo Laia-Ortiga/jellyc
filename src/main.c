@@ -4,6 +4,7 @@
 #include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
+#include "ids.h"
 #include "gen.h"
 #include "hash.h"
 #include "lex.h"
@@ -97,8 +98,8 @@ static String read_file(char const *path) {
 }
 
 typedef struct {
-    char **paths;
-    String *sources;
+    Paths paths;
+    Sources sources;
     Ast *asts;
     File *files;
     Module *modules;
@@ -109,11 +110,11 @@ typedef struct {
 } GlobalScopeBuilder;
 
 static SourceLoc get_ast_location(GlobalScopeBuilder *b, AstRef def) {
-    SourceIndex token = get_ast_token(def.node, &b->asts[def.file]);
-    String name = id_token_to_string(b->sources[def.file], token);
+    SourceIndex token = get_ast_token(def.node, &nth(b->asts, def.file));
+    String name = id_token_to_string(nth(b->sources, def.file), token);
     return (SourceLoc) {
-        .path = b->paths[def.file],
-        .source = b->sources[def.file],
+        .path = nth(b->paths, def.file),
+        .source = nth(b->sources, def.file),
         .where = token,
         .len = name.len,
         .mark = token,
@@ -124,20 +125,20 @@ static String get_string_from_location(SourceLoc const *loc) {
     return substring(loc->source, loc->where.index, loc->where.index + loc->len);
 }
 
-static Symbol lookup(GlobalScopeBuilder *b, int32_t file, String name) {
-    int32_t *file_def = htable_lookup(&b->files[file].scope, name);
+static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
+    int32_t *file_def = htable_lookup(&nth(b->files, file).scope, name);
     if (file_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
     }
 
-    int32_t module = b->files[file].module;
+    ModuleId module = nth(b->files, file).module;
 
-    int32_t *private_def = htable_lookup(&b->modules[module].private_scope, name);
+    int32_t *private_def = htable_lookup(&nth(b->modules, module).private_scope, name);
     if (private_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
     }
 
-    int32_t *public_def = htable_lookup(&b->modules[module].public_scope, name);
+    int32_t *public_def = htable_lookup(&nth(b->modules, module).public_scope, name);
     if (public_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
     }
@@ -154,18 +155,18 @@ static Symbol lookup(GlobalScopeBuilder *b, int32_t file, String name) {
 }
 
 static int add_global(GlobalScopeBuilder *b, AstRef def) {
-    int32_t module = b->files[def.file].module;
-    Ast *ast = &b->asts[def.file];
-    HashTable *scope = &b->modules[module].private_scope;
+    ModuleId module = nth(b->files, def.file).module;
+    Ast *ast = &nth(b->asts, def.file);
+    HashTable *scope = &nth(b->modules, module).private_scope;
     if (get_ast_tag(def.node, ast) == AST_PUBLIC) {
-        scope = &b->modules[module].public_scope;
+        scope = &nth(b->modules, module).public_scope;
         def.node = get_ast_unary(def.node, ast);
     }
 
     bool is_extern = false;
     switch (get_ast_tag(def.node, ast)) {
         case AST_IMPORT: {
-            scope = &b->files[def.file].scope;
+            scope = &nth(b->files, def.file).scope;
             break;
         }
         case AST_FUNCTION: {
@@ -231,8 +232,8 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
 typedef struct {
     int32_t file_count;
-    char **paths;
-    String *sources;
+    Paths paths;
+    Sources sources;
     Ast *asts;
     Arena scratch;
 } ParseStageInfo;
@@ -244,9 +245,10 @@ static int parse_all(ParseStageInfo *info) {
 
     #pragma omp parallel for reduction (||:err)
     for (int32_t i = 0; i < info->file_count; i++) {
+        FileId file = {i};
         ParseInfo p = {
-            .path = info->paths[i],
-            .source = info->sources[i],
+            .path = nth(info->paths, file),
+            .source = nth(info->sources, file),
             .ast = &info->asts[i],
             .errors = &parse_errors[i],
         };
@@ -256,6 +258,7 @@ static int parse_all(ParseStageInfo *info) {
     }
 
     for (int32_t i = 0; i < info->file_count; i++) {
+        FileId file = {i};
         for (int32_t j = 0; j < parse_errors[i].len; i++) {
             ParseError *e = &parse_errors[i].ptr[j];
             Diagnostic d = {
@@ -263,8 +266,8 @@ static int parse_all(ParseStageInfo *info) {
                 .expected_token = e->token,
             };
             SourceLoc s = {
-                .path = info->paths[i],
-                .source = info->sources[i],
+                .path = nth(info->paths, file),
+                .source = nth(info->sources, file),
                 .where = e->start,
                 .len = e->end.index - e->start.index,
                 .mark = e->start,
@@ -325,32 +328,37 @@ int main(int argc, char **argv) {
 
     // Source File Paths
 
-    int file_count = argc - o + 1;
-    char **paths = arena_alloc(&permanent_arena, char *, file_count);
-    paths[0] = "internal.jel";
+    int32_t file_count = argc - o + 1;
+    Paths paths = {arena_alloc(&permanent_arena, char *, file_count)};
+    nth(paths, internal_file_id) = "internal.jel";
 
-    for (int i = 0; i < file_count - 1; i++) {
-        paths[i + 1] = argv[o + i];
+    for (int32_t i = 1; i < file_count; i++) {
+        nth(paths, (FileId) {i}) = argv[o + i - 1];
     }
 
     // Source Files
 
-    String *sources = arena_alloc(&permanent_arena, String, file_count);
-    sources[0].len = internal_jel_len;
-    sources[0].ptr = (char *) internal_jel;
+    Sources sources = {arena_alloc(&permanent_arena, String, file_count)};
+    nth(sources, internal_file_id) = (String) {
+        internal_jel_len,
+        (char *) internal_jel,
+    };
 
-    for (int i = 1; i < file_count; i++) {
-        String source = read_file(paths[i]);
-        sources[i] = source;
+    for (int32_t i = 1; i < file_count; i++) {
+        FileId file = {i};
+        String source = read_file(nth(paths, file));
+        nth(sources, file) = source;
         if (!source.len) {
-            fprintf(stderr, "failed to read file \"%s\"\n", paths[i]);
+            fprintf(stderr, "failed to read file \"%s\"\n", nth(paths, file));
         }
     }
 
     if (options.print_debug) {
-        for (int i = 0; i < file_count; i++) {
-            if (sources[i].len) {
-                print_tokens(paths[i], sources[i]);
+        for (int32_t i = 0; i < file_count; i++) {
+            FileId file = {i};
+            String source = nth(sources, file);
+            if (source.len) {
+                print_tokens(nth(paths, file), source);
             }
         }
     }
@@ -376,7 +384,8 @@ int main(int argc, char **argv) {
 
     if (options.print_debug) {
         for (int32_t i = 0; i < file_count; i++) {
-            print_ast(paths[i], sources[i], &asts[i]);
+            FileId file = {i};
+            print_ast(nth(paths, file), nth(sources, file), &asts[i]);
         }
     }
 
@@ -385,14 +394,15 @@ int main(int argc, char **argv) {
     File *files = arena_alloc(&permanent_arena, File, file_count);
     HashTable module_table = htable_init();
     for (int32_t i = 0; i < file_count; i++) {
+        FileId file = {i};
         SourceIndex module_token = get_ast_token(null_ast, &asts[i]);
-        String module_name = id_token_to_string(sources[i], module_token);
+        String module_name = id_token_to_string(nth(sources, file), module_token);
         int32_t new_module = module_table.count;
         int64_t module = htable_try_insert(&module_table, module_name, new_module);
         if (module < 0) {
             module = new_module;
         }
-        files[i].module = module;
+        files[i].module = (ModuleId) {module};
         files[i].scope = htable_init();
     }
 
@@ -430,9 +440,10 @@ int main(int argc, char **argv) {
         b.ast_refs = &ast_refs;
         b.function_body_count = &function_body_count;
         for (int32_t i = 0; i < file_count; i++) {
+            FileId file = {i};
             AstList list = get_ast_list(null_ast, &asts[i]);
             for (int32_t j = 0; j < list.count; j++) {
-                add_global(&b, (AstRef) {list.nodes[j], i});
+                add_global(&b, (AstRef) {list.nodes[j], file});
             }
         }
         htable_free(&extern_symbols);

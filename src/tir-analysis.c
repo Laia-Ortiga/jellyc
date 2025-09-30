@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "diagnostic.h"
 #include "fwd.h"
+#include "ids.h"
 #include "lex.h"
 #include "tir.h"
 
@@ -25,12 +26,12 @@ typedef enum {
 } VariableState;
 
 typedef struct {
-    char **paths;
-    String *sources;
+    Paths paths;
+    Sources sources;
     Ast *asts;
     AstRef *ast_refs;
 
-    int32_t file;
+    FileId file;
     TirContext tir;
 
     VariableState *var_states;
@@ -43,10 +44,10 @@ typedef struct {
 } LinearChecker;
 
 static void error(LinearChecker *c, AstId node, ErrorKind kind) {
-    SourceIndex token = get_ast_token(node, &c->asts[c->file]);
+    SourceIndex token = get_ast_token(node, &nth(c->asts, c->file));
     SourceLoc loc = {0};
-    loc.path = c->paths[c->file];
-    loc.source = c->sources[c->file];
+    loc.path = nth(c->paths, c->file);
+    loc.source = nth(c->sources, c->file);
     loc.where = token;
     loc.len = 1;
     loc.mark = token;

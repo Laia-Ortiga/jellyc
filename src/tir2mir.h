@@ -7,8 +7,8 @@
 #include "fwd.h"
 
 typedef struct {
-    char **paths;
-    String *sources;
+    Paths paths;
+    Sources sources;
     Ast *asts;
     AstRef *ast_refs;
     TirId *functions;

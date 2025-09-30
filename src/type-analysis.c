@@ -3,6 +3,7 @@
 #include "adt.h"
 #include "arena.h"
 #include "ast.h"
+#include "ids.h"
 #include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
@@ -38,7 +39,7 @@ typedef struct {
 } Local;
 
 typedef struct {
-    int32_t file;
+    FileId file;
     SourceIndex where;
     int32_t len;
     SourceIndex mark;
@@ -50,7 +51,7 @@ typedef Vec(Local) LocalList;
 
 typedef struct {
     Options *options;
-    String *sources;
+    Sources sources;
     Ast *asts;
     File *files;
     HashTable *module_table;
@@ -68,7 +69,7 @@ typedef struct {
 
     int error;
 
-    int32_t file;
+    FileId file;
     Ast *ast;
 
     LocalList locals;
@@ -83,12 +84,12 @@ typedef struct {
 } Context;
 
 static String get_id_source(Context const *c, AstRef ref) {
-    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
-    return id_token_to_string(c->sources[ref.file], token);
+    SourceIndex token = get_ast_token(ref.node, &nth(c->asts, ref.file));
+    return id_token_to_string(nth(c->sources, ref.file), token);
 }
 
 static String ctx_source(Context const *c) {
-    return c->sources[c->file];
+    return nth(c->sources, c->file);
 }
 
 // Diagnostics
@@ -102,8 +103,8 @@ static void diagnostic(Context *c, SemaError e) {
 }
 
 static void ref_diagnostic(Context *c, AstRef ref, ErrorKind kind) {
-    SourceIndex token = get_ast_token(ref.node, &c->asts[ref.file]);
-    String name = id_token_to_string(c->sources[ref.file], token);
+    SourceIndex token = get_ast_token(ref.node, &nth(c->asts, ref.file));
+    String name = id_token_to_string(nth(c->sources, ref.file), token);
     diagnostic(c, (SemaError) {
         .file = ref.file,
         .where = token,
@@ -196,20 +197,20 @@ static void pop_scope(Context *c) {
     c->scope = c->scope->parent;
 }
 
-static Symbol lookup(Context *c, int32_t file, String name) {
-    int32_t *file_def = htable_lookup(&c->files[file].scope, name);
+static Symbol lookup(Context *c, FileId file, String name) {
+    int32_t *file_def = htable_lookup(&nth(c->files, file).scope, name);
     if (file_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
     }
 
-    int32_t module = c->files[file].module;
+    ModuleId module = nth(c->files, file).module;
 
-    int32_t *private_def = htable_lookup(&c->modules[module].private_scope, name);
+    int32_t *private_def = htable_lookup(&nth(c->modules, module).private_scope, name);
     if (private_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
     }
 
-    int32_t *public_def = htable_lookup(&c->modules[module].public_scope, name);
+    int32_t *public_def = htable_lookup(&nth(c->modules, module).public_scope, name);
     if (public_def) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
     }
@@ -235,7 +236,7 @@ static LocalId lookup_local(Context *c, String name) {
     return (LocalId) {0};
 }
 
-static Symbol find_symbol(Context *c, int32_t file, String name) {
+static Symbol find_symbol(Context *c, FileId file, String name) {
     LocalId local = lookup_local(c, name);
     if (local.id) {
         return (Symbol) {.kind = SYM_LOCAL, .local = local};
@@ -251,7 +252,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
         && c->visited[prev_symbol.global.id] == VISITING) {
         c->tir_refs[prev_symbol.global.id] = term;
 
-        if (get_ast_tag(ref.node, &c->asts[ref.file]) == AST_FUNCTION) {
+        if (get_ast_tag(ref.node, &nth(c->asts, ref.file)) == AST_FUNCTION) {
             int32_t f_index = c->tir.global->functions.len;
             c->functions[f_index] = prev_symbol.global;
             c->function_locals[f_index] = c->locals;
@@ -330,7 +331,7 @@ static int analyze_def(Context *c, DefId def) {
     c->visited[def.id] = VISITING;
     Context new_c = *c;
     new_c.file = ref.file;
-    new_c.ast = &c->asts[ref.file];
+    new_c.ast = &nth(c->asts, ref.file);
     new_c.scope = NULL;
     new_c.loop_depth = 0;
     new_c.current_function_type = null_tir;
@@ -620,7 +621,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     String name = id_token_to_string(ctx_source(c), token);
 
     char name_buffer[64];
-    int length = snprintf(name_buffer, sizeof(name_buffer), "file%d_", c->file);
+    int length = snprintf(name_buffer, sizeof(name_buffer), "file%d_", c->file.private_field_id);
     int32_t name_index = tir_push_str(c->tir, (String) {length, name_buffer});
     tir_push_cstr(c->tir, name);
 
@@ -2373,8 +2374,8 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
 
 static void print_sema_error(TirInput *input, SemaError *e) {
     SourceLoc loc = {
-        .path = input->paths[e->file],
-        .source = input->sources[e->file],
+        .path = nth(input->paths, e->file),
+        .source = nth(input->sources, e->file),
         .where = e->where,
         .len = e->len,
         .mark = e->mark,
@@ -2449,7 +2450,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             AstRef ref = input->ast_refs[def.id];
 
             local_tc.file = ref.file;
-            local_tc.ast = &input->asts[ref.file];
+            local_tc.ast = &nth(input->asts, ref.file);
             local_tc.tir.thread = &tirs[i].deps;
             local_tc.local_tir = &tirs[i];
             local_tc.locals = global_tc.function_locals[i];

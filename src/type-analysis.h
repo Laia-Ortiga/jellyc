@@ -8,8 +8,8 @@
 typedef struct {
     Options *options;
     int file_count;
-    char **paths;
-    String *sources;
+    Paths paths;
+    Sources sources;
     Ast *asts;
     File *files;
     HashTable *module_table;

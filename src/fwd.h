@@ -23,7 +23,17 @@ typedef struct {
 } Options;
 
 typedef struct {
-    int32_t module;
+    int32_t private_field_id;
+} FileId;
+
+static FileId const internal_file_id = {0};
+
+typedef struct {
+    int32_t private_field_id;
+} ModuleId;
+
+typedef struct {
+    ModuleId module;
     HashTable scope;
 } File;
 
@@ -31,6 +41,14 @@ typedef struct {
     HashTable public_scope;
     HashTable private_scope;
 } Module;
+
+typedef struct {
+    char **private_field_id;
+} Paths;
+
+typedef struct {
+    String *private_field_id;
+} Sources;
 
 typedef struct {
     int32_t id;
@@ -85,7 +103,7 @@ typedef struct {
 
 typedef struct {
     AstId node;
-    int32_t file;
+    FileId file;
 } AstRef;
 
 typedef Vec(AstRef) AstRefVec;
