@@ -34,11 +34,11 @@
 				},
 				{
 					"name": "keyword.operator.jelly",
-					"match": "\\b(and|as|or)\\b"
+					"match": "\\b(and|or)\\b"
 				},
 				{
 					"name": "keyword.operator.jelly",
-					"match": "(`align_of|`size_of|`slice|`zero_extend)\\b"
+					"match": "(`align_of|`size_of|`cast|`slice|`zero_extend)\\b"
 				},
 				{
 					"name": "constant.language.jelly",
@@ -101,11 +101,11 @@
 				},
 				{
 					"name": "entity.name.type.primitive.jelly",
-					"match": "\\b(bool|char|byte)\\b"
+					"match": "\\b(bool|byte)\\b"
 				},
 				{
 					"name": "entity.name.type.primitive.jelly",
-					"match": "(`Size|`Alignment|`Affine)\\b"
+					"match": "(`Size|`Alignment|`Affine|`ArrayLength)\\b"
 				}
 			]
 		}
