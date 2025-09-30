@@ -3,6 +3,7 @@
 #include "adt.h"
 #include "arena.h"
 #include "ast.h"
+#include "diagnostic.h"
 #include "float.h"
 #include "lex.h"
 #include "util.h"
@@ -150,9 +151,9 @@ static Token next_valid_token(Parser *parser) {
 
     while (token.tag == TOK_INVALID) {
         error(parser, &(ParseError) {
-            .kind = ERROR_INVALID_TOKEN,
             .start = token.start,
             .end = token.end,
+            .diag = Diagnostic(ErrorInvalidToken, {0}),
         });
         token = next_token(&parser->lexer);
     }
@@ -178,10 +179,11 @@ static bool accept(Parser *parser, TokenTag tag) {
 static SourceIndex expect(Parser *parser, TokenTag tag) {
     if (parser->lookahead.tag != tag) {
         error(parser, &(ParseError) {
-            .kind = ERROR_EXPECTED_TOKEN,
-            .token = tag,
             .start = parser->lookahead.start,
             .end = parser->lookahead.end,
+            .diag = Diagnostic(ErrorExpectedToken, {
+                .expected = tag,
+            }),
         });
     }
 
@@ -191,10 +193,11 @@ static SourceIndex expect(Parser *parser, TokenTag tag) {
 static SourceIndex expect_id(Parser *parser) {
     if (parser->lookahead.tag != TOK_ID && (!parser->internal || parser->lookahead.tag != TOK_BUILTIN_ID)) {
         error(parser, &(ParseError) {
-            .kind = ERROR_EXPECTED_TOKEN,
-            .token = TOK_ID,
             .start = parser->lookahead.start,
             .end = parser->lookahead.end,
+            .diag = Diagnostic(ErrorExpectedToken, {
+                .expected = TOK_ID,
+            }),
         });
     }
 
@@ -391,10 +394,11 @@ static AstId parse_extern(Parser *parser) {
 
         default:
             error(parser, &(ParseError) {
-                .kind = ERROR_INVALID_TOKEN_AFTER_EXTERN,
-                .token = parser->lookahead.tag,
                 .start = parser->lookahead.start,
                 .end = parser->lookahead.end,
+                .diag = Diagnostic(ErrorInvalidTokenAfterExtern, {
+                    .provided = parser->lookahead.tag,
+                }),
             });
             return null_ast;
     }
@@ -716,9 +720,9 @@ static AstId parse_prefix(Parser *parser) {
             int64_t value = 0;
             if (parse_int(parser, token, &value)) {
                 error(parser, &(ParseError) {
-                    .kind = ERROR_CONST_INT_OVERFLOW,
                     .start = token.start,
                     .end = token.end,
+                    .diag = Diagnostic(ErrorConstIntOverflow, {0}),
                 });
                 return null_ast;
             }
@@ -728,9 +732,9 @@ static AstId parse_prefix(Parser *parser) {
             int64_t value = 0;
             if (parse_hex_int(parser, token, &value)) {
                 error(parser, &(ParseError) {
-                    .kind = ERROR_CONST_INT_OVERFLOW,
                     .start = token.start,
                     .end = token.end,
+                    .diag = Diagnostic(ErrorConstIntOverflow, {0}),
                 });
                 return null_ast;
             }
@@ -746,9 +750,9 @@ static AstId parse_prefix(Parser *parser) {
         }
         case TOK_INVALID_FLOAT: {
             error(parser, &(ParseError) {
-                .kind = ERROR_INVALID_FLOAT,
                 .start = token.start,
                 .end = token.end,
+                .diag = Diagnostic(ErrorInvalidFloat, {0}),
             });
             return null_ast;
         }
@@ -779,9 +783,9 @@ static AstId parse_prefix(Parser *parser) {
         }
         default: {
             error(parser, &(ParseError) {
-                .kind = ERROR_EXPECTED_EXPRESSION,
                 .start = token.start,
                 .end = token.end,
+                .diag = Diagnostic(ErrorExpectedExpression, {0}),
             });
             return null_ast;
         }
@@ -913,9 +917,9 @@ static void parse_root(Parser *parser) {
 
             default:
                 error(parser, &(ParseError) {
-                    .kind = ERROR_EXPECTED_DEFINITION,
                     .start = parser->lookahead.start,
                     .end = parser->lookahead.end,
+                    .diag = Diagnostic(ErrorExpectedDefinition, {0}),
                 });
         }
 

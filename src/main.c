@@ -190,10 +190,10 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     int32_t *prev_extern_sym = is_extern ? htable_lookup(b->extern_symbols, name) : NULL;
     if (prev_extern_sym) {
         GlobalId prev_extern_def = {*prev_extern_sym};
-        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_EXTERN_DEFINITION});
+        print_diagnostic(&loc, &Diagnostic(ErrorMultipleExternDefinition, {0}));
         AstRef prev_ref = nth(b->ast_refs->table, prev_extern_def);
         SourceLoc prev_loc = get_ast_location(b, prev_ref);
-        print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+        print_diagnostic(&prev_loc, &Diagnostic(NotePreviousDefinition, {0}));
         return 1;
     }
 
@@ -204,13 +204,13 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
             vec_push(b->ast_refs, def);
             return 0;
         }
-        print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
+        print_diagnostic(&loc, &Diagnostic(ErrorMultipleDefinition, {0}));
         if (prev_sym.kind == SYM_GLOBAL) {
             AstRef prev_ref = nth(b->ast_refs->table, prev_sym.global);
             SourceLoc prev_loc = get_ast_location(b, prev_ref);
-            print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
+            print_diagnostic(&prev_loc, &Diagnostic(NotePreviousDefinition, {0}));
         } else {
-            print_diagnostic(&loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_BUILTIN_DEFINITION});
+            print_diagnostic(&loc, &Diagnostic(NotePreviousBuiltinDefinition, {0}));
         }
         return 1;
     }
@@ -257,10 +257,6 @@ static int parse_all(ParseStageInfo *info) {
         FileId file = {i};
         for (int32_t j = 0; j < parse_errors[i].len; i++) {
             ParseError *e = &parse_errors[i].ptr[j];
-            Diagnostic d = {
-                .kind = e->kind,
-                .expected_token = e->token,
-            };
             SourceLoc s = {
                 .path = nth(info->paths, file),
                 .source = nth(info->sources, file),
@@ -268,7 +264,7 @@ static int parse_all(ParseStageInfo *info) {
                 .len = e->end.index - e->start.index,
                 .mark = e->start,
             };
-            print_diagnostic(&s, &d);
+            print_diagnostic(&s, &e->diag);
         }
         free(parse_errors[i].ptr);
     }

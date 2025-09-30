@@ -4,98 +4,10 @@
 #include "lex.h"
 
 typedef enum {
-    // Parsing
-    ERROR_INVALID_TOKEN,
-    ERROR_EXPECTED_TOKEN,
-    ERROR_EXPECTED_EXPRESSION,
-    ERROR_EXPECTED_DEFINITION,
-    ERROR_INVALID_TOKEN_AFTER_EXTERN,
-    ERROR_EMPTY_CHAR,
-    ERROR_MULTIPLE_CHAR,
-    ERROR_ESCAPE_SEQUENCE,
-    ERROR_UNTERMINATED_STRING,
-    ERROR_INVALID_FLOAT,
-
-    // Role Analysis
-    ERROR_RECURSIVE_DEPENDENCY,
-    ERROR_EXPECTED_VALUE,
-    ERROR_EXPECTED_TYPE,
-    ERROR_MULTIPLE_DEFINITION,
-    ERROR_MULTIPLE_EXTERN_DEFINITION,
-    ERROR_UNDEFINED_MODULE,
-    ERROR_UNDEFINED_NAME,
-    ERROR_UNDEFINED_NAME_FROM_MODULE,
-    ERROR_DEREF_OPERAND_ROLE,
-    ERROR_ACCESS_OPERAND_ROLE,
-    ERROR_CALL_OPERAND_ROLE,
-    ERROR_INDEX_OPERAND_ROLE,
-
-    // Type Analysis
-    ERROR_ENUM_EXPECTS_INT_TYPE,
-    ERROR_ARRAY_TYPE_EXPECTS_LENGTH_TYPE,
-    ERROR_UNARY_UNEXPECTED_OPERAND,
-    ERROR_BINARY_UNEXPECTED_OPERANDS,
-    ERROR_DEREF_UNEXPECTED_OPERAND,
-    ERROR_CAST,
-    ERROR_SLICE_CTOR_EXPECTS_POINTER,
-    ERROR_TYPE_CONSTRUCTOR_TYPE,
-    ERROR_CALLEE,
-    ERROR_ARGUMENT_COUNT,
-    ERROR_FIELD_COUNT,
-    ERROR_AFFINE_CTOR_COUNT,
-    ERROR_INDEX_COUNT,
-    ERROR_INDEX_OPERAND,
-    ERROR_UNDEFINED_TYPE_SCOPE,
-    ERROR_UNDEFINED_TYPE_FIELD,
-    ERROR_EXPECTED_VALUE_TYPE,
-    ERROR_EXPECTED_MUTABLE_PLACE,
-    ERROR_CONST_INIT,
-    ERROR_CONST_INT_OVERFLOW,
-    ERROR_CONST_NEGATIVE_SHIFT,
-    ERROR_TYPE_INFERENCE,
-    ERROR_EMPTY_ARRAY,
-    ERROR_EMPTY_STRUCT,
-    ERROR_SWITCH_INCOMPATIBLE_CASES,
-    ERROR_MISPLACED_BREAK,
-    ERROR_MISPLACED_CONTINUE,
-    ERROR_RETURN_MISSING_VALUE,
-    ERROR_RETURN_EXPECTED_VALUE,
-    ERROR_MISSING_RETURN,
-    ERROR_MAIN_SIGNATURE,
-    ERROR_TYPE_ARGUMENT_INFERENCE,
-    ERROR_TYPE_UNKNOWN_TYPE_SIZE,
-    ERROR_TYPE_UNKNOWN_TYPE_ALIGNMENT,
-    ERROR_INDEX_UNKNOWN_TYPE_SIZE,
-    ERROR_TAGGED_TYPE_WRONG_COUNT,
-    ERROR_WRONG_COUNT,
-    ERROR_DUPLICATE_SWITCH_CASE,
-    ERROR_ELSE_CASE_UNREACHABLE,
-    ERROR_SWITCH_NOT_EXHAUSTIVE,
-
-    // Affine Type Analysis
-    ERROR_AFFINE_ASSIGNMENT,
-    ERROR_CONSUMED_VALUE_USED,
-    ERROR_CONSUMED_IN_LOOP,
-    ERROR_MOVE_BORROWED,
-    ERROR_BORROWED_MUTABLE_SHARED,
-    ERROR_MULTIBLE_MUTABLE_BORROWS,
-
-    ERROR_END,
-
-    // Notes
-    NOTE_REPLACE_LET_WITH_MUT,
-    NOTE_PREVIOUS_DEFINITION,
-    NOTE_PREVIOUS_BUILTIN_DEFINITION,
-    NOTE_PRIVATE_DEFINITION,
-    NOTE_FORGOT_IMPORT,
-    NOTE_RECURSION,
-
-    NOTE_END,
-
-    // Warnings
-    WARNING_UNUSED_LOCAL,
-
-    WARNING_END,
+    #define VARIANT(name, ...) DIAGNOSTIC_##name,
+    #define X(...)
+    #define EXTRA(...) __VA_ARGS__,
+    #include "diagnostic-defs"
 } ErrorKind;
 
 typedef struct {
@@ -106,25 +18,25 @@ typedef struct {
     SourceIndex mark;
 } SourceLoc;
 
+#define VARIANT(name, ...) typedef struct { __VA_ARGS__ } Diagnostic##name;
+#define X(...) __VA_ARGS__;
+#define EXTRA(...)
+#include "diagnostic-defs"
+
 typedef struct {
     ErrorKind kind;
     union {
-        TokenTag expected_token;
-        struct {
-            TirContext ctx;
-            TirId type;
-            int32_t extra;
-        } type_error;
-        struct {
-            TirContext ctx;
-            TirId type1;
-            TirId type2;
-        } double_type_error;
-        struct {
-            int32_t expected;
-            int32_t provided;
-        } count_error;
+#define VARIANT(name, ...) Diagnostic##name Diagnostic##name;
+#define X(...) __VA_ARGS__;
+#define EXTRA(...)
+#include "diagnostic-defs"
     };
 } Diagnostic;
 
 void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic);
+
+#define Diagnostic(name, ...)               \
+    ((Diagnostic) {                         \
+        .kind = DIAGNOSTIC_##name,          \
+        .Diagnostic##name = __VA_ARGS__,    \
+    })

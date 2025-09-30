@@ -42,7 +42,7 @@ typedef struct {
     int error;
 } LinearChecker;
 
-static void error(LinearChecker *c, AstId node, ErrorKind kind) {
+static void error(LinearChecker *c, AstId node, Diagnostic d) {
     SourceIndex token = get_ast_token(node, &nth(c->asts, c->file));
     SourceLoc loc = {0};
     loc.path = nth(c->paths, c->file);
@@ -50,7 +50,7 @@ static void error(LinearChecker *c, AstId node, ErrorKind kind) {
     loc.where = token;
     loc.len = 1;
     loc.mark = token;
-    print_diagnostic(&loc, &(Diagnostic) {.kind = kind});
+    print_diagnostic(&loc, &d);
     c->error = 1;
 }
 
@@ -102,7 +102,7 @@ static void check_assign(LinearChecker *c, TirId node) {
     TirId type = get_value_type(c->tir, left);
     if (type_is_affine(c->tir, type)) {
         AstId ast_id = get_term_data(c->tir, node)->node;
-        error(c, ast_id, ERROR_AFFINE_ASSIGNMENT);
+        error(c, ast_id, Diagnostic(ErrorAffineAssignment, {0}));
     }
     check_value(c, right, RVALUE);
     check_value(c, left, RVALUE);
@@ -306,7 +306,7 @@ static void check_node(LinearChecker *c, TirId node, ExpectedValue expected_cate
             AstId ast_id = c->var_refs[var];
             switch (c->var_states[var]) {
                 case VAR_CONSUMED: {
-                    error(c, ast_id, ERROR_CONSUMED_VALUE_USED);
+                    error(c, ast_id, Diagnostic(ErrorConsumedValueUsed, {0}));
                     return;
                 }
                 case VAR_NOT_CONSUMED: {
@@ -314,7 +314,7 @@ static void check_node(LinearChecker *c, TirId node, ExpectedValue expected_cate
                         case RVALUE: {
                             c->var_states[var] = VAR_CONSUMED;
                             if (var < c->var_states_loop_top) {
-                                error(c, ast_id, ERROR_CONSUMED_IN_LOOP);
+                                error(c, ast_id, Diagnostic(ErrorConsumedInLoop, {0}));
                             }
                             break;
                         }
@@ -326,18 +326,18 @@ static void check_node(LinearChecker *c, TirId node, ExpectedValue expected_cate
                 }
                 case VAR_BORROWED: {
                     switch (expected_category) {
-                        case RVALUE: error(c, ast_id, ERROR_MOVE_BORROWED); break;
+                        case RVALUE: error(c, ast_id, Diagnostic(ErrorMoveBorrowed, {0})); break;
                         case LVALUE: /* Allow multiple constant borrows. */ break;
-                        case LVALUE_MUT: error(c, ast_id, ERROR_BORROWED_MUTABLE_SHARED); break;
+                        case LVALUE_MUT: error(c, ast_id, Diagnostic(ErrorBorrowedMutableShared, {0})); break;
                         case STATEMENT: abort();
                     }
                     return;
                 }
                 case VAR_BORROWED_MUT: {
                     switch (expected_category) {
-                        case RVALUE: error(c, ast_id, ERROR_MOVE_BORROWED); break;
-                        case LVALUE: error(c, ast_id, ERROR_BORROWED_MUTABLE_SHARED); break;
-                        case LVALUE_MUT: error(c, ast_id, ERROR_MULTIBLE_MUTABLE_BORROWS); break;
+                        case RVALUE: error(c, ast_id, Diagnostic(ErrorMoveBorrowed, {0})); break;
+                        case LVALUE: error(c, ast_id, Diagnostic(ErrorBorrowedMutableShared, {0})); break;
+                        case LVALUE_MUT: error(c, ast_id, Diagnostic(ErrorMultipleMutableBorrows, {0})); break;
                         case STATEMENT: abort();
                     }
                     return;

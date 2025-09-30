@@ -1,0 +1,96 @@
+/* Parsing */
+VARIANT(ErrorInvalidToken, X(int unused))
+VARIANT(ErrorExpectedToken, X(TokenTag expected))
+VARIANT(ErrorExpectedExpression, X(int unused))
+VARIANT(ErrorExpectedDefinition, X(int unused))
+VARIANT(ErrorInvalidTokenAfterExtern, X(TokenTag provided))
+VARIANT(ErrorEmptyChar, X(int unused))
+VARIANT(ErrorCharTooLong, X(int unused))
+VARIANT(ErrorEscapeSequence, X(int unused))
+VARIANT(ErrorUnterminatedString, X(int unused))
+VARIANT(ErrorInvalidFloat, X(int unused))
+
+/* Role Analysis */
+VARIANT(ErrorRecursion, X(int unused))
+VARIANT(ErrorExpectedValue, X(int unused))
+VARIANT(ErrorExpectedType, X(int unused))
+VARIANT(ErrorMultipleDefinition, X(int unused))
+VARIANT(ErrorMultipleExternDefinition, X(int unused))
+VARIANT(ErrorUndefinedModule, X(int unused))
+VARIANT(ErrorUndefinedName, X(int unused))
+VARIANT(ErrorUndefinedNameFromModule, X(int unused))
+VARIANT(ErrorDerefOperandRole, X(int unused))
+VARIANT(ErrorAccessOperandRole, X(int unused))
+VARIANT(ErrorCallOperandRole, X(int unused))
+VARIANT(ErrorIndexOperandRole, X(int unused))
+
+/* Type Analysis */
+VARIANT(ErrorEnumExpectsIntType, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorArrayTypeExpectsLengthType, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorUnaryUnexpectedOperand, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorBinaryUnexpectedOperands, X(TirContext ctx) X(TirId type1) X(TirId type2))
+VARIANT(ErrorDerefUnexpectedOperand, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorCast, X(TirContext ctx) X(TirId type1) X(TirId type2))
+VARIANT(ErrorSliceCtorExpectsPointer, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorTypeConstructorType, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorCallee, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorArgumentCount, X(TirContext ctx) X(TirId type) X(int32_t provided))
+VARIANT(ErrorFieldCount, X(TirContext ctx) X(TirId type) X(int32_t provided))
+VARIANT(ErrorAffineCtorCount, X(int unused))
+VARIANT(ErrorIndexCount, X(int32_t provided))
+VARIANT(ErrorIndexOperand, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorUndefinedTypeScope, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorUndefinedTypeField, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorExpectedValueType, X(TirContext ctx) X(TirId expected) X(TirId provided))
+VARIANT(ErrorExpectedMutablePlace, X(int unused))
+VARIANT(ErrorConstInit, X(int unused))
+VARIANT(ErrorConstIntOverflow, X(int unused))
+VARIANT(ErrorConstNegativeShift, X(int unused))
+VARIANT(ErrorTypeInference, X(int unused))
+VARIANT(ErrorEmptyArray, X(int unused))
+VARIANT(ErrorEmptyStruct, X(int unused))
+VARIANT(ErrorSwitchIncompatibleCases, X(int unused))
+VARIANT(ErrorMisplacedBreak, X(int unused))
+VARIANT(ErrorMisplacedContinue, X(int unused))
+VARIANT(ErrorReturnMissingValue, X(int unused))
+VARIANT(ErrorReturnExpectedValue, X(int unused))
+VARIANT(ErrorMissingReturn, X(int unused))
+VARIANT(ErrorMainSignature, X(int unused))
+VARIANT(ErrorTypeArgumentInference, X(int unused))
+VARIANT(ErrorTypeUnknownTypeSize, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorTypeUnknownTypeAlignment, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorIndexUnknownTypeSize, X(TirContext ctx) X(TirId type))
+VARIANT(ErrorTaggedTypeWrongCount, X(TirContext ctx) X(TirId type) X(int32_t provided))
+VARIANT(ErrorWrongCount, X(int32_t expected) X(int32_t provided))
+VARIANT(ErrorDuplicateSwitchCase, X(int unused))
+VARIANT(ErrorElseCaseUnreachable, X(int unused))
+VARIANT(ErrorSwitchNotExhaustive, X(int unused))
+
+/* Affine Type Analysis */
+VARIANT(ErrorAffineAssignment, X(int unused))
+VARIANT(ErrorConsumedValueUsed, X(int unused))
+VARIANT(ErrorConsumedInLoop, X(int unused))
+VARIANT(ErrorMoveBorrowed, X(int unused))
+VARIANT(ErrorBorrowedMutableShared, X(int unused))
+VARIANT(ErrorMultipleMutableBorrows, X(int unused))
+
+EXTRA(ERROR_END)
+
+/* Notes */
+VARIANT(NoteReplaceLetWithMut, X(int unused))
+VARIANT(NotePreviousDefinition, X(int unused))
+VARIANT(NotePreviousBuiltinDefinition, X(int unused))
+VARIANT(NotePrivateDefinition, X(int unused))
+VARIANT(NoteForgotImport, X(int unused))
+VARIANT(NoteRecursion, X(int unused))
+
+EXTRA(NOTE_END)
+
+/* Warnings */
+VARIANT(WarningUnusedLocal, X(int unused))
+
+EXTRA(WARNING_END)
+
+#undef VARIANT
+#undef X
+#undef EXTRA

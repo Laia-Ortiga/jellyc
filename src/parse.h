@@ -6,10 +6,9 @@
 #include "lex.h"
 
 typedef struct {
-    ErrorKind kind;
-    TokenTag token;
     SourceIndex start;
     SourceIndex end;
+    Diagnostic diag;
 } ParseError;
 
 typedef Vec(ParseError) ParseErrorList;

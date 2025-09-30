@@ -54,368 +54,425 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
         fprintf(stderr, "warning\033[0m: ");
     }
 
+    #define CASE(name, id, ...) case DIAGNOSTIC_##name: { Diagnostic##name id = diagnostic->Diagnostic##name; __VA_ARGS__ }
     switch (diagnostic->kind) {
         case ERROR_END:
         case NOTE_END:
         case WARNING_END: {
             abort();
         }
-        case ERROR_INVALID_TOKEN: {
+        CASE(ErrorInvalidToken, d, {
+            (void) d;
             fprintf(stderr, "invalid token");
             break;
-        }
-        case ERROR_EXPECTED_TOKEN: {
-            fprintf(stderr, "expected %s", token_tag_to_string(diagnostic->expected_token));
+        })
+        CASE(ErrorExpectedToken, d, {
+            fprintf(stderr, "expected %s", token_tag_to_string(d.expected));
             break;
-        }
-        case ERROR_EXPECTED_EXPRESSION: {
+        })
+        CASE(ErrorExpectedExpression, d, {
+            (void) d;
             fprintf(stderr, "expected expression");
             break;
-        }
-        case ERROR_EXPECTED_DEFINITION: {
+        })
+        CASE(ErrorExpectedDefinition, d, {
+            (void) d;
             fprintf(stderr, "expected definition");
             break;
-        }
-        case ERROR_INVALID_TOKEN_AFTER_EXTERN: {
-            fprintf(stderr, "expected function or mut, but found %s", token_tag_to_string(diagnostic->expected_token));
+        })
+        CASE(ErrorInvalidTokenAfterExtern, d, {
+            fprintf(
+                stderr,
+                "expected function or mut, but found %s",
+                token_tag_to_string(d.provided)
+            );
             break;
-        }
-        case ERROR_EMPTY_CHAR: {
+        })
+        CASE(ErrorEmptyChar, d, {
+            (void) d;
             fprintf(stderr, "empty character literal");
             break;
-        }
-        case ERROR_MULTIPLE_CHAR: {
-            fprintf(stderr, "multiple character literal");
+        })
+        CASE(ErrorCharTooLong, d, {
+            (void) d;
+            fprintf(stderr, "character literal too long");
             break;
-        }
-        case ERROR_ESCAPE_SEQUENCE: {
+        })
+        CASE(ErrorEscapeSequence, d, {
+            (void) d;
             fprintf(stderr, "unknown escape sequence");
             break;
-        }
-        case ERROR_UNTERMINATED_STRING: {
+        })
+        CASE(ErrorUnterminatedString, d, {
+            (void) d;
             fprintf(stderr, "unterminated double quote string");
             break;
-        }
-        case ERROR_INVALID_FLOAT: {
+        })
+        CASE(ErrorInvalidFloat, d, {
+            (void) d;
             fprintf(stderr, "invalid float literal");
             break;
-        }
-        case ERROR_RECURSIVE_DEPENDENCY: {
+        })
+        CASE(ErrorRecursion, d, {
+            (void) d;
             fprintf(stderr, "recursive dependency");
             break;
-        }
-        case ERROR_EXPECTED_VALUE: {
+        })
+        CASE(ErrorExpectedValue, d, {
+            (void) d;
             fprintf(stderr, "expected value");
             break;
-        }
-        case ERROR_EXPECTED_TYPE: {
+        })
+        CASE(ErrorExpectedType, d, {
+            (void) d;
             fprintf(stderr, "expected type");
             break;
-        }
-        case ERROR_MULTIPLE_DEFINITION: {
+        })
+        CASE(ErrorMultipleDefinition, d, {
+            (void) d;
             fprintf(stderr, "name is defined multiple times");
             break;
-        }
-        case ERROR_MULTIPLE_EXTERN_DEFINITION: {
+        })
+        CASE(ErrorMultipleExternDefinition, d, {
+            (void) d;
             fprintf(stderr, "extern symbol is defined multiple times");
             break;
-        }
-        case ERROR_UNDEFINED_MODULE: {
+        })
+        CASE(ErrorUndefinedModule, d, {
+            (void) d;
             fprintf(stderr, "unknown module");
             break;
-        }
-        case ERROR_UNDEFINED_NAME: {
+        })
+        CASE(ErrorUndefinedName, d, {
+            (void) d;
             fprintf(stderr, "use of undefined name");
             break;
-        }
-        case ERROR_UNDEFINED_NAME_FROM_MODULE: {
+        })
+        CASE(ErrorUndefinedNameFromModule, d, {
+            (void) d;
             fprintf(stderr, "module does not contain such an item");
             break;
-        }
-        case ERROR_DEREF_OPERAND_ROLE: {
+        })
+        CASE(ErrorDerefOperandRole, d, {
+            (void) d;
             fprintf(stderr, "expected value or type");
             break;
-        }
-        case ERROR_ACCESS_OPERAND_ROLE: {
+        })
+        CASE(ErrorAccessOperandRole, d, {
+            (void) d;
             fprintf(stderr, "expected value, type or module");
             break;
-        }
-        case ERROR_CALL_OPERAND_ROLE: {
+        })
+        CASE(ErrorCallOperandRole, d, {
+            (void) d;
             fprintf(stderr, "expected value or type");
             break;
-        }
-        case ERROR_INDEX_OPERAND_ROLE: {
+        })
+        CASE(ErrorIndexOperandRole, d, {
+            (void) d;
             fprintf(stderr, "expected value, type or macro");
             break;
-        }
-        case ERROR_ENUM_EXPECTS_INT_TYPE: {
+        })
+        CASE(ErrorEnumExpectsIntType, d, {
             fprintf(stderr, "enum layout type must be an integer type, but found ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_ARRAY_TYPE_EXPECTS_LENGTH_TYPE: {
+        })
+        CASE(ErrorArrayTypeExpectsLengthType, d, {
             fprintf(stderr, "array index type must be `ArrayLength, but found ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_UNARY_UNEXPECTED_OPERAND: {
+        })
+        CASE(ErrorUnaryUnexpectedOperand, d, {
             fprintf(stderr, "cannot apply unary operator to type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_BINARY_UNEXPECTED_OPERANDS: {
+        })
+        CASE(ErrorBinaryUnexpectedOperands, d, {
             fprintf(stderr, "cannot apply binary operator to types ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type1);
+            print_type(stderr, d.ctx, d.type1);
             fprintf(stderr, " and ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type2);
+            print_type(stderr, d.ctx, d.type2);
             break;
-        }
-        case ERROR_DEREF_UNEXPECTED_OPERAND: {
+        })
+        CASE(ErrorDerefUnexpectedOperand, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " cannot be dereferenced");
             break;
-        }
-        case ERROR_CAST: {
+        })
+        CASE(ErrorCast, d, {
             fprintf(stderr, "cannot cast from ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type1);
+            print_type(stderr, d.ctx, d.type1);
             fprintf(stderr, " to ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type2);
+            print_type(stderr, d.ctx, d.type2);
             break;
-        }
-        case ERROR_SLICE_CTOR_EXPECTS_POINTER: {
+        })
+        CASE(ErrorSliceCtorExpectsPointer, d, {
             fprintf(stderr, "slice data field must be a pointer, but found ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_TYPE_CONSTRUCTOR_TYPE: {
+        })
+        CASE(ErrorTypeConstructorType, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " does not have a constructor");
             break;
-        }
-        case ERROR_CALLEE: {
+        })
+        CASE(ErrorCallee, d, {
             fprintf(stderr, "expected function, but found ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_ARGUMENT_COUNT: {
-            int32_t param_count = get_function_type(diagnostic->type_error.ctx, diagnostic->type_error.type).param_count;
+        })
+        CASE(ErrorArgumentCount, d, {
+            int32_t param_count = get_function_type(d.ctx, d.type).param_count;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
                 param_count,
                 param_count == 1 ? "argument" : "arguments",
-                diagnostic->type_error.extra
+                d.provided
             );
             break;
-        }
-        case ERROR_TYPE_ARGUMENT_INFERENCE: {
+        })
+        CASE(ErrorTypeArgumentInference, d, {
+            (void) d;
             fprintf(stderr, "couldn't infer type arguments");
             break;
-        }
-        case ERROR_FIELD_COUNT: {
-            int32_t field_count = get_struct_type(diagnostic->type_error.ctx, diagnostic->type_error.type).field_count;
+        })
+        CASE(ErrorFieldCount, d, {
+            int32_t field_count = get_struct_type(d.ctx, d.type).field_count;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
                 field_count,
                 field_count == 1 ? "field" : "fields",
-                diagnostic->type_error.extra
+                d.provided
             );
             break;
-        }
-        case ERROR_AFFINE_CTOR_COUNT: {
+        })
+        CASE(ErrorAffineCtorCount, d, {
+            (void) d;
             fprintf(stderr, "expected 1 field");
             break;
-        }
-        case ERROR_INDEX_COUNT: {
-            fprintf(stderr, "expected 1 index, but provided %"PRIi32, diagnostic->type_error.extra);
+        })
+        CASE(ErrorIndexCount, d, {
+            fprintf(stderr, "expected 1 index, but provided %"PRIi32, d.provided);
             break;
-        }
-        case ERROR_WRONG_COUNT: {
+        })
+        CASE(ErrorWrongCount, d, {
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
-                diagnostic->count_error.expected,
-                diagnostic->count_error.expected == 1 ? "argument" : "arguments",
-                diagnostic->count_error.provided
+                d.expected,
+                d.expected == 1 ? "argument" : "arguments",
+                d.provided
             );
             break;
-        }
-        case ERROR_TAGGED_TYPE_WRONG_COUNT: {
-            int32_t param_count = get_generic_term(diagnostic->type_error.ctx, diagnostic->type_error.type).type_count;
+        })
+        CASE(ErrorTaggedTypeWrongCount, d, {
+            int32_t param_count = get_generic_term(d.ctx, d.type).type_count;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
                 param_count,
                 param_count == 1 ? "type argument" : "type arguments",
-                diagnostic->type_error.extra
+                d.provided
             );
             break;
-        }
-        case ERROR_INDEX_OPERAND: {
+        })
+        CASE(ErrorIndexOperand, d, {
             fprintf(stderr, "expected array or slice, but found ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             break;
-        }
-        case ERROR_UNDEFINED_TYPE_SCOPE: {
+        })
+        CASE(ErrorUndefinedTypeScope, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " does not have such an item");
             break;
-        }
-        case ERROR_UNDEFINED_TYPE_FIELD: {
+        })
+        CASE(ErrorUndefinedTypeField, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " does not have such a field");
             break;
-        }
-        case ERROR_EXPECTED_VALUE_TYPE: {
+        })
+        CASE(ErrorExpectedValueType, d, {
             fprintf(stderr, "expected ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type1);
+            print_type(stderr, d.ctx, d.expected);
             fprintf(stderr, ", but found ");
-            print_type(stderr, diagnostic->double_type_error.ctx, diagnostic->double_type_error.type2);
+            print_type(stderr, d.ctx, d.provided);
             break;
-        }
-        case ERROR_EXPECTED_MUTABLE_PLACE: {
+        })
+        CASE(ErrorExpectedMutablePlace, d, {
+            (void) d;
             fprintf(stderr, "cannot assign to this expression");
             break;
-        }
-        case ERROR_CONST_INIT: {
+        })
+        CASE(ErrorConstInit, d, {
+            (void) d;
             fprintf(stderr, "initializer is not a constant expression");
             break;
-        }
-        case ERROR_CONST_INT_OVERFLOW: {
+        })
+        CASE(ErrorConstIntOverflow, d, {
+            (void) d;
             fprintf(stderr, "integer overflow");
             break;
-        }
-        case ERROR_CONST_NEGATIVE_SHIFT: {
+        })
+        CASE(ErrorConstNegativeShift, d, {
+            (void) d;
             fprintf(stderr, "can't shift by a negative integer");
             break;
-        }
-        case ERROR_TYPE_INFERENCE: {
+        })
+        CASE(ErrorTypeInference, d, {
+            (void) d;
             fprintf(stderr, "can't infer type");
             break;
-        }
-        case ERROR_TYPE_UNKNOWN_TYPE_SIZE: {
+        })
+        CASE(ErrorTypeUnknownTypeSize, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " has unknown size");
             break;
-        }
-        case ERROR_TYPE_UNKNOWN_TYPE_ALIGNMENT: {
+        })
+        CASE(ErrorTypeUnknownTypeAlignment, d, {
             fprintf(stderr, "type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " has unknown alignment requirements");
             break;
-        }
-        case ERROR_INDEX_UNKNOWN_TYPE_SIZE: {
+        })
+        CASE(ErrorIndexUnknownTypeSize, d, {
             fprintf(stderr, "cannot index array of type ");
-            print_type(stderr, diagnostic->type_error.ctx, diagnostic->type_error.type);
+            print_type(stderr, d.ctx, d.type);
             fprintf(stderr, " because it has unknown size at compile time");
             break;
-        }
-        case ERROR_EMPTY_ARRAY: {
+        })
+        CASE(ErrorEmptyArray, d, {
+            (void) d;
             fprintf(stderr, "empty array");
             break;
-        }
-        case ERROR_EMPTY_STRUCT: {
+        })
+        CASE(ErrorEmptyStruct, d, {
+            (void) d;
             fprintf(stderr, "empty struct");
             break;
-        }
-        case ERROR_SWITCH_INCOMPATIBLE_CASES: {
+        })
+        CASE(ErrorSwitchIncompatibleCases, d, {
+            (void) d;
             fprintf(stderr, "switch arms have incompatible types");
             break;
-        }
-        case ERROR_MISPLACED_BREAK: {
+        })
+        CASE(ErrorMisplacedBreak, d, {
+            (void) d;
             fprintf(stderr, "break outside of loop");
             break;
-        }
-        case ERROR_MISPLACED_CONTINUE: {
+        })
+        CASE(ErrorMisplacedContinue, d, {
+            (void) d;
             fprintf(stderr, "continue outside of loop");
             break;
-        }
-        case ERROR_RETURN_MISSING_VALUE: {
+        })
+        CASE(ErrorReturnMissingValue, d, {
+            (void) d;
             fprintf(stderr, "returning no value from a function with return type");
             break;
-        }
-        case ERROR_RETURN_EXPECTED_VALUE: {
+        })
+        CASE(ErrorReturnExpectedValue, d, {
+            (void) d;
             fprintf(stderr, "returning value from a function with no return type");
             break;
-        }
-        case ERROR_MISSING_RETURN: {
+        })
+        CASE(ErrorMissingReturn, d, {
+            (void) d;
             fprintf(stderr, "no value returned from function with return type");
             break;
-        }
-        case ERROR_MAIN_SIGNATURE: {
+        })
+        CASE(ErrorMainSignature, d, {
+            (void) d;
             fprintf(stderr, "main function must take no arguments and return nothing");
             break;
-        }
-        case ERROR_AFFINE_ASSIGNMENT: {
+        })
+        CASE(ErrorAffineAssignment, d, {
+            (void) d;
             fprintf(stderr, "cannot assign to affine type");
             break;
-        }
-        case ERROR_CONSUMED_VALUE_USED: {
+        })
+        CASE(ErrorConsumedValueUsed, d, {
+            (void) d;
             fprintf(stderr, "use of consumed variable");
             break;
-        }
-        case ERROR_CONSUMED_IN_LOOP: {
+        })
+        CASE(ErrorConsumedInLoop, d, {
+            (void) d;
             fprintf(stderr, "variable is consumed in a loop");
             break;
-        }
-        case ERROR_MOVE_BORROWED: {
+        })
+        CASE(ErrorMoveBorrowed, d, {
+            (void) d;
             fprintf(stderr, "cannot move a variable while it is borrowed");
             break;
-        }
-        case ERROR_BORROWED_MUTABLE_SHARED: {
+        })
+        CASE(ErrorBorrowedMutableShared, d, {
+            (void) d;
             fprintf(stderr, "cannot have a mutable and shared reference at the same time");
             break;
-        }
-        case ERROR_MULTIBLE_MUTABLE_BORROWS: {
+        })
+        CASE(ErrorMultipleMutableBorrows, d, {
+            (void) d;
             fprintf(stderr, "can only have one mutable reference at any given time");
             break;
-        }
-        case ERROR_DUPLICATE_SWITCH_CASE: {
+        })
+        CASE(ErrorDuplicateSwitchCase, d, {
+            (void) d;
             fprintf(stderr, "duplicate switch case");
             break;
-        }
-        case ERROR_ELSE_CASE_UNREACHABLE: {
+        })
+        CASE(ErrorElseCaseUnreachable, d, {
+            (void) d;
             fprintf(stderr, "else case is unreachable");
             break;
-        }
-        case ERROR_SWITCH_NOT_EXHAUSTIVE: {
+        })
+        CASE(ErrorSwitchNotExhaustive, d, {
+            (void) d;
             fprintf(stderr, "switch must cover all possible values");
             break;
-        }
-        case NOTE_REPLACE_LET_WITH_MUT: {
+        })
+        CASE(NoteReplaceLetWithMut, d, {
+            (void) d;
             fprintf(stderr, "consider replacing `let` with `mut`");
             break;
-        }
-        case NOTE_PREVIOUS_DEFINITION: {
+        })
+        CASE(NotePreviousDefinition, d, {
+            (void) d;
             fprintf(stderr, "previous definition");
             break;
-        }
-        case NOTE_PREVIOUS_BUILTIN_DEFINITION: {
+        })
+        CASE(NotePreviousBuiltinDefinition, d, {
+            (void) d;
             fprintf(stderr, "a built-in with the name already exists");
             break;
-        }
-        case NOTE_PRIVATE_DEFINITION: {
+        })
+        CASE(NotePrivateDefinition, d, {
+            (void) d;
             fprintf(stderr, "definition is private");
             break;
-        }
-        case NOTE_FORGOT_IMPORT: {
+        })
+        CASE(NoteForgotImport, d, {
+            (void) d;
             fprintf(stderr, "did you forget to import module?");
             break;
-        }
-        case NOTE_RECURSION: {
+        })
+        CASE(NoteRecursion, d, {
+            (void) d;
             fprintf(stderr, "recursion happens here");
             break;
-        }
-        case WARNING_UNUSED_LOCAL: {
+        })
+        CASE(WarningUnusedLocal, d, {
+            (void) d;
             fprintf(stderr, "unused name, add a leading _ to remove this warning");
             break;
-        }
+        })
     }
 
     fprintf(stderr, "\n");
