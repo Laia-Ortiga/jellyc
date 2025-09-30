@@ -302,6 +302,8 @@ static void print_ast_node(AstPrinter *printer, AstId node) {
         case AST_CALL: print_ast_call(printer, "Call", node); break;
         case AST_INDEX: print_ast_call(printer, "Index", node); break;
         case AST_SLICE: print_ast_call(printer, "Slice", node); break;
+        case AST_MAP: print_ast_list(printer, "Map", node); break;
+        case AST_MAP_ENTRY: print_ast_param(printer, "MapEntry", node); break;
         case AST_LIST: print_ast_list(printer, "List", node); break;
         case AST_BLOCK: print_ast_list(printer, "Block", node); break;
         case AST_IF: print_ast_if(printer, node); break;

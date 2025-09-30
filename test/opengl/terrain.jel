@@ -92,12 +92,12 @@ public function init_terrain(seed i32) -> Terrain {
     gl.glBindTexture(gl.TEXTURE_2D, height_map_texture)
     let height_map = alloc(<isize> `cast[{terrain_grid_size + 1} * {terrain_grid_size + 1}], `size_of[f32])
     gl.glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
-    Terrain(
-        height_map_texture,
-        shader,
-        vao,
-        ebo,
-        height_map,
+    (
+        height_map_texture = height_map_texture,
+        shader = shader,
+        vao = vao,
+        ebo = ebo,
+        height_map = height_map,
     )
 }
 

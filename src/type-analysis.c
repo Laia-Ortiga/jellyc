@@ -1877,51 +1877,59 @@ static TirId analyze_type_hint(Context *c, AstId node) {
     return expect_value_type(c, bin.left, cast_type);
 }
 
-static TirId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
-    AstCall call = get_ast_call(node, c->ast);
-    TirId *args_tir = arena_alloc(c->scratch, TirId, call.arg_count);
+static TirId analyze_struct_ctor(
+    Context *c,
+    AstId node,
+    int32_t entry_count,
+    AstId const *entries,
+    GenericTerm *term,
+    int32_t *field_indices
+) {
+    TirId *args_tir = arena_alloc(c->scratch, TirId, entry_count);
     TirId *type_args = arena_alloc(c->scratch, TirId, term->type_count);
     TirId inner = remove_tags(c->tir, term->inner);
     bool type_args_inferred = true;
 
-    for (int32_t i = 0; i < call.arg_count; i++) {
-        TirId field_type = get_struct_type_field(c->tir, inner, i);
+    for (int32_t i = 0; i < entry_count; i++) {
+        int32_t field_index = field_indices[i];
+        TirId field_type = get_struct_type_field(c->tir, inner, field_index);
         if (term->type_count) {
-            TirId arg_result = expect_value(c, call.args[i], field_type);
+            TirId arg_result = expect_value(c, entries[i], field_type);
             TirId arg_type = get_value_type(c->tir, arg_result);
             if (!match_type_parameters(c->tir, type_args, field_type, arg_type)) {
                 type_args_inferred = false;
             }
-            args_tir[i] = arg_result;
+            args_tir[field_index] = arg_result;
         } else {
-            args_tir[i] = expect_value_type(c, call.args[i], field_type);
+            args_tir[field_index] = expect_value_type(c, entries[i], field_type);
         }
     }
 
     if (type_args_inferred && term->type_count) {
-        for (int32_t i = 0; i < call.arg_count; i++) {
-            TirId field_type = get_struct_type_field(c->tir, inner, i);
+        for (int32_t i = 0; i < entry_count; i++) {
+            int32_t field_index = field_indices[i];
+            TirId field_type = get_struct_type_field(c->tir, inner, field_index);
             field_type = replace_type_parameters(field_type, &(ReplaceTypeInfo) {
                 .c = c->tir,
                 .args = type_args,
                 .scratch = *c->scratch,
                 .target = c->options->target,
             });
-            args_tir[i] = apply_implicit_conversion(c, call.args[i], args_tir[i], field_type);
+            args_tir[field_index] = apply_implicit_conversion(c, entries[i], args_tir[field_index], field_type);
         }
     }
 
     int32_t field_count = get_struct_type(c->tir, inner).field_count;
-    if (field_count != call.arg_count) {
-        node_diagnostic(c, call.operand, Diagnostic(ErrorFieldCount, {
+    if (field_count != entry_count) {
+        node_diagnostic(c, node, Diagnostic(ErrorFieldCount, {
             .ctx = c->tir,
             .type = term->inner,
-            .provided = call.arg_count
+            .provided = entry_count
         }));
     }
 
     if (!type_args_inferred) {
-        node_diagnostic(c, call.operand, Diagnostic(ErrorTypeArgumentInference, {0}));
+        node_diagnostic(c, node, Diagnostic(ErrorTypeArgumentInference, {0}));
         return null_tir;
     }
 
@@ -1934,7 +1942,14 @@ static TirId analyze_struct_ctor(Context *c, AstId node, GenericTerm *term) {
             .target = c->options->target,
         });
     }
-    return new_instr(c->tir, TIR_NEW_STRUCT, node, type, push_extra(c, (int32_t *) args_tir, call.arg_count), call.arg_count);
+    return new_instr(
+        c->tir,
+        TIR_NEW_STRUCT,
+        node,
+        type,
+        push_extra(c, (int32_t *) args_tir, entry_count),
+        entry_count
+    );
 }
 
 static TirId analyze_affine_ctor(Context *c, AstId node, TirId affine_type) {
@@ -1950,11 +1965,63 @@ static TirId analyze_affine_ctor(Context *c, AstId node, TirId affine_type) {
     return new_unary_tir(c->tir, TIR_NOP, node, affine_type, arg_result);
 }
 
+static TirId analyze_map(Context *c, AstId node, TirId hint) {
+    AstList map = get_ast_list(node, c->ast);
+
+    if (!hint.id) {
+        node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
+        return null_tir;
+    }
+
+    GenericTerm g = get_generic_term(c->tir, hint);
+    TirId inner = remove_tags(c->tir, g.inner);
+    switch (get_term_tag(c->tir, inner)) {
+        case TIR_STRUCT_TYPE: {
+            StructType s = get_struct_type(c->tir, inner);
+            AstId *values = arena_alloc(c->scratch, AstId, s.field_count);
+            int32_t *field_indices = arena_alloc(c->scratch, int32_t, s.field_count);
+
+            for (int32_t i = 0; i < s.field_count; i++) {
+                String name = get_id_source(c, (AstRef) {map.nodes[i], c->file});
+                int32_t field = find_field(c, inner, name);
+                if (field == -1) {
+                    node_diagnostic(c, map.nodes[i], Diagnostic(ErrorUndefinedTypeField, {
+                        .ctx = c->tir,
+                        .type = hint,
+                    }));
+                    return null_tir;
+                }
+                TypeScopeSymbol sym = tir_get_storage(c->tir, inner)->type_scope_symbols.ptr[field];
+                values[i] = get_ast_unary(map.nodes[i], c->ast);
+                field_indices[i] = sym.field_index;
+            }
+
+            return analyze_struct_ctor(c, node, map.count, values, &g, field_indices);
+        }
+        default: {
+            node_diagnostic(c, node, Diagnostic(ErrorTypeConstructorType, {
+                .ctx = c->tir,
+                .type = g.inner,
+            }));
+            return null_tir;
+        }
+    }
+}
+
 static TirId analyze_constructor(Context *c, AstId node, GenericTerm *term) {
     AstCall call = get_ast_call(node, c->ast);
     TirId inner = remove_tags(c->tir, term->inner);
     switch (get_term_tag(c->tir, inner)) {
-        case TIR_STRUCT_TYPE: return analyze_struct_ctor(c, node, term);
+        case TIR_STRUCT_TYPE: {
+            StructType s = get_struct_type(c->tir, inner);
+            int32_t *field_indices = arena_alloc(c->scratch, int32_t, s.field_count);
+
+            for (int32_t i = 0; i < s.field_count; i++) {
+                field_indices[i] = i;
+            }
+
+            return analyze_struct_ctor(c, node, call.arg_count, call.args, term, field_indices);
+        }
         case TIR_AFFINE_TYPE: return analyze_affine_ctor(c, node, term->inner);
         default: {
             node_diagnostic(c, call.operand, Diagnostic(ErrorTypeConstructorType, {
@@ -2503,6 +2570,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_CALL: return analyze_call(c, node);
         case AST_INDEX: return analyze_index(c, node, hint);
         case AST_SLICE: return analyze_slice(c, node);
+        case AST_MAP: return analyze_map(c, node, hint);
         case AST_LIST: return analyze_list(c, node, hint);
         case AST_SWITCH: return analyze_switch(c, node, hint);
 

@@ -12,9 +12,9 @@ public function init_sky() -> Sky {
         compile_shader(gl.VERTEX_SHADER, &"shaders/sky.vert"[0]),
         compile_shader(gl.FRAGMENT_SHADER, &"shaders/sky.frag"[0]),
     ])
-    Sky(
-        shader,
-        gl.glGetUniformLocation(shader, &"colors"[0]),
+    (
+        shader = shader,
+        loc_colors = gl.glGetUniformLocation(shader, &"colors"[0]),
     )
 }
 

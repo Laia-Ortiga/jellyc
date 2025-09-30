@@ -101,6 +101,8 @@ typedef enum {
     AST_ACCESS,
     AST_INFERRED_ACCESS,
     AST_LIST,
+    AST_MAP_ENTRY,
+    AST_MAP,
     AST_BLOCK,
 
     // Tree leaves

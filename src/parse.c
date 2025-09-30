@@ -638,6 +638,25 @@ static AstId parse_array_type(Parser *parser, SourceIndex token) {
     return add_binary_ast(AST_ARRAY_TYPE_SUGAR, token, length, type_node, &parser->ast);
 }
 
+static AstId parse_map(Parser *parser, SourceIndex token) {
+    ArenaLinkedList args = {0};
+
+    do {
+        if (parser->lookahead.tag == TOK_ROUNDR) {
+            break;
+        }
+
+        SourceIndex key = expect(parser, TOK_ID);
+        expect(parser, TOK_ASSIGN);
+        AstId value = parse_expr(parser, PREC_NONE);
+        push(parser, &args, add_unary_ast(AST_MAP_ENTRY, key, value, &parser->ast));
+    } while (accept(parser, TOK_COMMA));
+
+    expect(parser, TOK_ROUNDR);
+    int32_t index = push_extra(&parser->ast, args);
+    return add_node(AST_MAP, (AstData) {token, args.count, index}, &parser->ast);
+}
+
 static AstId parse_list(Parser *parser, SourceIndex token) {
     if (accept(parser, TOK_COLON)) {
         return parse_array_type(parser, token);
@@ -705,6 +724,9 @@ static AstId parse_prefix(Parser *parser) {
         case TOK_DOT: {
             consume(parser);
             return add_leaf_ast(AST_INFERRED_ACCESS, expect(parser, TOK_ID), &parser->ast);
+        }
+        case TOK_ROUNDL: {
+            return parse_map(parser, consume(parser).start);
         }
         case TOK_SQUAREL: {
             return parse_list(parser, consume(parser).start);
