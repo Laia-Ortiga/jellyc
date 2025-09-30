@@ -8,6 +8,7 @@
 #define Str(S) ((String) {sizeof(S) - 1, S})
 #define Str2(S) {sizeof(S) - 1, S}
 #define ArrayLength(A) ((ptrdiff_t) (sizeof(A) / sizeof(A[0])))
+#define VecTable(I, V) struct { int32_t cap; int32_t len; union { Table(I, V) table; V *ptr; }; }
 #define Vec(T) struct { int32_t cap; int32_t len; T *ptr; }
 #define SumVec(T) struct { int32_t cap; int32_t len; unsigned char *tags; T *datas; }
 

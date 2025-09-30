@@ -4,7 +4,6 @@
 #include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
-#include "ids.h"
 #include "gen.h"
 #include "hash.h"
 #include "lex.h"
@@ -100,9 +99,9 @@ static String read_file(char const *path) {
 typedef struct {
     Paths paths;
     Sources sources;
-    Ast *asts;
-    File *files;
-    Module *modules;
+    Asts asts;
+    Files files;
+    Modules modules;
     HashTable *global_scope;
     HashTable *extern_symbols;
     AstRefVec *ast_refs;
@@ -194,8 +193,9 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     int32_t *prev_extern_sym = is_extern ? htable_lookup(b->extern_symbols, name) : NULL;
     if (prev_extern_sym) {
+        DefId prev_extern_def = {*prev_extern_sym};
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_EXTERN_DEFINITION});
-        AstRef prev_ref = b->ast_refs->ptr[*prev_extern_sym];
+        AstRef prev_ref = nth(b->ast_refs->table, prev_extern_def);
         SourceLoc prev_loc = get_ast_location(b, prev_ref);
         print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         return 1;
@@ -203,14 +203,14 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
-        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.id < TERM_GLOBAL_COUNT - TERM_COUNT) {
+        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < TERM_GLOBAL_COUNT - TERM_COUNT) {
             // Defined in "internal.jel".
             vec_push(b->ast_refs, def);
             return 0;
         }
         print_diagnostic(&loc, &(Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
         if (prev_sym.kind == SYM_GLOBAL) {
-            AstRef prev_ref = b->ast_refs->ptr[prev_sym.global.id];
+            AstRef prev_ref = nth(b->ast_refs->table, prev_sym.global);
             SourceLoc prev_loc = get_ast_location(b, prev_ref);
             print_diagnostic(&prev_loc, &(Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         } else {
@@ -234,7 +234,7 @@ typedef struct {
     int32_t file_count;
     Paths paths;
     Sources sources;
-    Ast *asts;
+    Asts asts;
     Arena scratch;
 } ParseStageInfo;
 
@@ -249,7 +249,7 @@ static int parse_all(ParseStageInfo *info) {
         ParseInfo p = {
             .path = nth(info->paths, file),
             .source = nth(info->sources, file),
-            .ast = &info->asts[i],
+            .ast = &nth(info->asts, file),
             .errors = &parse_errors[i],
         };
         if (!p.source.len || parse_ast(&p)) {
@@ -369,7 +369,7 @@ int main(int argc, char **argv) {
         abort();
     }
 
-    Ast *asts = arena_alloc(&permanent_arena, Ast, file_count);
+    Asts asts = {arena_alloc(&permanent_arena, Ast, file_count)};
     int err = parse_all(&(ParseStageInfo) {
         .file_count = file_count,
         .paths = paths,
@@ -385,31 +385,32 @@ int main(int argc, char **argv) {
     if (options.print_debug) {
         for (int32_t i = 0; i < file_count; i++) {
             FileId file = {i};
-            print_ast(nth(paths, file), nth(sources, file), &asts[i]);
+            print_ast(nth(paths, file), nth(sources, file), &nth(asts, file));
         }
     }
 
     // Files & Modules
 
-    File *files = arena_alloc(&permanent_arena, File, file_count);
+    Files files = {arena_alloc(&permanent_arena, File, file_count)};
     HashTable module_table = htable_init();
     for (int32_t i = 0; i < file_count; i++) {
         FileId file = {i};
-        SourceIndex module_token = get_ast_token(null_ast, &asts[i]);
+        SourceIndex module_token = get_ast_token(null_ast, &nth(asts, file));
         String module_name = id_token_to_string(nth(sources, file), module_token);
         int32_t new_module = module_table.count;
         int64_t module = htable_try_insert(&module_table, module_name, new_module);
         if (module < 0) {
             module = new_module;
         }
-        files[i].module = (ModuleId) {module};
-        files[i].scope = htable_init();
+        nth(files, file).module = (ModuleId) {module};
+        nth(files, file).scope = htable_init();
     }
 
-    Module *modules = arena_alloc(&permanent_arena, Module, module_table.count);
+    Modules modules = {arena_alloc(&permanent_arena, Module, module_table.count)};
     for (int32_t i = 0; i < module_table.count; i++) {
-        modules[i].public_scope = htable_init();
-        modules[i].private_scope = htable_init();
+        ModuleId m = {i};
+        nth(modules, m).public_scope = htable_init();
+        nth(modules, m).private_scope = htable_init();
     }
 
     HashTable global_scope = htable_init();
@@ -441,7 +442,7 @@ int main(int argc, char **argv) {
         b.function_body_count = &function_body_count;
         for (int32_t i = 0; i < file_count; i++) {
             FileId file = {i};
-            AstList list = get_ast_list(null_ast, &asts[i]);
+            AstList list = get_ast_list(null_ast, &nth(asts, file));
             for (int32_t j = 0; j < list.count; j++) {
                 add_global(&b, (AstRef) {list.nodes[j], file});
             }
@@ -459,7 +460,7 @@ int main(int argc, char **argv) {
     tir_input.module_table = &module_table;
     tir_input.modules = modules;
     tir_input.global_scope = &global_scope;
-    tir_input.ast_refs = ast_refs.ptr;
+    tir_input.ast_refs = ast_refs.table;
     tir_input.def_count = ast_refs.len;
     tir_input.function_body_count = function_body_count;
     TirOutput tir_output = analyze_types(&tir_input, &permanent_arena, scratch_arena);
@@ -481,7 +482,7 @@ int main(int argc, char **argv) {
             .paths = paths,
             .sources = sources,
             .asts = asts,
-            .ast_refs = ast_refs.ptr,
+            .ast_refs = ast_refs.table,
             .global_deps = &tir_output.global_deps,
             .insts = tir_output.insts,
             .functions = tir_output.functions,
@@ -497,7 +498,7 @@ int main(int argc, char **argv) {
         .paths = paths,
         .sources = sources,
         .asts = asts,
-        .ast_refs = ast_refs.ptr,
+        .ast_refs = ast_refs.table,
         .functions = tir_output.global_deps.functions.ptr,
         .global_deps = &tir_output.global_deps,
         .insts = tir_output.insts,

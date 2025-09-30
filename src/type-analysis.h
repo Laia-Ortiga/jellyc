@@ -10,12 +10,12 @@ typedef struct {
     int file_count;
     Paths paths;
     Sources sources;
-    Ast *asts;
-    File *files;
+    Asts asts;
+    Files files;
     HashTable *module_table;
-    Module *modules;
+    Modules modules;
     HashTable *global_scope;
-    AstRef *ast_refs;
+    AstRefs ast_refs;
     int32_t def_count;
 
     int32_t function_body_count;

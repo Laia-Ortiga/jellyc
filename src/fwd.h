@@ -1,10 +1,19 @@
 #pragma once
 
+#include "adt.h"
 #include "ast.h"
 #include "hash.h"
 
 #include <limits.h>
 #include <stdint.h>
+
+#define Table(I, V) \
+    union { V *private_field_ptr; I *private_field_key; }
+
+#define nth(list, index)                    \
+    (_Generic((list).private_field_key,     \
+        typeof_unqual(index)*: (list)       \
+    ).private_field_ptr[(index).private_field_id])
 
 typedef enum {
     BACKEND_C,
@@ -43,15 +52,7 @@ typedef struct {
 } Module;
 
 typedef struct {
-    char **private_field_id;
-} Paths;
-
-typedef struct {
-    String *private_field_id;
-} Sources;
-
-typedef struct {
-    int32_t id;
+    int32_t private_field_id;
 } DefId;
 
 typedef struct {
@@ -106,5 +107,12 @@ typedef struct {
     FileId file;
 } AstRef;
 
-typedef Vec(AstRef) AstRefVec;
+typedef Table(FileId, char*) Paths;
+typedef Table(FileId, String) Sources;
+typedef Table(FileId, Ast) Asts;
+typedef Table(FileId, File) Files;
+typedef Table(ModuleId, Module) Modules;
+
+typedef VecTable(DefId, AstRef) AstRefVec;
+typedef typeof((AstRefVec) {0}.table) AstRefs;
 typedef Vec(DefId) DefVec;

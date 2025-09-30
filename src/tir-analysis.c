@@ -4,7 +4,6 @@
 #include "ast.h"
 #include "diagnostic.h"
 #include "fwd.h"
-#include "ids.h"
 #include "lex.h"
 #include "tir.h"
 
@@ -28,8 +27,8 @@ typedef enum {
 typedef struct {
     Paths paths;
     Sources sources;
-    Ast *asts;
-    AstRef *ast_refs;
+    Asts asts;
+    AstRefs ast_refs;
 
     FileId file;
     TirContext tir;
@@ -458,7 +457,7 @@ int check_substructural_types(SubstructuralAnalysisInput *input, Arena scratch) 
         c.sources = input->sources;
         c.asts = input->asts;
         c.ast_refs = input->ast_refs;
-        c.file = input->ast_refs[input->functions[i].id].file;
+        c.file = nth(input->ast_refs, input->functions[i]).file;
         c.tir.global = input->global_deps;
         c.tir.thread = &input->insts[i].deps;
         c.scratch = scratch;

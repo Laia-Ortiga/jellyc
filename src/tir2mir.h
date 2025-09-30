@@ -9,8 +9,8 @@
 typedef struct {
     Paths paths;
     Sources sources;
-    Ast *asts;
-    AstRef *ast_refs;
+    Asts asts;
+    AstRefs ast_refs;
     TirId *functions;
     Tir *global_deps;
     LocalTir *insts;

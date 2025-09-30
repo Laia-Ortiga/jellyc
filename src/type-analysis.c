@@ -3,7 +3,6 @@
 #include "adt.h"
 #include "arena.h"
 #include "ast.h"
-#include "ids.h"
 #include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
@@ -52,20 +51,20 @@ typedef Vec(Local) LocalList;
 typedef struct {
     Options *options;
     Sources sources;
-    Ast *asts;
-    File *files;
+    Asts asts;
+    Files files;
     HashTable *module_table;
-    Module *modules;
+    Modules modules;
     HashTable *global_scope;
-    AstRef *ast_refs;
+    AstRefs ast_refs;
 
     bool *module_import_notes;
     Scope *scope;
 
     Arena *scratch;
 
-    unsigned char *visited;
-    TirId *tir_refs;
+    Table(DefId, unsigned char) visited;
+    Table(DefId, TirId) tir_refs;
 
     int error;
 
@@ -249,8 +248,8 @@ static void register_id(Context *c, AstRef ref, TirId term) {
     Symbol prev_symbol = find_symbol(c, ref.file, name);
 
     if (prev_symbol.kind == SYM_GLOBAL
-        && c->visited[prev_symbol.global.id] == VISITING) {
-        c->tir_refs[prev_symbol.global.id] = term;
+        && nth(c->visited, prev_symbol.global) == VISITING) {
+        nth(c->tir_refs, prev_symbol.global) = term;
 
         if (get_ast_tag(ref.node, &nth(c->asts, ref.file)) == AST_FUNCTION) {
             int32_t f_index = c->tir.global->functions.len;
@@ -270,7 +269,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
                 return;
             }
             case SYM_GLOBAL: {
-                prev_ref = c->ast_refs[prev_symbol.global.id];
+                prev_ref = nth(c->ast_refs, prev_symbol.global);
                 break;
             }
             case SYM_LOCAL: {
@@ -319,16 +318,16 @@ static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
 static TirId analyze_term(Context *c, AstId node, TirId hint);
 
 static int analyze_def(Context *c, DefId def) {
-    VisitStatus prev_role = c->visited[def.id];
+    VisitStatus prev_role = nth(c->visited, def);
     if (prev_role == VISITED) {
         return 0;
     }
-    AstRef ref = c->ast_refs[def.id];
+    AstRef ref = nth(c->ast_refs, def);
     if (prev_role == VISITING) {
         ref_diagnostic(c, ref, ERROR_RECURSIVE_DEPENDENCY);
         return 1;
     }
-    c->visited[def.id] = VISITING;
+    nth(c->visited, def) = VISITING;
     Context new_c = *c;
     new_c.file = ref.file;
     new_c.ast = &nth(c->asts, ref.file);
@@ -337,7 +336,7 @@ static int analyze_def(Context *c, DefId def) {
     new_c.current_function_type = null_tir;
     new_c.tir.thread = NULL;
     analyze_term(&new_c, ref.node, null_tir);
-    c->visited[def.id] = VISITED;
+    nth(c->visited, def) = VISITED;
     return 0;
 }
 
@@ -345,7 +344,7 @@ static TirId resolve_global(Context *c, AstRef ref, DefId global) {
     if (analyze_def(c, global)) {
         ref_diagnostic(c, ref, NOTE_RECURSION);
     }
-    return c->tir_refs[global.id];
+    return nth(c->tir_refs, global);
 }
 
 static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
@@ -1323,7 +1322,7 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
 }
 
 static TirId get_internal_term(Context *c, PrimitiveTerm p) {
-    return c->tir_refs[p - TERM_COUNT];
+    return nth(c->tir_refs, (DefId) {p - TERM_COUNT});
 }
 
 static TirId analyze_alignof(Context *c, AstId node) {
@@ -1674,16 +1673,16 @@ static TirId analyze_access(Context *c, AstId node) {
     TirId operand_value = analyze_term(c, operand, null_tir);
 
     if (operand_value.id >= BUILTIN_TERM_END && operand_value.id < 0) {
-        int32_t module = ~operand_value.id;
-        int32_t *def_ptr = htable_lookup(&c->modules[module].public_scope, field_name);
+        ModuleId module = {~operand_value.id};
+        int32_t *def_ptr = htable_lookup(&nth(c->modules, module).public_scope, field_name);
 
         if (!def_ptr) {
             ref_diagnostic(c, (AstRef) {operand, c->file}, ERROR_UNDEFINED_NAME_FROM_MODULE);
 
             // Check private namespace for hints.
-            def_ptr = htable_lookup(&c->modules[module].private_scope, field_name);
+            def_ptr = htable_lookup(&nth(c->modules, module).private_scope, field_name);
             if (def_ptr) {
-                AstRef ast_ref = c->ast_refs[*def_ptr];
+                AstRef ast_ref = nth(c->ast_refs, (DefId) {*def_ptr});
                 ref_diagnostic(c, ast_ref, NOTE_PRIVATE_DEFINITION);
             }
 
@@ -2396,8 +2395,8 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .ast_refs = input->ast_refs,
 
         .scratch = &scratch,
-        .visited = arena_alloc(&scratch, unsigned char, input->def_count),
-        .tir_refs = arena_alloc(&scratch, TirId, input->def_count),
+        .visited = {arena_alloc(&scratch, unsigned char, input->def_count)},
+        .tir_refs = {arena_alloc(&scratch, TirId, input->def_count)},
         .tir = {
             .global = &global_tir,
         },
@@ -2446,8 +2445,8 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_body_count; i++) {
             DefId def = global_tc.functions[i];
-            TirId value = global_tc.tir_refs[def.id];
-            AstRef ref = input->ast_refs[def.id];
+            TirId value = nth(global_tc.tir_refs, def);
+            AstRef ref = nth(input->ast_refs, def);
 
             local_tc.file = ref.file;
             local_tc.ast = &nth(input->asts, ref.file);
