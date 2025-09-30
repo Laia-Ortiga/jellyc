@@ -21,15 +21,19 @@ typedef struct Scope {
 } Scope;
 
 typedef enum {
-    ROLE_NOT_VISITED,
-    ROLE_VISITING,
-    ROLE_VISITED,
-} Role;
+    NOT_VISITED,
+    VISITING,
+    VISITED,
+} VisitStatus;
 
 typedef struct {
     AstId node;
     TirId tir_ref;
-    bool notes_shown;  // Whether a note to fix an error has been shown already.
+
+    // True if a note to fix an error has been shown already.
+    bool notes_shown;
+
+    // True if this name has been referenced anywhere.
     bool used;
 } Local;
 
@@ -59,7 +63,7 @@ typedef struct {
 
     Arena *scratch;
 
-    Role *rirs;
+    unsigned char *visited;
     TirId *tir_refs;
 
     int error;
@@ -244,7 +248,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
     Symbol prev_symbol = find_symbol(c, ref.file, name);
 
     if (prev_symbol.kind == SYM_GLOBAL
-        && c->rirs[prev_symbol.global.id] == ROLE_VISITING) {
+        && c->visited[prev_symbol.global.id] == VISITING) {
         c->tir_refs[prev_symbol.global.id] = term;
 
         if (get_ast_tag(ref.node, &c->asts[ref.file]) == AST_FUNCTION) {
@@ -314,16 +318,16 @@ static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
 static TirId analyze_term(Context *c, AstId node, TirId hint);
 
 static int analyze_def(Context *c, DefId def) {
-    Role prev_role = c->rirs[def.id];
-    if (prev_role == ROLE_VISITED) {
+    VisitStatus prev_role = c->visited[def.id];
+    if (prev_role == VISITED) {
         return 0;
     }
     AstRef ref = c->ast_refs[def.id];
-    if (prev_role == ROLE_VISITING) {
+    if (prev_role == VISITING) {
         ref_diagnostic(c, ref, ERROR_RECURSIVE_DEPENDENCY);
         return 1;
     }
-    c->rirs[def.id] = ROLE_VISITING;
+    c->visited[def.id] = VISITING;
     Context new_c = *c;
     new_c.file = ref.file;
     new_c.ast = &c->asts[ref.file];
@@ -332,7 +336,7 @@ static int analyze_def(Context *c, DefId def) {
     new_c.current_function_type = null_tir;
     new_c.tir.thread = NULL;
     analyze_term(&new_c, ref.node, null_tir);
-    c->rirs[def.id] = ROLE_VISITED;
+    c->visited[def.id] = VISITED;
     return 0;
 }
 
@@ -2391,7 +2395,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .ast_refs = input->ast_refs,
 
         .scratch = &scratch,
-        .rirs = arena_alloc(&scratch, Role, input->def_count),
+        .visited = arena_alloc(&scratch, unsigned char, input->def_count),
         .tir_refs = arena_alloc(&scratch, TirId, input->def_count),
         .tir = {
             .global = &global_tir,
@@ -2431,7 +2435,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             .ast_refs = input->ast_refs,
 
             .scratch = &thread_scratch,
-            .rirs = global_tc.rirs,
+            .visited = global_tc.visited,
             .tir_refs = global_tc.tir_refs,
             .tir = {
                 .global = &global_tir,
