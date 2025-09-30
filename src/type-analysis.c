@@ -3,6 +3,7 @@
 #include "adt.h"
 #include "arena.h"
 #include "ast.h"
+#include "ids.h"
 #include "tir.h"
 #include "diagnostic.h"
 #include "fwd.h"
@@ -10,6 +11,7 @@
 #include "lex.h"
 #include "util.h"
 
+#include <assert.h>
 #include <omp.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -81,6 +83,19 @@ typedef struct {
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
+
+static ModuleId find_module(Context *c, String name) {
+    int32_t *m = htable_lookup(c->module_table, name);
+    return (ModuleId) {m ? *m : -1};
+}
+
+static TirId module_to_tir(ModuleId m) {
+    return (TirId) {~m.private_field_id};
+}
+
+static ModuleId tir_to_module(TirId m) {
+    return (ModuleId) {~m.id};
+}
 
 static String get_id_source(Context const *c, AstRef ref) {
     SourceIndex token = get_ast_token(ref.node, &nth(c->asts, ref.file));
@@ -237,7 +252,7 @@ static LocalId lookup_local(Context *c, String name) {
 
 static Symbol find_symbol(Context *c, FileId file, String name) {
     LocalId local = lookup_local(c, name);
-    if (local.private_field_id >= 0) {
+    if (id_is_valid(local)) {
         return (Symbol) {.kind = SYM_LOCAL, .local = local};
     }
     return lookup(c, file, name);
@@ -572,16 +587,16 @@ static TirId analyze_return_type(Context *c, AstId node) {
 static TirId analyze_import(Context *c, AstId node) {
     AstRef ref = {node, c->file};
     String name = get_id_source(c, ref);
-    int32_t *module = htable_lookup(c->module_table, name);
+    ModuleId module = find_module(c, name);
 
-    if (!module) {
+    if (!id_is_valid(module)) {
         ref_diagnostic(c, ref, ERROR_UNDEFINED_MODULE);
         return null_tir;
     }
 
-    TirId m = {~*module};
-    register_id(c, ref, m);
-    return m;
+    TirId result = module_to_tir(module);
+    register_id(c, ref, result);
+    return result;
 }
 
 static TirId analyze_function_decl(Context *c, AstId node) {
@@ -1034,13 +1049,10 @@ static TirId analyze_id(Context *c, AstId node) {
             ref_diagnostic(c, ref, ERROR_UNDEFINED_NAME);
 
             // Check module names for hints.
-            int32_t *m = htable_lookup(c->module_table, name);
-            if (m) {
-                ModuleId mo = {*m};
-                if (!nth(c->module_import_notes, mo)) {
-                    ref_diagnostic(c, ref, NOTE_FORGOT_IMPORT);
-                    nth(c->module_import_notes, mo) = true;
-                }
+            ModuleId m = find_module(c, name);
+            if (id_is_valid(m) && !nth(c->module_import_notes, m)) {
+                ref_diagnostic(c, ref, NOTE_FORGOT_IMPORT);
+                nth(c->module_import_notes, m) = true;
             }
 
             register_id(c, ref, null_tir);
@@ -1669,9 +1681,10 @@ static TirId analyze_access(Context *c, AstId node) {
     SourceIndex field_token = get_ast_token(node, c->ast);
     String field_name = id_token_to_string(ctx_source(c), field_token);
     TirId operand_value = analyze_term(c, operand, null_tir);
+    TirTag tag = get_term_tag(c->tir, operand_value);
 
-    if (operand_value.id >= BUILTIN_TERM_END && operand_value.id < 0) {
-        ModuleId module = {~operand_value.id};
+    if (tag == TIR_MODULE) {
+        ModuleId module = tir_to_module(operand_value);
         int32_t *def_ptr = htable_lookup(&nth(c->modules, module).public_scope, field_name);
 
         if (!def_ptr) {
@@ -1690,8 +1703,6 @@ static TirId analyze_access(Context *c, AstId node) {
         DefId global = {*def_ptr};
         return resolve_global(c, (AstRef) {operand, c->file}, global);
     }
-
-    TirTag tag = get_term_tag(c->tir, operand_value);
 
     if (is_tir_type(tag)) {
         return analyze_enum_member(c, node);

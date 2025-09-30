@@ -7,3 +7,6 @@
     (_Generic((list).private_field_key,     \
         typeof_unqual(index)*: (list)       \
     ).private_field_ptr[(index).private_field_id])
+
+#define id_is_valid(id) \
+    ((id).private_field_id >= 0)
