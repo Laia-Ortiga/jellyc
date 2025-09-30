@@ -29,6 +29,10 @@ typedef enum {
 } VisitStatus;
 
 typedef struct {
+    bool used;
+} Global;
+
+typedef struct {
     AstId node;
     TirId tir_ref;
 
@@ -47,6 +51,7 @@ typedef struct {
     Diagnostic diag;
 } SemaError;
 
+typedef Table(GlobalId, Global) Globals;
 typedef Vec(SemaError) SemaErrorList;
 typedef VecTable(LocalId, Local) LocalList;
 
@@ -67,6 +72,7 @@ typedef struct {
 
     Table(GlobalId, unsigned char) visited;
     Table(GlobalId, TirId) tir_refs;
+    Globals globals;
 
     int node_diagnostic;
 
@@ -244,6 +250,10 @@ static void register_id(Context *c, AstRef ref, TirId term) {
             int32_t f_index = c->tir.global->functions.len;
             c->functions[f_index] = prev_symbol.global;
             c->function_locals[f_index] = c->locals;
+
+            if (equals(name, Str("main")) && !c->tir.thread) {
+                nth(c->globals, prev_symbol.global).used = true;
+            }
         }
 
         return;
@@ -258,7 +268,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
                 return;
             }
             case SYM_GLOBAL: {
-                prev_ref = nth(c->ast_refs, prev_symbol.global);
+                prev_ref = nth(c->ast_refs, prev_symbol.global).ref;
                 break;
             }
             case SYM_LOCAL: {
@@ -311,21 +321,24 @@ static int analyze_def(Context *c, GlobalId def) {
     if (prev_role == VISITED) {
         return 0;
     }
-    AstRef ref = nth(c->ast_refs, def);
+    AstGlobal ref = nth(c->ast_refs, def);
     if (prev_role == VISITING) {
-        name_diagnostic(c, ref, Diagnostic(ErrorRecursion, {0}));
+        name_diagnostic(c, ref.ref, Diagnostic(ErrorRecursion, {0}));
         return 1;
     }
     nth(c->visited, def) = VISITING;
     Context new_c = *c;
-    new_c.file = ref.file;
-    new_c.ast = &nth(c->asts, ref.file);
+    new_c.file = ref.ref.file;
+    new_c.ast = &nth(c->asts, ref.ref.file);
     new_c.scope = NULL;
     new_c.loop_depth = 0;
     new_c.current_function_type = null_tir;
     new_c.tir.thread = NULL;
-    analyze_term(&new_c, ref.node, null_tir);
+    analyze_term(&new_c, ref.ref.node, null_tir);
     nth(c->visited, def) = VISITED;
+    if (ref.is_public) {
+        nth(c->globals, def).used = true;
+    }
     return 0;
 }
 
@@ -725,7 +738,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
             name_diagnostic(
                 c,
                 (AstRef) {c->locals.ptr[i].node, c->file},
-                Diagnostic(WarningUnusedLocal, {0})
+                Diagnostic(WarningUnused, {0})
             );
         }
     }
@@ -1061,6 +1074,7 @@ static TirId analyze_id(Context *c, AstId node) {
             return (TirId) {symbol.builtin};
         }
         case SYM_GLOBAL: {
+            nth(c->globals, symbol.global).used = true;
             return resolve_global(c, ref, symbol.global);
         }
         case SYM_LOCAL: {
@@ -1748,7 +1762,7 @@ static TirId analyze_access(Context *c, AstId node) {
 
             // Check private namespace for hints.
             if (!symbol.is_public) {
-                AstRef ast_ref = nth(c->ast_refs, symbol.def);
+                AstRef ast_ref = nth(c->ast_refs, symbol.def).ref;
                 name_diagnostic(c, ast_ref, Diagnostic(NotePrivateDefinition, {0}));
             }
 
@@ -2498,6 +2512,19 @@ static void print_sema_error(TirInput *input, SemaError *e) {
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     Tir global_tir = {0};
+
+    #ifdef _OPENMP
+    int n = omp_get_max_threads();
+    #else
+    int n = 1;
+    #endif
+
+    Globals *global_lists = arena_alloc(&scratch, Globals, n);
+
+    for (int32_t i = 0; i < n; i++) {
+        global_lists[i] = (Globals) {arena_alloc(&scratch, Global, input->def_count)};
+    }
+
     Context global_tc = {
         .options = input->options,
         .sources = input->sources,
@@ -2511,6 +2538,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .scratch = &scratch,
         .visited = {arena_alloc(&scratch, unsigned char, input->def_count)},
         .tir_refs = {arena_alloc(&scratch, TirId, input->def_count)},
+        .globals = global_lists[0],
         .tir = {
             .global = &global_tir,
         },
@@ -2526,16 +2554,16 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
     int err = global_tc.node_diagnostic;
 
-    #ifdef _OPENMP
-    int n = omp_get_max_threads();
-    #else
-    int n = 1;
-    #endif
-
     SemaErrorList *local_errors = arena_alloc(&scratch, SemaErrorList, n);
 
     #pragma omp parallel
     {
+        #ifdef _OPENMP
+        int tid = omp_get_thread_num();
+        #else
+        int tid = 0;
+        #endif
+
         Arena thread_base_scratch = new_arena(64 << 20);
         Arena thread_scratch = thread_base_scratch;
         Context local_tc = {
@@ -2551,16 +2579,24 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
             .scratch = &thread_scratch,
             .visited = global_tc.visited,
             .tir_refs = global_tc.tir_refs,
+            .globals = global_lists[tid],
             .tir = {
                 .global = &global_tir,
             },
         };
+        if (tid > 0) {
+            memcpy(
+                local_tc.globals.private_field_ptr,
+                global_tc.globals.private_field_ptr,
+                input->def_count * sizeof(Global)
+            );
+        }
 
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_body_count; i++) {
             GlobalId def = global_tc.functions[i];
             TirId value = nth(global_tc.tir_refs, def);
-            AstRef ref = nth(input->ast_refs, def);
+            AstRef ref = nth(input->ast_refs, def).ref;
 
             local_tc.file = ref.file;
             local_tc.ast = &nth(input->asts, ref.file);
@@ -2577,13 +2613,24 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
         delete_arena(&thread_base_scratch);
 
-        #ifdef _OPENMP
-        int tid = omp_get_thread_num();
-        #else
-        int tid = 0;
-        #endif
-
         local_errors[tid] = local_tc.diagnostics;
+    }
+
+    for (int32_t i = 1; i < n; i++) {
+        for (int32_t j = TERM_GLOBAL_COUNT; j < input->def_count; j++) {
+            GlobalId g = {j};
+            nth(global_lists[0], g).used |= nth(global_lists[i], g).used;
+        }
+    }
+    for (int32_t j = TERM_GLOBAL_COUNT; j < input->def_count; j++) {
+        GlobalId g = {j};
+        if (!nth(global_lists[0], g).used) {
+            name_diagnostic(
+                &global_tc,
+                nth(global_tc.ast_refs, g).ref,
+                Diagnostic(WarningUnused, {0})
+            );
+        }
     }
 
     for (int32_t i = 0; i < global_tc.diagnostics.len; i++) {

@@ -1,6 +1,7 @@
 module main
 
 import gl
+import glfw
 import libc
 
 struct Vec3 {
@@ -111,36 +112,36 @@ function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
 function key_callback(window *mut byte, key i32, _scancode i32, action i32, _mods i32) {
     let magnitude = <f32> 0.15
     let speed = <f32> switch action {
-        GLFW_RELEASE -> -magnitude,
-        GLFW_PRESS -> magnitude,
+        glfw.RELEASE -> -magnitude,
+        glfw.PRESS -> magnitude,
         else -> 0.0,
     }
-    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
+    let scene = <*mut Scene> `cast[glfw.getWindowUserPointer(window)]
     let state = &scene!.cam_state
     switch key {
         'A'                 -> state!.speed.x = state!.speed.x - speed,
         'D'                 -> state!.speed.x = state!.speed.x + speed,
         'W'                 -> state!.speed.z = state!.speed.z - speed,
         'S'                 -> state!.speed.z = state!.speed.z + speed,
-        GLFW_KEY_LEFT_SHIFT -> state!.speed.y = state!.speed.y - speed,
+        glfw.KEY_LEFT_SHIFT -> state!.speed.y = state!.speed.y - speed,
         ' '                 -> state!.speed.y = state!.speed.y + speed,
     }
 }
 
 function mouse_button_callback(window *mut byte, button i32, action i32, _mods i32) {
-    if button != GLFW_MOUSE_BUTTON_RIGHT {
+    if button != glfw.MOUSE_BUTTON_RIGHT {
         return
     }
 
-    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
-    if action == GLFW_PRESS {
-        glfwGetCursorPos(window, &scene!.cam_state.last_x, &scene!.cam_state.last_y)
+    let scene = <*mut Scene> `cast[glfw.getWindowUserPointer(window)]
+    if action == glfw.PRESS {
+        glfw.getCursorPos(window, &scene!.cam_state.last_x, &scene!.cam_state.last_y)
     }
-    scene!.cam_state.rotating = action == GLFW_PRESS
+    scene!.cam_state.rotating = action == glfw.PRESS
 }
 
 function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
-    let scene = <*mut Scene> `cast[glfwGetWindowUserPointer(window)]
+    let scene = <*mut Scene> `cast[glfw.getWindowUserPointer(window)]
     if !scene!.cam_state.rotating {
         return
     }
@@ -170,28 +171,28 @@ function update_cam(cam *mut Camera, cam_state *mut CameraState) {
 }
 
 function main() {
-    if glfwInit() == 0 {
+    if glfw.init() == 0 {
         return
     }
 
     let width = <i32> 1280
     let height = <i32> 720
 
-    let window = glfwCreateWindow(width, height, &"Test"[0], null, null)
+    let window = glfw.createWindow(width, height, &"Test"[0], null, null)
     if window == null {
-        glfwTerminate()
+        glfw.terminate()
         return
     }
-    glfwMakeContextCurrent(window)
+    glfw.makeContextCurrent(window)
 
     mut cam = Camera(Vec3(0.0, 1.0, 0.0), -0.4, 0.0)
     mut scene = Scene(CameraState(cam, Vec3(0.0, 0.0, 0.0), false, 0.0, 0.0), cam)
-    glfwSetWindowUserPointer(window, &scene)
-    glfwSetKeyCallback(window, key_callback)
-    glfwSetMouseButtonCallback(window, mouse_button_callback)
-    glfwSetCursorPosCallback(window, mouse_cursor_pos_callback)
+    glfw.setWindowUserPointer(window, &scene)
+    glfw.setKeyCallback(window, key_callback)
+    glfw.setMouseButtonCallback(window, mouse_button_callback)
+    glfw.setCursorPosCallback(window, mouse_cursor_pos_callback)
 
-    if gl.gladLoadGL(glfwGetProcAddress) == 0 {
+    if gl.gladLoadGL(glfw.getProcAddress) == 0 {
         libc.puts(&"Couldn't initialize GLAD"[0])
         return
     }
@@ -209,8 +210,8 @@ function main() {
         0.2, 0.5, 0.65,
     ]
 
-    while glfwWindowShouldClose(window) == 0 {
-        glfwPollEvents()
+    while glfw.windowShouldClose(window) == 0 {
+        glfw.pollEvents()
 
         update_cam(&scene.cam, &scene.cam_state)
 
@@ -220,8 +221,8 @@ function main() {
         gl.glClear(gl.DEPTH_BUFFER_BIT)
         draw_sky(sky, colors)
         draw_terrain(terrain)
-        glfwSwapBuffers(window)
+        glfw.swapBuffers(window)
     }
 
-    glfwTerminate()
+    glfw.terminate()
 }

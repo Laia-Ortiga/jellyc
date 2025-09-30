@@ -457,7 +457,7 @@ int check_substructural_types(SubstructuralAnalysisInput *input, Arena scratch) 
         c.sources = input->sources;
         c.asts = input->asts;
         c.ast_refs = input->ast_refs;
-        c.file = nth(input->ast_refs, input->functions[i]).file;
+        c.file = nth(input->ast_refs, input->functions[i]).ref.file;
         c.tir.global = input->global_deps;
         c.tir.thread = &input->insts[i].deps;
         c.scratch = scratch;

@@ -468,7 +468,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "recursion happens here");
             break;
         })
-        CASE(WarningUnusedLocal, d, {
+        CASE(WarningUnused, d, {
             (void) d;
             fprintf(stderr, "unused name, add a leading _ to remove this warning");
             break;

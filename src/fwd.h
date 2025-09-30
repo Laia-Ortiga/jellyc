@@ -99,12 +99,17 @@ typedef struct {
     FileId file;
 } AstRef;
 
+typedef struct {
+    bool is_public;
+    AstRef ref;
+} AstGlobal;
+
 typedef Table(FileId, char*) Paths;
 typedef Table(FileId, String) Sources;
 typedef Table(FileId, Ast) Asts;
 typedef Table(FileId, File) Files;
 typedef Table(ModuleId, Module) Modules;
 
-typedef VecTable(GlobalId, AstRef) AstRefVec;
+typedef VecTable(GlobalId, AstGlobal) AstRefVec;
 typedef typeof((AstRefVec) {0}.table) AstRefs;
 typedef Vec(GlobalId) DefVec;

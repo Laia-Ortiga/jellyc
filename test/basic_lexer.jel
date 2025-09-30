@@ -108,7 +108,7 @@ function next(lexer *mut Lexer) -> Token {
         else ->
             switch {
                 is_alpha(c) or c == '_' -> id(lexer),
-                is_digit(c) -> num(lexer, c),
+                is_digit(c) -> num(lexer),
                 else -> Token(.invalid, start, 1),
             },
     }
@@ -213,10 +213,6 @@ function is_digit(c i8) -> bool {
     c >= '0' and c <= '9'
 }
 
-function is_hex_digit(c i8) -> bool {
-    is_digit(c) or (c >= 'a' and c <= 'f') or (c >= 'A' and c <= 'F')
-}
-
 function is_id_char(c i8) -> bool {
     is_alpha(c) or c == '_' or is_digit(c)
 }
@@ -292,7 +288,7 @@ function id(lexer *mut Lexer) -> Token {
     Token(kind, start, lexer!.cursor - start)
 }
 
-function num(lexer *mut Lexer, c i8) -> Token {
+function num(lexer *mut Lexer) -> Token {
     let start = lexer!.cursor - 1
     while is_digit(peek(lexer)) {
         consume(lexer)

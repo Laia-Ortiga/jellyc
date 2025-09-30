@@ -87,7 +87,7 @@ VARIANT(NoteRecursion, X(int unused))
 EXTRA(NOTE_END)
 
 /* Warnings */
-VARIANT(WarningUnusedLocal, X(int unused))
+VARIANT(WarningUnused, X(int unused))
 
 EXTRA(WARNING_END)
 

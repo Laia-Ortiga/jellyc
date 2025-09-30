@@ -1,6 +1,5 @@
 module main
 
-import libc
 import gl
 
 struct Terrain {

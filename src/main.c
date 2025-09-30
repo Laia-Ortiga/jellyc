@@ -191,7 +191,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     if (prev_extern_sym) {
         GlobalId prev_extern_def = {*prev_extern_sym};
         print_diagnostic(&loc, &Diagnostic(ErrorMultipleExternDefinition, {0}));
-        AstRef prev_ref = nth(b->ast_refs->table, prev_extern_def);
+        AstRef prev_ref = nth(b->ast_refs->table, prev_extern_def).ref;
         SourceLoc prev_loc = get_ast_location(b, prev_ref);
         print_diagnostic(&prev_loc, &Diagnostic(NotePreviousDefinition, {0}));
         return 1;
@@ -201,12 +201,15 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     if (prev_sym.kind != SYM_UNDEFINED) {
         if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < TERM_GLOBAL_COUNT - TERM_COUNT) {
             // Defined in "internal.jel".
-            vec_push(b->ast_refs, def);
+            vec_push(b->ast_refs, (AstGlobal) {
+                .is_public = !!is_public,
+                .ref = def,
+            });
             return 0;
         }
         print_diagnostic(&loc, &Diagnostic(ErrorMultipleDefinition, {0}));
         if (prev_sym.kind == SYM_GLOBAL) {
-            AstRef prev_ref = nth(b->ast_refs->table, prev_sym.global);
+            AstRef prev_ref = nth(b->ast_refs->table, prev_sym.global).ref;
             SourceLoc prev_loc = get_ast_location(b, prev_ref);
             print_diagnostic(&prev_loc, &Diagnostic(NotePreviousDefinition, {0}));
         } else {
@@ -216,7 +219,10 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     }
 
     int32_t entry = b->ast_refs->len;
-    vec_push(b->ast_refs, def);
+    vec_push(b->ast_refs, (AstGlobal) {
+        .is_public = !!is_public,
+        .ref = def,
+    });
     htable_try_insert(scope, name, entry ^ is_public);
     if (is_extern) {
         htable_try_insert(b->extern_symbols, name, entry);
