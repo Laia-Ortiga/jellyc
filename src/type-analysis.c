@@ -46,7 +46,6 @@ typedef Vec(Local) LocalList;
 
 typedef struct {
     Options *options;
-    char **paths;
     String *sources;
     Ast *asts;
     File *files;
@@ -2384,7 +2383,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     Tir global_tir = {0};
     Context global_tc = {0};
     global_tc.options = input->options;
-    global_tc.paths = input->paths;
     global_tc.sources = input->sources;
     global_tc.asts = input->asts;
     global_tc.files = input->files;
@@ -2422,7 +2420,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         Arena thread_scratch = thread_base_scratch;
         Context local_tc = {0};
         local_tc.options = global_tc.options;
-        local_tc.paths = global_tc.paths;
         local_tc.sources = global_tc.sources;
         local_tc.asts = global_tc.asts;
         local_tc.files = input->files;
