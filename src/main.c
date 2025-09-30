@@ -132,14 +132,9 @@ static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
 
     ModuleId module = nth(b->files, file).module;
 
-    int32_t *private_def = htable_lookup(&nth(b->modules, module).private_scope, name);
-    if (private_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
-    }
-
-    int32_t *public_def = htable_lookup(&nth(b->modules, module).public_scope, name);
-    if (public_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
+    int32_t *module_def = htable_lookup(&nth(b->modules, module).scope, name);
+    if (module_def) {
+        return (Symbol) {.kind = SYM_GLOBAL, .global = {*module_def}};
     }
 
     int32_t *builtin_def = htable_lookup(b->global_scope, name);
@@ -156,9 +151,10 @@ static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
 static int add_global(GlobalScopeBuilder *b, AstRef def) {
     ModuleId module = nth(b->files, def.file).module;
     Ast *ast = &nth(b->asts, def.file);
-    HashTable *scope = &nth(b->modules, module).private_scope;
+    HashTable *scope = &nth(b->modules, module).scope;
+    int32_t is_public = 0;
     if (get_ast_tag(def.node, ast) == AST_PUBLIC) {
-        scope = &nth(b->modules, module).public_scope;
+        is_public = -1;
         def.node = get_ast_unary(def.node, ast);
     }
 
@@ -221,7 +217,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     int32_t entry = b->ast_refs->len;
     vec_push(b->ast_refs, def);
-    htable_try_insert(scope, name, entry);
+    htable_try_insert(scope, name, entry ^ is_public);
     if (is_extern) {
         htable_try_insert(b->extern_symbols, name, entry);
     }
@@ -409,8 +405,7 @@ int main(int argc, char **argv) {
     Modules modules = {arena_alloc(&permanent_arena, Module, module_table.count)};
     for (int32_t i = 0; i < module_table.count; i++) {
         ModuleId m = {i};
-        nth(modules, m).public_scope = htable_init();
-        nth(modules, m).private_scope = htable_init();
+        nth(modules, m).scope = htable_init();
     }
 
     HashTable global_scope = htable_init();

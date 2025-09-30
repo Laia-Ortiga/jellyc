@@ -211,30 +211,62 @@ static void pop_scope(Context *c) {
     c->scope = c->scope->parent;
 }
 
+typedef struct {
+    DefId def;
+    bool is_public;
+} ModuleSymbol;
+
+static ModuleSymbol lookup_module_symbol(Context *c, ModuleId m, String name) {
+    int32_t *def = htable_lookup(&nth(c->modules, m).scope, name);
+    if (def) {
+        if (*def >= 0) {
+            return (ModuleSymbol) {
+                .def = {*def},
+                .is_public = false,
+            };
+        } else {
+            return (ModuleSymbol) {
+                .def = {~*def},
+                .is_public = true,
+            };
+        }
+    }
+    return (ModuleSymbol) {
+        .def = {-1},
+        .is_public = false,
+    };
+}
+
 static Symbol lookup(Context *c, FileId file, String name) {
     int32_t *file_def = htable_lookup(&nth(c->files, file).scope, name);
     if (file_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
+        return (Symbol) {
+            .kind = SYM_GLOBAL,
+            .global = {*file_def},
+        };
     }
 
     ModuleId module = nth(c->files, file).module;
-
-    int32_t *private_def = htable_lookup(&nth(c->modules, module).private_scope, name);
-    if (private_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*private_def}};
-    }
-
-    int32_t *public_def = htable_lookup(&nth(c->modules, module).public_scope, name);
-    if (public_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*public_def}};
+    ModuleSymbol module_def = lookup_module_symbol(c, module, name);
+    if (id_is_valid(module_def.def)) {
+        return (Symbol) {
+            .kind = SYM_GLOBAL,
+            .global = module_def.def,
+        };
     }
 
     int32_t *builtin_def = htable_lookup(c->global_scope, name);
     if (builtin_def) {
         if (*builtin_def >= TERM_COUNT) {
-            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
+            return (Symbol) {
+                .kind = SYM_GLOBAL,
+                .global = {*builtin_def - TERM_COUNT},
+            };
         }
-        return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
+        return (Symbol) {
+            .kind = SYM_BUILTIN,
+            .builtin = *builtin_def,
+        };
     }
 
     return (Symbol) {0};
@@ -1685,23 +1717,21 @@ static TirId analyze_access(Context *c, AstId node) {
 
     if (tag == TIR_MODULE) {
         ModuleId module = tir_to_module(operand_value);
-        int32_t *def_ptr = htable_lookup(&nth(c->modules, module).public_scope, field_name);
+        ModuleSymbol symbol = lookup_module_symbol(c, module, field_name);
 
-        if (!def_ptr) {
+        if (!id_is_valid(symbol.def) || !symbol.is_public) {
             ref_diagnostic(c, (AstRef) {operand, c->file}, ERROR_UNDEFINED_NAME_FROM_MODULE);
 
             // Check private namespace for hints.
-            def_ptr = htable_lookup(&nth(c->modules, module).private_scope, field_name);
-            if (def_ptr) {
-                AstRef ast_ref = nth(c->ast_refs, (DefId) {*def_ptr});
+            if (!symbol.is_public) {
+                AstRef ast_ref = nth(c->ast_refs, symbol.def);
                 ref_diagnostic(c, ast_ref, NOTE_PRIVATE_DEFINITION);
             }
 
             return null_tir;
         }
 
-        DefId global = {*def_ptr};
-        return resolve_global(c, (AstRef) {operand, c->file}, global);
+        return resolve_global(c, (AstRef) {operand, c->file}, symbol.def);
     }
 
     if (is_tir_type(tag)) {

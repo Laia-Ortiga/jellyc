@@ -40,8 +40,7 @@ typedef struct {
 } File;
 
 typedef struct {
-    HashTable public_scope;
-    HashTable private_scope;
+    HashTable scope;
 } Module;
 
 typedef struct {
