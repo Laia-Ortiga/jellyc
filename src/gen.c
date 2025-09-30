@@ -967,6 +967,30 @@ static void gen_struct(GenContext *ctx, TirId type) {
     fprintf(ctx->stream, "};\n");
 }
 
+static void gen_thread(GenContext *ctx, Tir *tir) {
+    ctx->tir.thread = tir;
+
+    for (int32_t i = 0; i < tir->structs.len; i++) {
+        TirId type = tir->structs.ptr[i];
+        gen_struct_decl(ctx, type);
+    }
+
+    for (int32_t i = 0; i < tir->structs.len; i++) {
+        TirId type = tir->structs.ptr[i];
+        gen_struct(ctx, type);
+    }
+
+    for (int32_t i = 0; i < tir->extern_vars.len; i++) {
+        TirId value = tir->extern_vars.ptr[i];
+        gen_extern_var(ctx, value);
+    }
+
+    for (int32_t i = 0; i < tir->extern_functions.len; i++) {
+        TirId value = tir->extern_functions.ptr[i];
+        gen_extern_function(ctx, value);
+    }
+}
+
 void gen_c(GenInput *input, Target target) {
     FILE *stream = fopen("a.c", "w");
 
@@ -989,24 +1013,9 @@ void gen_c(GenInput *input, Target target) {
         .stream = stream,
     };
 
-    for (int32_t i = 0; i < input->global_deps.structs.len; i++) {
-        TirId type = input->global_deps.structs.ptr[i];
-        gen_struct_decl(&ctx, type);
-    }
-
-    for (int32_t i = 0; i < input->global_deps.structs.len; i++) {
-        TirId type = input->global_deps.structs.ptr[i];
-        gen_struct(&ctx, type);
-    }
-
-    for (int32_t i = 0; i < input->global_deps.extern_vars.len; i++) {
-        TirId value = input->global_deps.extern_vars.ptr[i];
-        gen_extern_var(&ctx, value);
-    }
-
-    for (int32_t i = 0; i < input->global_deps.extern_functions.len; i++) {
-        TirId value = input->global_deps.extern_functions.ptr[i];
-        gen_extern_function(&ctx, value);
+    gen_thread(&ctx, &input->global_deps);
+    for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
+        gen_thread(&ctx, &input->insts[i].deps);
     }
 
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
