@@ -240,7 +240,7 @@ static Symbol find_symbol(Context *c, int32_t file, String name) {
     return lookup(c, file, name);
 }
 
-static void add_id(Context *c, AstRef ref, TirId term) {
+static void register_id(Context *c, AstRef ref, TirId term) {
     String name = get_id_source(c, ref);
     Symbol prev_symbol = find_symbol(c, ref.file, name);
 
@@ -577,7 +577,7 @@ static TirId analyze_import(Context *c, AstId node) {
     }
 
     TirId m = {~*module};
-    add_id(c, ref, m);
+    register_id(c, ref, m);
     return m;
 }
 
@@ -590,7 +590,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
         SourceIndex token = get_ast_token(f.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
         type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
-        add_id(c, (AstRef) {f.type_params[i], c->file}, type_param_types[i]);
+        register_id(c, (AstRef) {f.type_params[i], c->file}, type_param_types[i]);
     }
 
     TirId *param_types = arena_alloc(c->scratch, TirId, f.param_count);
@@ -601,7 +601,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
             type_error(c, f.params[i], param_types[i], 0, ERROR_TYPE_UNKNOWN_TYPE_SIZE);
         }
         TirId param_value = new_variable(c->tir, f.params[i], param_types[i], i, TIR_PARAMETER);
-        add_id(c, (AstRef) {f.params[i], c->file}, param_value);
+        register_id(c, (AstRef) {f.params[i], c->file}, param_value);
     }
 
     TirId ret_type = analyze_return_type(c, f.ret);
@@ -628,7 +628,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
         value = new_generic(c->tir, inner_value, f.type_param_count, type_param_types);
     }
 
-    add_id(c, (AstRef) {node, c->file}, value);
+    register_id(c, (AstRef) {node, c->file}, value);
 
     if (equals(name, Str("main")) && !c->tir.thread) {
         if (f.type_param_count || f.param_count || !is_ast_null(f.ret)) {
@@ -767,7 +767,7 @@ static TirId analyze_enum(Context *c, AstId node) {
         vec_push(&tir->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
     }
 
-    add_id(c, (AstRef) {node, c->file}, type);
+    register_id(c, (AstRef) {node, c->file}, type);
     return type;
 }
 
@@ -781,7 +781,7 @@ static TirId analyze_struct(Context *c, AstId node) {
         SourceIndex token = get_ast_token(s.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
         type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
-        add_id(c, (AstRef) {s.type_params[i], c->file}, type_param_types[i]);
+        register_id(c, (AstRef) {s.type_params[i], c->file}, type_param_types[i]);
     }
 
     TirId *field_types = arena_alloc(c->scratch, TirId, s.field_count);
@@ -845,7 +845,7 @@ static TirId analyze_struct(Context *c, AstId node) {
         type = new_generic(c->tir, inner_type, s.type_param_count, type_param_types);
     }
 
-    add_id(c, (AstRef) {node, c->file}, type);
+    register_id(c, (AstRef) {node, c->file}, type);
     vec_push(&tir->structs, inner_type);
     return type;
 }
@@ -859,7 +859,7 @@ static TirId analyze_newtype(Context *c, AstId node) {
         SourceIndex token = get_ast_token(n.type_params[i], c->ast);
         String name = id_token_to_string(ctx_source(c), token);
         type_param_types[i] = new_type_parameter(c->tir, i, tir_push_cstr(c->tir, name));
-        add_id(c, (AstRef) {n.type_params[i], c->file}, type_param_types[i]);
+        register_id(c, (AstRef) {n.type_params[i], c->file}, type_param_types[i]);
     }
 
     TirId inner = expect_type(c, n.type);
@@ -881,7 +881,7 @@ static TirId analyze_newtype(Context *c, AstId node) {
         type = new_generic(c->tir, type, n.type_param_count, type_param_types);
     }
 
-    add_id(c, (AstRef) {node, c->file}, type);
+    register_id(c, (AstRef) {node, c->file}, type);
     return type;
 }
 
@@ -907,7 +907,7 @@ static TirId analyze_extern_function(Context *c, AstId node) {
     String name = id_token_to_string(ctx_source(c), token);
 
     TirId value = new_extern_function(c->tir, type, tir_push_cstr(c->tir, name));
-    add_id(c, (AstRef) {node, c->file}, value);
+    register_id(c, (AstRef) {node, c->file}, value);
     vec_push(&tir_writer(c->tir)->extern_functions, value);
     return value;
 }
@@ -917,7 +917,7 @@ static TirId analyze_extern_mut(Context *c, AstId node) {
     TirId type = expect_type(c, var_type);
     String name = id_token_to_string(ctx_source(c), get_ast_token(node, c->ast));
     TirId value = new_extern_var(c->tir, type, tir_push_cstr(c->tir, name));
-    add_id(c, (AstRef) {node, c->file}, value);
+    register_id(c, (AstRef) {node, c->file}, value);
     vec_push(&tir_writer(c->tir)->extern_vars, value);
     return value;
 }
@@ -926,7 +926,7 @@ static TirId analyze_const(Context *c, AstId node) {
     AstId init = get_ast_unary(node, c->ast);
     TirId init_result = analyze_term(c, init, null_tir);
 
-    add_id(c, (AstRef) {node, c->file}, init_result);
+    register_id(c, (AstRef) {node, c->file}, init_result);
 
     TirTag tag = get_term_tag(c->tir, init_result);
 
@@ -965,7 +965,7 @@ static TirId analyze_let(Context *c, AstId node, bool mutable) {
     }
     int32_t var = c->local_tir->local_count++;
     TirId value = new_variable(c->tir, node, init_type, var, mutable ? TIR_MUTABLE_VARIABLE : TIR_VARIABLE);
-    add_id(c, (AstRef) {node, c->file}, value);
+    register_id(c, (AstRef) {node, c->file}, value);
     return new_binary_tir(
         c->tir,
         TIR_LET,
@@ -1047,7 +1047,7 @@ static TirId analyze_id(Context *c, AstId node) {
                 c->module_import_notes[*m] = true;
             }
 
-            add_id(c, ref, null_tir);
+            register_id(c, ref, null_tir);
             break;
         }
         case SYM_BUILTIN: {
@@ -2121,7 +2121,7 @@ static TirId analyze_for(Context *c, AstId node) {
     }
     int32_t var = c->local_tir->local_count++;
     TirId value = new_variable(c->tir, node, init_type, var, TIR_VARIABLE);
-    add_id(c, (AstRef) {node, c->file}, value);
+    register_id(c, (AstRef) {node, c->file}, value);
     TirId let = new_binary_tir(
         c->tir,
         TIR_LET,
