@@ -357,6 +357,7 @@ static int analyze_def(Context *c, GlobalId def) {
     new_c.tir.thread = NULL;
     analyze_term(&new_c, ref.ref.node, null_tir);
     c->diagnostics = new_c.diagnostics;
+    c->error |= new_c.error;
     nth(c->visited, def) = VISITED;
     if (ref.is_public) {
         nth(c->globals, def).used = true;
@@ -1794,15 +1795,13 @@ static TirId analyze_access(Context *c, AstId node) {
         if (!id_is_valid(symbol.def) || !symbol.is_public) {
             name_diagnostic(
                 c,
-                (AstRef) {operand, c->file},
-                Diagnostic(ErrorUndefinedNameFromModule, {0})
+                (AstRef) {node, c->file},
+                Diagnostic(ErrorUndefinedNameFromModule, {
+                    .module = module,
+                    .def = symbol.def,
+                    .is_private = id_is_valid(symbol.def) && !symbol.is_public,
+                })
             );
-
-            // Check private namespace for hints.
-            if (!symbol.is_public) {
-                AstRef ast_ref = nth(c->ast_refs, symbol.def).ref;
-                name_diagnostic(c, ast_ref, Diagnostic(NotePrivateDefinition, {0}));
-            }
 
             return null_tir;
         }
@@ -2626,7 +2625,29 @@ static void print_sema_error(ErrorContext *c, SemaError *e) {
         .len = e->len,
         .mark = e->mark,
     };
-    print_diagnostic(&loc, &e->diag);
+
+    if (e->diag.kind == DIAGNOSTIC_ErrorUndefinedNameFromModule) {
+        ModuleId m = e->diag.DiagnosticErrorUndefinedNameFromModule.module;
+        String name = {e->len, &nth(c->input->sources, e->file).ptr[e->where.index]};
+        if (htable_insert(&nth(c->input->modules, m).scope, name, -2) != -2) {
+            print_diagnostic(&loc, &e->diag);
+
+            if (e->diag.DiagnosticErrorUndefinedNameFromModule.is_private) {
+                AstRef ast_ref = nth(c->input->ast_refs, e->diag.DiagnosticErrorUndefinedNameFromModule.def).ref;
+                SourceIndex token = get_ast_token(ast_ref.node, &nth(c->input->asts, ast_ref.file));
+                SourceLoc loc2 = {
+                    .path = nth(c->input->paths, ast_ref.file),
+                    .source = nth(c->input->sources, ast_ref.file),
+                    .where = token,
+                    .len = e->len,
+                    .mark = token,
+                };
+                print_diagnostic(&loc2, &Diagnostic(NotePrivateDefinition, {0}));
+            }
+        }
+    } else {
+        print_diagnostic(&loc, &e->diag);
+    }
 
     if (e->diag.kind == DIAGNOSTIC_ErrorUndefinedName) {
         String name = {e->len, &nth(c->input->sources, e->file).ptr[e->where.index]};

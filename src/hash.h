@@ -14,4 +14,5 @@ typedef struct {
 HashTable htable_init(void);
 void htable_free(HashTable *table);
 int64_t htable_try_insert(HashTable *table, String key, int32_t value);
+int64_t htable_insert(HashTable *table, String key, int32_t value);
 int32_t *htable_lookup(HashTable const *table, String key);

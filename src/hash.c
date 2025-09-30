@@ -124,6 +124,30 @@ int64_t htable_try_insert(HashTable *table, String key, int32_t value) {
     return -1;
 }
 
+int64_t htable_insert(HashTable *table, String key, int32_t value) {
+    if (table->count * 4 / table->capacity >= 3) {
+        htable_resize(table);
+    }
+
+    int32_t index = hash(key) & (table->capacity - 1);
+    int32_t *key_lengths = get_key_lengths(table);
+    char const **keys = get_keys(table);
+    int32_t *values = get_values(table);
+    while (key_lengths[index]) {
+        if (equals((String) {key_lengths[index], keys[index]}, key)) {
+            int32_t prev = values[index];
+            values[index] = value;
+            return prev;
+        }
+        index = (index + 1) & (table->capacity - 1);
+    }
+    key_lengths[index] = key.len;
+    keys[index] = key.ptr;
+    values[index] = value;
+    table->count++;
+    return -1;
+}
+
 int32_t *htable_lookup(HashTable const *table, String key) {
     int32_t entry = find_entry(table, key);
     if (entry == -1) {
