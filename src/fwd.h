@@ -56,7 +56,7 @@ typedef struct {
 } DefId;
 
 typedef struct {
-    int32_t id;
+    int32_t private_field_id;
 } LocalId;
 
 typedef enum {

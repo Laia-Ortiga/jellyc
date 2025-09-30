@@ -46,7 +46,7 @@ typedef struct {
 } SemaError;
 
 typedef Vec(SemaError) SemaErrorList;
-typedef Vec(Local) LocalList;
+typedef VecTable(LocalId, Local) LocalList;
 
 typedef struct {
     Options *options;
@@ -58,7 +58,7 @@ typedef struct {
     HashTable *global_scope;
     AstRefs ast_refs;
 
-    bool *module_import_notes;
+    Table(ModuleId, bool) module_import_notes;
     Scope *scope;
 
     Arena *scratch;
@@ -232,12 +232,12 @@ static LocalId lookup_local(Context *c, String name) {
             return (LocalId) {*symbol};
         }
     }
-    return (LocalId) {0};
+    return (LocalId) {-1};
 }
 
 static Symbol find_symbol(Context *c, FileId file, String name) {
     LocalId local = lookup_local(c, name);
-    if (local.id) {
+    if (local.private_field_id >= 0) {
         return (Symbol) {.kind = SYM_LOCAL, .local = local};
     }
     return lookup(c, file, name);
@@ -273,7 +273,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
                 break;
             }
             case SYM_LOCAL: {
-                Local info = c->locals.ptr[prev_symbol.local.id - 1];
+                Local info = nth(c->locals.table, prev_symbol.local);
                 prev_ref = (AstRef) {info.node, ref.file};
                 break;
             }
@@ -293,7 +293,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
             return;
         }
     }
-    int32_t sym = c->locals.len + 1;
+    int32_t sym = c->locals.len;
     Local local_ref = {
         .node = ref.node,
         .tir_ref = term,
@@ -702,13 +702,13 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     for (int32_t i = 0; i < g.type_count; i++) {
         AstRef ref = {f.type_params[i], c->file};
         String name = get_id_source(c, ref);
-        int32_t sym = i + 1;
+        int32_t sym = i;
         htable_try_insert(&c->scope->table, name, sym);
     }
     for (int32_t i = 0; i < func_type.param_count; i++) {
         AstRef ref = {f.params[i], c->file};
         String name = get_id_source(c, ref);
-        int32_t sym = g.type_count + i + 1;
+        int32_t sym = g.type_count + i;
         htable_try_insert(&c->scope->table, name, sym);
     }
     c->local_tir->local_count = func_type.param_count;
@@ -1028,26 +1028,19 @@ static TirId analyze_id(Context *c, AstId node) {
     AstRef ref = {node, c->file};
     String name = get_id_source(c, ref);
 
-    LocalId local = lookup_local(c, name);
-    if (local.id) {
-        Local info = c->locals.ptr[local.id - 1];
-        if (!info.tir_ref.id) {
-            return null_tir;
-        }
-        c->locals.ptr[local.id - 1].used = true;
-        return info.tir_ref;
-    }
-
-    Symbol symbol = lookup(c, c->file, name);
+    Symbol symbol = find_symbol(c, c->file, name);
     switch (symbol.kind) {
         case SYM_UNDEFINED: {
             ref_diagnostic(c, ref, ERROR_UNDEFINED_NAME);
 
             // Check module names for hints.
             int32_t *m = htable_lookup(c->module_table, name);
-            if (m && !c->module_import_notes[*m]) {
-                ref_diagnostic(c, ref, NOTE_FORGOT_IMPORT);
-                c->module_import_notes[*m] = true;
+            if (m) {
+                ModuleId mo = {*m};
+                if (!nth(c->module_import_notes, mo)) {
+                    ref_diagnostic(c, ref, NOTE_FORGOT_IMPORT);
+                    nth(c->module_import_notes, mo) = true;
+                }
             }
 
             register_id(c, ref, null_tir);
@@ -1060,7 +1053,12 @@ static TirId analyze_id(Context *c, AstId node) {
             return resolve_global(c, ref, symbol.global);
         }
         case SYM_LOCAL: {
-            break;
+            Local info = nth(c->locals.table, symbol.local);
+            if (!info.tir_ref.id) {
+                return null_tir;
+            }
+            nth(c->locals.table, symbol.local).used = true;
+            return info.tir_ref;
         }
     }
 
@@ -2402,7 +2400,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         },
         .functions = arena_alloc(permanent, DefId, input->function_body_count),
         .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
-        .module_import_notes = arena_alloc(&scratch, bool, input->module_table->count),
+        .module_import_notes = {arena_alloc(&scratch, bool, input->module_table->count)},
     };
     LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
 
