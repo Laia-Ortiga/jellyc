@@ -11,6 +11,13 @@
 #define VecTable(I, V) struct { int32_t cap; int32_t len; union { Table(I, V) table; V *ptr; }; }
 #define Vec(T) struct { int32_t cap; int32_t len; T *ptr; }
 #define SumVec(T) struct { int32_t cap; int32_t len; unsigned char *tags; T *datas; }
+#define SumVecTable(I, V) \
+    struct { \
+        int32_t cap; \
+        int32_t len; \
+        union { Table(I, unsigned char) tag_table; unsigned char *tags; }; \
+        union { Table(I, V) data_table; V *datas; }; \
+    }
 
 
 

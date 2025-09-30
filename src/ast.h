@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lex.h"
+#include "ids.h"
 #include "util.h"
 
 #include <stdbool.h>
@@ -120,13 +121,13 @@ typedef struct {
 } AstData;
 
 typedef struct {
-    SumVec(AstData) nodes;
-    Vec(int32_t) extra;
-} Ast;
-
-typedef struct {
     int32_t private_field_id;
 } AstId;
+
+typedef struct {
+    SumVecTable(AstId, AstData) nodes;
+    Vec(int32_t) extra;
+} Ast;
 
 static AstId const null_ast = {0};
 
@@ -135,11 +136,11 @@ static inline bool is_ast_null(AstId ast_id) {
 }
 
 static inline AstTag get_ast_tag(AstId node, Ast const *ast) {
-    return ast->nodes.tags[node.private_field_id];
+    return nth(ast->nodes.tag_table, node);
 }
 
 static inline SourceIndex get_ast_token(AstId node, Ast const *ast) {
-    return ast->nodes.datas[node.private_field_id].token;
+    return nth(ast->nodes.data_table, node).token;
 }
 
 typedef struct {
@@ -200,109 +201,109 @@ typedef struct {
 } AstFor;
 
 static inline AstList get_ast_list(AstId node, Ast const *ast) {
-    int32_t count = ast->nodes.datas[node.private_field_id].left;
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t count = nth(ast->nodes.data_table, node).left;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstList) {count, (AstId *) &ast->extra.ptr[extra]};
 }
 
 static inline AstId get_ast_unary(AstId node, Ast const *ast) {
-    return (AstId) {ast->nodes.datas[node.private_field_id].left};
+    return (AstId) {nth(ast->nodes.data_table, node).left};
 }
 
 static inline AstBinary get_ast_binary(AstId node, Ast const *ast) {
     return (AstBinary) {
-        {ast->nodes.datas[node.private_field_id].left},
-        {ast->nodes.datas[node.private_field_id].right},
+        {nth(ast->nodes.data_table, node).left},
+        {nth(ast->nodes.data_table, node).right},
     };
 }
 
 static inline int64_t get_ast_int(AstId node, Ast const *ast) {
     return load_i64(
-        ast->nodes.datas[node.private_field_id].left,
-        ast->nodes.datas[node.private_field_id].right
+        nth(ast->nodes.data_table, node).left,
+        nth(ast->nodes.data_table, node).right
     );
 }
 
 static inline double get_ast_float(AstId node, Ast const *ast) {
     return load_f64(
-        ast->nodes.datas[node.private_field_id].left,
-        ast->nodes.datas[node.private_field_id].right
+        nth(ast->nodes.data_table, node).left,
+        nth(ast->nodes.data_table, node).right
     );
 }
 
 static inline AstFunction get_ast_function(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstFunction) {
         .type_param_count = ast->extra.ptr[extra],
         .type_params = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 1]],
         .param_count = ast->extra.ptr[extra + 2],
         .params = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 3]],
         .ret = {ast->extra.ptr[extra + 4]},
-        .body = {ast->nodes.datas[node.private_field_id].left},
+        .body = {nth(ast->nodes.data_table, node).left},
     };
 }
 
 static inline AstFunction get_ast_extern_function(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstFunction) {
-        .param_count = ast->nodes.datas[node.private_field_id].left,
+        .param_count = nth(ast->nodes.data_table, node).left,
         .params = (AstId const *) &ast->extra.ptr[extra + 1],
         .ret = {ast->extra.ptr[extra]},
     };
 }
 
 static inline AstStruct get_ast_struct(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstStruct) {
         .type_param_count = ast->extra.ptr[extra],
         .type_params = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 1]],
-        .field_count = ast->nodes.datas[node.private_field_id].left,
+        .field_count = nth(ast->nodes.data_table, node).left,
         .fields = (AstId const *) &ast->extra.ptr[ast->extra.ptr[extra + 2]],
     };
 }
 
 static inline AstEnum get_ast_enum(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstEnum) {
-        .repr = {ast->nodes.datas[node.private_field_id].left},
+        .repr = {nth(ast->nodes.data_table, node).left},
         .member_count = ast->extra.ptr[extra],
         .members = (AstId const *) &ast->extra.ptr[extra + 1],
     };
 }
 
 static inline AstNewtype get_ast_newtype(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstNewtype) {
         .type_param_count = ast->extra.ptr[extra],
         .type_params = (AstId const *) &ast->extra.ptr[extra + 1],
-        .type = {ast->nodes.datas[node.private_field_id].left},
+        .type = {nth(ast->nodes.data_table, node).left},
     };
 }
 
 static inline AstCall get_ast_call(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstCall) {
         .operand = {ast->extra.ptr[extra]},
-        .arg_count = ast->nodes.datas[node.private_field_id].left,
+        .arg_count = nth(ast->nodes.data_table, node).left,
         .args = (AstId const *) &ast->extra.ptr[extra + 1],
     };
 }
 
 static inline AstIf get_ast_if(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstIf) {
-        .condition = {ast->nodes.datas[node.private_field_id].left},
+        .condition = {nth(ast->nodes.data_table, node).left},
         .true_block = {ast->extra.ptr[extra]},
         .false_block = {ast->extra.ptr[extra + 1]},
     };
 }
 
 static inline AstFor get_ast_for(AstId node, Ast const *ast) {
-    int32_t extra = ast->nodes.datas[node.private_field_id].right;
+    int32_t extra = nth(ast->nodes.data_table, node).right;
     return (AstFor) {
         .init = {ast->extra.ptr[extra]},
         .condition = {ast->extra.ptr[extra + 1]},
         .next = {ast->extra.ptr[extra + 2]},
-        .block = {ast->nodes.datas[node.private_field_id].left},
+        .block = {nth(ast->nodes.data_table, node).left},
     };
 }
