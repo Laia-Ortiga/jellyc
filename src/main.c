@@ -447,19 +447,20 @@ int main(int argc, char **argv) {
         htable_free(&extern_symbols);
     }
 
-    TirInput tir_input = {0};
-    tir_input.options = &options;
-    tir_input.file_count = file_count;
-    tir_input.paths = paths;
-    tir_input.sources = sources;
-    tir_input.asts = asts;
-    tir_input.files = files;
-    tir_input.module_table = &module_table;
-    tir_input.modules = modules;
-    tir_input.global_scope = &global_scope;
-    tir_input.ast_refs = ast_refs.table;
-    tir_input.def_count = ast_refs.len;
-    tir_input.function_body_count = function_body_count;
+    TirInput tir_input = {
+        .options = &options,
+        .file_count = file_count,
+        .paths = paths,
+        .sources = sources,
+        .asts = asts,
+        .files = files,
+        .module_table = &module_table,
+        .modules = modules,
+        .global_scope = &global_scope,
+        .ast_refs = ast_refs.table,
+        .def_count = ast_refs.len,
+        .function_body_count = function_body_count,
+    };
     TirOutput tir_output = analyze_types(&tir_input, &permanent_arena, scratch_arena);
     if (tir_output.error) {
         return -1;
