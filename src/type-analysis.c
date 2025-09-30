@@ -304,8 +304,8 @@ static void add_id(Context *c, AstRef ref, TirId term) {
 // Analysis
 
 static int32_t push_extra(Context *c, int32_t *values, int32_t count) {
-    int32_t index = c->tir.thread->terms.extra.len;
-    int32_t *result = vec_grow(&c->tir.thread->terms.extra, count);
+    int32_t index = tir_writer(c->tir)->terms.extra.len;
+    int32_t *result = vec_grow(&tir_writer(c->tir)->terms.extra, count);
     for (int32_t i = 0; i < count; i++) {
         result[i] = values[i];
     }
