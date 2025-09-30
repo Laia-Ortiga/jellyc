@@ -215,12 +215,8 @@ static void termset_resize(TermSet *set, TirContext c) {
     *set = new_set;
 }
 
-static Tir *ctx_write(TirContext c) {
-    return c.thread ? c.thread : c.global;
-}
-
 static TermList *ctx_terms(TirContext c) {
-    return &ctx_write(c)->terms;
+    return &tir_writer(c)->terms;
 }
 
 static TirId new_structural_type(TirContext c, StructuralType descriptor) {
@@ -1626,13 +1622,13 @@ char const *tir_get_str(TirContext c, int32_t s) {
 }
 
 int32_t tir_push_str(TirContext c, String s) {
-    Tir *tir = ctx_write(c);
+    Tir *tir = tir_writer(c);
     int32_t index = push_str(&tir->strtab, s);
     return c.thread ? ~index : index;
 }
 
 int32_t tir_push_cstr(TirContext c, String s) {
-    Tir *tir = ctx_write(c);
+    Tir *tir = tir_writer(c);
     int32_t index = push_str(&tir->strtab, s);
     push_str(&tir->strtab, (String) {1, ""});
     return c.thread ? ~index : index;

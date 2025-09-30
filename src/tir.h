@@ -366,3 +366,14 @@ GenericTerm get_generic_term(TirContext c, TirId term);
 char const *tir_get_str(TirContext c, int32_t s);
 int32_t tir_push_str(TirContext c, String s);
 int32_t tir_push_cstr(TirContext c, String s);
+
+static inline Tir *tir_writer(TirContext c) {
+    return c.thread ? c.thread : c.global;
+}
+
+static inline Tir *tir_get_storage(TirContext c, TirId term) {
+    if (term.id - TERM_COUNT < c.global->terms.terms.len) {
+        return c.global;
+    }
+    return c.thread;
+}

@@ -631,14 +631,14 @@ static TirId analyze_function_decl(Context *c, AstId node) {
 
     add_id(c, (AstRef) {node, c->file}, value);
 
-    if (equals(name, Str("main"))) {
+    if (equals(name, Str("main")) && !c->tir.thread) {
         if (f.type_param_count || f.param_count || !is_ast_null(f.ret)) {
             error(c, node, (Diagnostic) {.kind = ERROR_MAIN_SIGNATURE});
         }
         c->tir.global->main = inner_value;
     }
 
-    vec_push(&c->tir.global->functions, inner_value);
+    vec_push(&tir_writer(c->tir)->functions, inner_value);
     return value;
 }
 
@@ -732,6 +732,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
 
 static TirId analyze_enum(Context *c, AstId node) {
     AstEnum e = get_ast_enum(node, c->ast);
+    Tir *tir = tir_writer(c->tir);
 
     TirId repr_type = expect_type(c, e.repr);
     if (!type_is_int(repr_type)) {
@@ -742,29 +743,29 @@ static TirId analyze_enum(Context *c, AstId node) {
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
     HashTable table_init = htable_init();
-    int32_t scope = c->tir.global->type_scopes.len;
-    vec_push(&c->tir.global->type_scopes, table_init);
+    int32_t scope = tir->type_scopes.len;
+    vec_push(&tir->type_scopes, table_init);
     TirId type = new_enum_type(c->tir, &(EnumType) {
         .scope = scope,
         .name = tir_push_cstr(c->tir, name),
         .repr = repr_type,
     });
-    HashTable *table = &c->tir.global->type_scopes.ptr[scope];
+    HashTable *table = &tir->type_scopes.ptr[scope];
 
     for (int32_t i = 0; i < e.member_count; i++) {
         SourceIndex member_token = get_ast_token(e.members[i], c->ast);
         String member_name = id_token_to_string(ctx_source(c), member_token);
-        int32_t member_sym = c->tir.global->type_scope_symbols.len;
+        int32_t member_sym = tir->type_scope_symbols.len;
         int64_t prev = htable_try_insert(table, member_name, member_sym);
 
         if (prev >= 0) {
             error(c, e.members[i], (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
-            AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = tir->type_scope_symbols.ptr[prev].ast_id;
             error(c, prev_ref, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         }
 
         TirId value = new_int_constant(c->tir, type, i);
-        vec_push(&c->tir.global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
+        vec_push(&tir->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members[i], .field_index = value.id});
     }
 
     add_id(c, (AstRef) {node, c->file}, type);
@@ -774,6 +775,7 @@ static TirId analyze_enum(Context *c, AstId node) {
 static TirId analyze_struct(Context *c, AstId node) {
     AstStruct s = get_ast_struct(node, c->ast);
     push_scope(c);
+    Tir *tir = tir_writer(c->tir);
 
     TirId *type_param_types = arena_alloc(c->scratch, TirId, s.type_param_count);
     for (int32_t i = 0; i < s.type_param_count; i++) {
@@ -800,21 +802,21 @@ static TirId analyze_struct(Context *c, AstId node) {
         SourceIndex field_token = get_ast_token(s.fields[i], c->ast);
         String field_name = id_token_to_string(ctx_source(c), field_token);
 
-        int32_t field_sym = c->tir.global->type_scope_symbols.len;
-        vec_push(&c->tir.global->type_scope_symbols, (TypeScopeSymbol) {.ast_id = s.fields[i], .field_index = index});
+        int32_t field_sym = tir->type_scope_symbols.len;
+        vec_push(&tir->type_scope_symbols, (TypeScopeSymbol) {.ast_id = s.fields[i], .field_index = index});
         int64_t prev = htable_try_insert(&table, field_name, field_sym);
 
         if (prev >= 0) {
             error(c, s.fields[i], (Diagnostic) {.kind = ERROR_MULTIPLE_DEFINITION});
-            AstId prev_ref = c->tir.global->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = tir->type_scope_symbols.ptr[prev].ast_id;
             error(c, prev_ref, (Diagnostic) {.kind = NOTE_PREVIOUS_DEFINITION});
         }
 
         index++;
     }
 
-    int32_t scope = c->tir.global->type_scopes.len;
-    vec_push(&c->tir.global->type_scopes, table);
+    int32_t scope = tir->type_scopes.len;
+    vec_push(&tir->type_scopes, table);
 
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
@@ -845,7 +847,7 @@ static TirId analyze_struct(Context *c, AstId node) {
     }
 
     add_id(c, (AstRef) {node, c->file}, type);
-    vec_push(&c->tir.global->structs, inner_type);
+    vec_push(&tir->structs, inner_type);
     return type;
 }
 
@@ -907,7 +909,7 @@ static TirId analyze_extern_function(Context *c, AstId node) {
 
     TirId value = new_extern_function(c->tir, type, tir_push_cstr(c->tir, name));
     add_id(c, (AstRef) {node, c->file}, value);
-    vec_push(&c->tir.global->extern_functions, value);
+    vec_push(&tir_writer(c->tir)->extern_functions, value);
     return value;
 }
 
@@ -917,7 +919,7 @@ static TirId analyze_extern_mut(Context *c, AstId node) {
     String name = id_token_to_string(ctx_source(c), get_ast_token(node, c->ast));
     TirId value = new_extern_var(c->tir, type, tir_push_cstr(c->tir, name));
     add_id(c, (AstRef) {node, c->file}, value);
-    vec_push(&c->tir.global->extern_vars, value);
+    vec_push(&tir_writer(c->tir)->extern_vars, value);
     return value;
 }
 
@@ -1591,7 +1593,7 @@ static TirId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
 
 static int32_t find_field(Context *c, TirId type, String name) {
     int32_t scope = get_struct_type(c->tir, type).scope;
-    int32_t *sym = htable_lookup(&c->tir.global->type_scopes.ptr[scope], name);
+    int32_t *sym = htable_lookup(&tir_get_storage(c->tir, type)->type_scopes.ptr[scope], name);
 
     if (!sym) {
         return -1;
@@ -1604,14 +1606,14 @@ static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
     SourceIndex field_token = get_ast_token(node, c->ast);
     String field_name = id_token_to_string(ctx_source(c), field_token);
     int32_t scope = get_enum_type(c->tir, type).scope;
-    int32_t *sym_ptr = htable_lookup(&c->tir.global->type_scopes.ptr[scope], field_name);
+    int32_t *sym_ptr = htable_lookup(&tir_get_storage(c->tir, type)->type_scopes.ptr[scope], field_name);
 
     if (!sym_ptr) {
         type_error(c, node, type, 0, ERROR_UNDEFINED_TYPE_SCOPE);
         return null_tir;
     }
 
-    TypeScopeSymbol sym = c->tir.global->type_scope_symbols.ptr[*sym_ptr];
+    TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[*sym_ptr];
     return (TirId) {sym.field_index};
 }
 
@@ -1740,7 +1742,7 @@ static TirId analyze_access(Context *c, AstId node) {
         return null_tir;
     }
 
-    TypeScopeSymbol sym = c->tir.global->type_scope_symbols.ptr[field_sym];
+    TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[field_sym];
     TirId result_type = get_struct_type_field(c->tir, type, sym.field_index);
     return new_instr(c->tir, TIR_ACCESS, node, result_type, operand_value.id, sym.field_index);
 }
@@ -2160,9 +2162,13 @@ static TirId analyze_for(Context *c, AstId node) {
     );
 }
 
-static void validate_exhaustive_enum_switch(Context *c, AstId node, EnumType *type, int32_t *branches) {
+static void validate_exhaustive_enum_switch(
+    Context *c,
+    AstId node,
+    HashTable const *scope,
+    int32_t *branches
+) {
     AstCall switch_ = get_ast_call(node, c->ast);
-    HashTable const *scope = &c->tir.global->type_scopes.ptr[type->scope];
     bool *seen_enum_values = arena_alloc(c->scratch, bool, scope->count);
     AstId else_case = null_ast;
 
@@ -2252,7 +2258,8 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
             if (result_type.id != TYPE_VOID) {
                 if (get_term_tag(c->tir, pattern_type) == TIR_ENUM_TYPE) {
                     EnumType enum_type = get_enum_type(c->tir, pattern_type);
-                    validate_exhaustive_enum_switch(c, node, &enum_type, branches_tir);
+                    HashTable const *scope = &tir_get_storage(c->tir, pattern_type)->type_scopes.ptr[enum_type.scope];
+                    validate_exhaustive_enum_switch(c, node, scope, branches_tir);
                 } else if (is_ast_null(else_case)) {
                     error(c, node, (Diagnostic) {.kind = ERROR_SWITCH_NOT_EXHAUSTIVE});
                 }
