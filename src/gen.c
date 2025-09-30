@@ -34,6 +34,7 @@ typedef struct {
     bool is_main;
     Target target;
     TirContext tir;
+    int32_t thread;
     FILE *stream;
 } GenContext;
 
@@ -111,6 +112,15 @@ static void gen_params(GenContext *ctx, TirId type) {
     fprintf(ctx->stream, ")");
 }
 
+static void gen_struct_name(GenContext *ctx, TirId type) {
+    StructType s = get_struct_type(ctx->tir, type);
+    if (tir_get_storage(ctx->tir, type) == ctx->tir.global) {
+        fprintf(ctx->stream, "struct _S%d_%d_%s", 0, type.id, tir_get_str(ctx->tir, s.name));
+    } else {
+        fprintf(ctx->stream, "struct _S%d_%d_%s", ctx->thread, type.id, tir_get_str(ctx->tir, s.name));
+    }
+}
+
 static void gen_type_before(GenContext *ctx, TirId type) {
     switch (get_term_tag(ctx->tir, type)) {
         case TIR_PRIMITIVE_TYPE: {
@@ -170,7 +180,8 @@ static void gen_type_before(GenContext *ctx, TirId type) {
             return;
         }
         case TIR_STRUCT_TYPE: {
-            fprintf(ctx->stream, "struct _S%s ", tir_get_str(ctx->tir, get_struct_type(ctx->tir, type).name));
+            gen_struct_name(ctx, type);
+            fprintf(ctx->stream, " ");
             return;
         }
         case TIR_ENUM_TYPE: {
@@ -947,13 +958,15 @@ static void gen_function(GenContext *ctx, GenInput *input, int32_t f_index) {
 
 static void gen_struct_decl(GenContext *ctx, TirId type) {
     TaggedType t = get_tagged_type(ctx->tir, type);
-    fprintf(ctx->stream, "struct _S%s;\n", tir_get_str(ctx->tir, t.name));
+    gen_struct_name(ctx, t.inner);
+    fprintf(ctx->stream, ";\n");
 }
 
 static void gen_struct(GenContext *ctx, TirId type) {
     TaggedType t = get_tagged_type(ctx->tir, type);
     StructType s = get_struct_type(ctx->tir, t.inner);
-    fprintf(ctx->stream, "struct _S%s {\n", tir_get_str(ctx->tir, t.name));
+    gen_struct_name(ctx, t.inner);
+    fprintf(ctx->stream, " {\n");
 
     for (int32_t i = 0; i < s.field_count; i++) {
         TirId field_type = s.fields[i];
@@ -967,7 +980,8 @@ static void gen_struct(GenContext *ctx, TirId type) {
     fprintf(ctx->stream, "};\n");
 }
 
-static void gen_thread(GenContext *ctx, Tir *tir) {
+static void gen_thread(GenContext *ctx, int32_t thread, Tir *tir) {
+    ctx->thread = thread;
     ctx->tir.thread = tir;
 
     for (int32_t i = 0; i < tir->structs.len; i++) {
@@ -1013,9 +1027,9 @@ void gen_c(GenInput *input, Target target) {
         .stream = stream,
     };
 
-    gen_thread(&ctx, &input->global_deps);
+    gen_thread(&ctx, 0, &input->global_deps);
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
-        gen_thread(&ctx, &input->insts[i].deps);
+        gen_thread(&ctx, i + 1, &input->insts[i].deps);
     }
 
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {

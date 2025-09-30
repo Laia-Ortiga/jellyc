@@ -357,82 +357,6 @@ static AstId parse_switch(Parser *parser, SourceIndex token) {
     return add_node(AST_SWITCH, (AstData) {token, items.count, extra}, &parser->ast);
 }
 
-static AstId parse_block(Parser *parser) {
-    SourceIndex block_token = expect(parser, TOK_CURLYL);
-    ArenaLinkedList stmts = {0};
-    while (!accept(parser, TOK_CURLYR)) {
-        switch (parser->lookahead.tag) {
-            case TOK_SENTINEL: {
-                expect(parser, TOK_CURLYR);
-                return null_ast;
-            }
-            case TOK_KW_let: {
-                push(parser, &stmts, parse_var(parser, AST_LET));
-                break;
-            }
-            case TOK_KW_mut: {
-                push(parser, &stmts, parse_var(parser, AST_MUT));
-                break;
-            }
-            case TOK_KW_const: {
-                push(parser, &stmts, parse_var(parser, AST_CONST));
-                break;
-            }
-            case TOK_KW_if: {
-                push(parser, &stmts, parse_if(parser));
-                break;
-            }
-            case TOK_KW_while: {
-                push(parser, &stmts, parse_while(parser));
-                break;
-            }
-            case TOK_KW_for: {
-                push(parser, &stmts, parse_for(parser));
-                break;
-            }
-            case TOK_KW_break: {
-                SourceIndex token = consume(parser).start;
-                AstId node = add_leaf_ast(AST_BREAK, token, &parser->ast);
-                push(parser, &stmts, node);
-                break;
-            }
-            case TOK_KW_continue: {
-                SourceIndex token = consume(parser).start;
-                AstId node = add_leaf_ast(AST_CONTINUE, token, &parser->ast);
-                push(parser, &stmts, node);
-                break;
-            }
-            case TOK_KW_return: {
-                SourceIndex token = consume(parser).start;
-                AstId value = null_ast;
-
-                if (parser->lookahead.tag != TOK_CURLYR) {
-                    value = parse_expr(parser, PREC_NONE);
-                }
-
-                AstId node = add_unary_ast(AST_RETURN, token, value, &parser->ast);
-                push(parser, &stmts, node);
-                break;
-            }
-            default: {
-                AstId expr = parse_expr(parser, PREC_NONE);
-                push(parser, &stmts, expr);
-                break;
-            }
-        }
-    }
-    int32_t index = push_extra(&parser->ast, stmts);
-    return add_node(
-        AST_BLOCK,
-        (AstData) {
-            block_token,
-            stmts.count,
-            index,
-        },
-        &parser->ast
-    );
-}
-
 static AstId parse_extern_function(Parser *parser) {
     expect(parser, TOK_KW_function);
     SourceIndex token = expect(parser, TOK_ID);
@@ -546,6 +470,94 @@ static AstId parse_function_type(Parser *parser, SourceIndex token) {
     int32_t index = push_extra_array(&parser->ast, 1, &return_type.private_field_id);
     push_extra(&parser->ast, params);
     return add_node(AST_FUNCTION_TYPE, (AstData) {token, params.count, index}, &parser->ast);
+}
+
+static AstId parse_block(Parser *parser) {
+    SourceIndex block_token = expect(parser, TOK_CURLYL);
+    ArenaLinkedList stmts = {0};
+    while (!accept(parser, TOK_CURLYR)) {
+        switch (parser->lookahead.tag) {
+            case TOK_SENTINEL: {
+                expect(parser, TOK_CURLYR);
+                return null_ast;
+            }
+            case TOK_KW_let: {
+                push(parser, &stmts, parse_var(parser, AST_LET));
+                break;
+            }
+            case TOK_KW_mut: {
+                push(parser, &stmts, parse_var(parser, AST_MUT));
+                break;
+            }
+            case TOK_KW_const: {
+                push(parser, &stmts, parse_var(parser, AST_CONST));
+                break;
+            }
+            case TOK_KW_struct: {
+                push(parser, &stmts, parse_struct(parser));
+                break;
+            }
+            case TOK_KW_enum: {
+                push(parser, &stmts, parse_enum(parser));
+                break;
+            }
+            case TOK_KW_newtype: {
+                push(parser, &stmts, parse_newtype(parser));
+                break;
+            }
+            case TOK_KW_if: {
+                push(parser, &stmts, parse_if(parser));
+                break;
+            }
+            case TOK_KW_while: {
+                push(parser, &stmts, parse_while(parser));
+                break;
+            }
+            case TOK_KW_for: {
+                push(parser, &stmts, parse_for(parser));
+                break;
+            }
+            case TOK_KW_break: {
+                SourceIndex token = consume(parser).start;
+                AstId node = add_leaf_ast(AST_BREAK, token, &parser->ast);
+                push(parser, &stmts, node);
+                break;
+            }
+            case TOK_KW_continue: {
+                SourceIndex token = consume(parser).start;
+                AstId node = add_leaf_ast(AST_CONTINUE, token, &parser->ast);
+                push(parser, &stmts, node);
+                break;
+            }
+            case TOK_KW_return: {
+                SourceIndex token = consume(parser).start;
+                AstId value = null_ast;
+
+                if (parser->lookahead.tag != TOK_CURLYR) {
+                    value = parse_expr(parser, PREC_NONE);
+                }
+
+                AstId node = add_unary_ast(AST_RETURN, token, value, &parser->ast);
+                push(parser, &stmts, node);
+                break;
+            }
+            default: {
+                AstId expr = parse_expr(parser, PREC_NONE);
+                push(parser, &stmts, expr);
+                break;
+            }
+        }
+    }
+    int32_t index = push_extra(&parser->ast, stmts);
+    return add_node(
+        AST_BLOCK,
+        (AstData) {
+            block_token,
+            stmts.count,
+            index,
+        },
+        &parser->ast
+    );
 }
 
 static int parse_int(Parser *parser, Token token, int64_t *out) {
