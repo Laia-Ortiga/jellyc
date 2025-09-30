@@ -74,7 +74,7 @@ function init_proj_matrix(aspect f32) -> [:16]f32 {
     let near = <f32> 0.125
     let far = <f32> 1024.0
     [
-        1.0 / (aspect * tan_fov2),
+        1.0 / {aspect * tan_fov2},
         0.0,
         0.0,
         0.0,
@@ -86,12 +86,12 @@ function init_proj_matrix(aspect f32) -> [:16]f32 {
 
         0.0,
         0.0,
-        -(far + near) / (far - near),
+        -{far + near} / {far - near},
         -1.0,
 
         0.0,
         0.0,
-        -2.0 * far * near / (far - near),
+        -2.0 * far * near / {far - near},
         0.0,
     ]
 }
@@ -151,7 +151,7 @@ function mouse_cursor_pos_callback(window *mut byte, x f64, y f64) {
     scene!.cam_state.target.yaw = scene!.cam_state.target.yaw - <f32> `cast[x - scene!.cam_state.last_x] * factor
     scene!.cam_state.last_x = x
     scene!.cam_state.last_y = y
-    let limit = <f32> (3.14 / 3.0)
+    let limit = <f32> {3.14 / 3.0}
     scene!.cam_state.target.pitch = libc.fminf(libc.fmaxf(scene!.cam_state.target.pitch, -limit), limit)
 }
 

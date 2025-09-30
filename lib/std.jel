@@ -25,7 +25,7 @@ public function print_int(x i64) {
         if x / -10 != 0 {
             print_int_rec(x / -10)
         }
-        print_byte(<i8> `cast[-(x % 10)] + '0')
+        print_byte(<i8> `cast[-{x % 10}] + '0')
     } else {
         print_int_rec(x)
     }

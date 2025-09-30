@@ -56,10 +56,10 @@ function create_ebo() -> i32 {
     mut i = <isize> 0
     for z = <i16> 0; z < small_grid_size(); z + 1 {
         for x = <i16> 0; x < small_grid_size(); x + 1 {
-            indices[i] = (z + 1) * small_grid_rows() + x
+            indices[i] = {z + 1} * small_grid_rows() + x
             indices[i + 1] = z * small_grid_rows() + x
             indices[i + 2] = z * small_grid_rows() + x + 1
-            indices[i + 3] = (z + 1) * small_grid_rows() + x + 1
+            indices[i + 3] = {z + 1} * small_grid_rows() + x + 1
             i += 4
         }
     }
@@ -90,7 +90,7 @@ public function init_terrain(seed i32) -> Terrain {
 	gl.glPatchParameteri(gl.PATCH_VERTICES, 4)
 
     gl.glBindTexture(gl.TEXTURE_2D, height_map_texture)
-    let height_map = alloc(<isize> `cast[(terrain_grid_size + 1) * (terrain_grid_size + 1)], `size_of[f32])
+    let height_map = alloc(<isize> `cast[{terrain_grid_size + 1} * {terrain_grid_size + 1}], `size_of[f32])
     gl.glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
     Terrain(
         height_map_texture,

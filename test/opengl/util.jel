@@ -23,7 +23,7 @@ function read_file(file_name *i8) -> @mut i8 {
     libc.fseek(file, 0, 2)
     let length = libc.ftell(file)
     libc.fseek(file, 0, 0)
-    mut buffer = alloc(<isize> (length + 1), `size_of[i8])
+    mut buffer = alloc(<isize> {length + 1}, `size_of[i8])
     let n = libc.fread(&buffer[0], 1, length, file)
     libc.fclose(file)
     buffer[n] = 0

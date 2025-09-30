@@ -669,54 +669,68 @@ static AstId parse_list(Parser *parser, SourceIndex token) {
 }
 
 static AstId parse_prefix(Parser *parser) {
-    Token token = consume(parser);
-    switch (token.tag) {
+    switch (parser->lookahead.tag) {
         case TOK_ADD: {
-            return parse_unary(parser, AST_PLUS, token.start);
+            return parse_unary(parser, AST_PLUS, consume(parser).start);
         }
         case TOK_SUB: {
-            return parse_unary(parser, AST_MINUS, token.start);
+            return parse_unary(parser, AST_MINUS, consume(parser).start);
         }
         case TOK_NOT: {
-            return parse_unary(parser, AST_NOT, token.start);
+            return parse_unary(parser, AST_NOT, consume(parser).start);
         }
         case TOK_AND: {
-            return parse_unary(parser, AST_ADDRESS, token.start);
+            return parse_unary(parser, AST_ADDRESS, consume(parser).start);
         }
         case TOK_MUL: {
-            return parse_unary(parser, accept(parser, TOK_KW_mut) ? AST_POINTER_MUT_TYPE : AST_POINTER_TYPE, token.start);
+            Token token = consume(parser);
+            return parse_unary(
+                parser,
+                accept(parser, TOK_KW_mut)
+                    ? AST_POINTER_MUT_TYPE
+                    : AST_POINTER_TYPE,
+                token.start
+            );
         }
         case TOK_ADDRESS: {
-            return parse_unary(parser, accept(parser, TOK_KW_mut) ? AST_SLICE_MUT_TYPE : AST_SLICE_TYPE, token.start);
+            Token token = consume(parser);
+            return parse_unary(
+                parser,
+                accept(parser, TOK_KW_mut)
+                    ? AST_SLICE_MUT_TYPE
+                    : AST_SLICE_TYPE,
+                token.start
+            );
         }
         case TOK_DOT: {
+            consume(parser);
             return add_leaf_ast(AST_INFERRED_ACCESS, expect(parser, TOK_ID), &parser->ast);
         }
-        case TOK_ROUNDL: {
-            AstId node = parse_expr(parser, PREC_NONE);
-            expect(parser, TOK_ROUNDR);
-            return node;
-        }
         case TOK_SQUAREL: {
-            return parse_list(parser, token.start);
+            return parse_list(parser, consume(parser).start);
+        }
+        case TOK_CURLYL: {
+            return parse_block(parser);
         }
         case TOK_LT: {
+            Token token = consume(parser);
             AstId type = parse_expr(parser, PREC_NONE);
             expect(parser, TOK_ANGLER);
             AstId expr = parse_expr(parser, PREC_AS);
             return add_binary_ast(AST_TYPE_HINT, token.start, expr, type, &parser->ast);
         }
         case TOK_KW_function: {
-            return parse_function_type(parser, token.start);
+            return parse_function_type(parser, consume(parser).start);
         }
         case TOK_KW_switch: {
-            return parse_switch(parser, token.start);
+            return parse_switch(parser, consume(parser).start);
         }
         case TOK_ID:
         case TOK_BUILTIN_ID: {
-            return add_leaf_ast(AST_ID, token.start, &parser->ast);
+            return add_leaf_ast(AST_ID, consume(parser).start, &parser->ast);
         }
         case TOK_INT: {
+            Token token = consume(parser);
             int64_t value = 0;
             if (parse_int(parser, token, &value)) {
                 error(parser, &(ParseError) {
@@ -729,6 +743,7 @@ static AstId parse_prefix(Parser *parser) {
             return add_ast_int(AST_INT, token.start, value, &parser->ast);
         }
         case TOK_HEX_INT: {
+            Token token = consume(parser);
             int64_t value = 0;
             if (parse_hex_int(parser, token, &value)) {
                 error(parser, &(ParseError) {
@@ -744,11 +759,13 @@ static AstId parse_prefix(Parser *parser) {
             return add_ast_int(AST_INT, token.start, value, &parser->ast);
         }
         case TOK_FLOAT: {
+            Token token = consume(parser);
             String s = substring(parser->lexer.source, token.start.index, token.end.index);
             double value = parse_float(s, parser->scratch);
             return add_ast_float(AST_FLOAT, token.start, value, &parser->ast);
         }
         case TOK_INVALID_FLOAT: {
+            Token token = consume(parser);
             error(parser, &(ParseError) {
                 .start = token.start,
                 .end = token.end,
@@ -757,6 +774,7 @@ static AstId parse_prefix(Parser *parser) {
             return null_ast;
         }
         case TOK_CHAR: {
+            Token token = consume(parser);
             return add_ast_int(
                 AST_CHAR,
                 token.start,
@@ -765,6 +783,7 @@ static AstId parse_prefix(Parser *parser) {
             );
         }
         case TOK_STRING: {
+            Token token = consume(parser);
             return add_ast_int(
                 AST_STRING,
                 token.start,
@@ -773,15 +792,16 @@ static AstId parse_prefix(Parser *parser) {
             );
         }
         case TOK_KW_true: {
-            return add_ast_int(AST_BOOL, token.start, 1, &parser->ast);
+            return add_ast_int(AST_BOOL, consume(parser).start, 1, &parser->ast);
         }
         case TOK_KW_false: {
-            return add_ast_int(AST_BOOL, token.start, 0, &parser->ast);
+            return add_ast_int(AST_BOOL, consume(parser).start, 0, &parser->ast);
         }
         case TOK_KW_null: {
-            return add_leaf_ast(AST_NULL, token.start, &parser->ast);
+            return add_leaf_ast(AST_NULL, consume(parser).start, &parser->ast);
         }
         default: {
+            Token token = parser->lookahead;
             error(parser, &(ParseError) {
                 .start = token.start,
                 .end = token.end,

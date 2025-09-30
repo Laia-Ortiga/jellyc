@@ -54,6 +54,7 @@ typedef struct {
 typedef Table(GlobalId, Global) Globals;
 typedef Vec(SemaError) SemaErrorList;
 typedef VecTable(LocalId, Local) LocalList;
+typedef Vec(TirId) BlockExtra;
 
 typedef struct {
     Options *options;
@@ -78,6 +79,7 @@ typedef struct {
 
     FileId file;
     Ast *ast;
+    BlockExtra current_block;
 
     LocalList locals;
     LocalList *function_locals;
@@ -687,22 +689,49 @@ static TirId analyze_return(Context *c, AstId operand) {
     }
 }
 
-static TirBlock analyze_block(Context *c, AstId block, TirId hint) {
+static TirId analyze_block(Context *c, AstId block, TirId hint, bool has_return) {
     AstList list = get_ast_list(block, c->ast);
-    int32_t *body_tir = arena_alloc(c->scratch, int32_t, list.count);
-    int32_t length = 0;
     for (int32_t i = 0; i < list.count; i++) {
         TirId tir = null_tir;
-        if (i == list.count - 1 && hint.id && hint.id != TYPE_VOID) {
-            tir = analyze_return(c, list.nodes[i]);
+        if (i == list.count - 1) {
+            if (has_return) {
+                tir = analyze_return(c, list.nodes[i]);
+            } else if (hint.id && hint.id != TYPE_VOID) {
+                tir = expect_value(c, list.nodes[i], hint);
+            } else {
+                tir = analyze_term(c, list.nodes[i], hint);
+            }
         } else {
             tir = analyze_term(c, list.nodes[i], null_tir);
         }
         if (is_tir_value(get_term_tag(c->tir, tir))) {
-            body_tir[length++] = tir.id;
+            vec_push(&c->current_block, tir);
+        }
+        if (i == list.count - 1) {
+            return tir;
         }
     }
-    return (TirBlock) {push_extra(c, body_tir, length), length};
+    // TODO
+    return ptype(VOID);
+}
+
+static TirId analyze_block_expr(Context *c, AstId block, TirId hint) {
+    push_scope(c);
+    TirId t = analyze_block(c, block, hint, false);
+    pop_scope(c);
+    return t;
+}
+
+static TirBlock analyze_block_statement(Context *c, AstId block, TirId hint, bool has_return) {
+    BlockExtra prev_extra = c->current_block;
+    c->current_block = (BlockExtra) {0};
+    analyze_block(c, block, hint, has_return);
+    BlockExtra extra = c->current_block;
+    c->current_block = prev_extra;
+    return (TirBlock) {
+        .index = push_extra(c, (int32_t *) extra.ptr, extra.len),
+        .length = extra.len,
+    };
 }
 
 static void analyze_function(Context *c, AstId node, TirId value) {
@@ -725,7 +754,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     }
     c->local_tir->local_count = func_type.param_count;
     c->current_function_type = type;
-    TirBlock tir_block = analyze_block(c, f.body, func_type.ret);
+    TirBlock tir_block = analyze_block_statement(c, f.body, func_type.ret, func_type.ret.id != TYPE_VOID);
     if (tir_block.length == 0 && func_type.ret.id != TYPE_VOID) {
         node_diagnostic(c, f.body, Diagnostic(ErrorMissingReturn, {0}));
     }
@@ -2204,12 +2233,12 @@ static TirId analyze_if(Context *c, AstId node) {
     AstIf if_ = get_ast_if(node, c->ast);
     TirId cond_result = expect_value_type(c, if_.condition, ptype(bool));
     push_scope(c);
-    TirBlock true_tir = analyze_block(c, if_.true_block, null_tir);
+    TirBlock true_tir = analyze_block_statement(c, if_.true_block, null_tir, false);
     pop_scope(c);
     TirBlock false_tir = {0};
     if (!is_ast_null(if_.false_block)) {
         push_scope(c);
-        false_tir = analyze_block(c, if_.false_block, null_tir);
+        false_tir = analyze_block_statement(c, if_.false_block, null_tir, false);
         pop_scope(c);
     }
     int32_t extra[] = {
@@ -2226,7 +2255,7 @@ static TirId analyze_while(Context *c, AstId node) {
     c->loop_depth++;
     TirId cond_result = expect_value_type(c, while_.left, ptype(bool));
     push_scope(c);
-    TirBlock block_tir = analyze_block(c, while_.right, null_tir);
+    TirBlock block_tir = analyze_block_statement(c, while_.right, null_tir, false);
     pop_scope(c);
     c->loop_depth--;
     int32_t extra[] = {
@@ -2264,7 +2293,7 @@ static TirId analyze_for(Context *c, AstId node) {
 
     c->loop_depth++;
     TirId cond_result = expect_value_type(c, for_.condition, ptype(bool));
-    TirBlock block_tir = analyze_block(c, for_.block, null_tir);
+    TirBlock block_tir = analyze_block_statement(c, for_.block, null_tir, false);
     TirId next_tir = expect_value_type(c, for_.next, init_type);
     next_tir = new_binary_tir(
         c->tir,
@@ -2487,6 +2516,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_CONTINUE: return analyze_continue(c, node);
         case AST_RETURN: return analyze_return(c, get_ast_unary(node, c->ast));
 
+        case AST_BLOCK: return analyze_block_expr(c, node, hint);
         case AST_IMPORT: return analyze_import(c, node);
         case AST_FUNCTION: return analyze_function_decl(c, node);
         case AST_ENUM: return analyze_enum(c, node);

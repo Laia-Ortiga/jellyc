@@ -206,7 +206,7 @@ function accept(lexer *mut Lexer, c i8) -> bool {
 }
 
 function is_alpha(c i8) -> bool {
-    (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z')
+    {c >= 'a' and c <= 'z'} or {c >= 'A' and c <= 'Z'}
 }
 
 function is_digit(c i8) -> bool {
