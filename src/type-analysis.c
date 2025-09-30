@@ -57,7 +57,6 @@ typedef struct {
     bool *module_import_notes;
     Scope *scope;
 
-    Arena *permanent;
     Arena *scratch;
 
     Role *rirs;
@@ -2381,24 +2380,27 @@ static void print_sema_error(TirInput *input, SemaError *e) {
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     Tir global_tir = {0};
-    Context global_tc = {0};
-    global_tc.options = input->options;
-    global_tc.sources = input->sources;
-    global_tc.asts = input->asts;
-    global_tc.files = input->files;
-    global_tc.module_table = input->module_table;
-    global_tc.modules = input->modules;
-    global_tc.global_scope = input->global_scope;
-    global_tc.ast_refs = input->ast_refs;
-    global_tc.permanent = permanent;
-    global_tc.scratch = &scratch;
-    global_tc.rirs = arena_alloc(&scratch, Role, input->def_count);
-    global_tc.tir_refs = arena_alloc(&scratch, TirId, input->def_count);
-    global_tc.tir.global = &global_tir;
+    Context global_tc = {
+        .options = input->options,
+        .sources = input->sources,
+        .asts = input->asts,
+        .files = input->files,
+        .module_table = input->module_table,
+        .modules = input->modules,
+        .global_scope = input->global_scope,
+        .ast_refs = input->ast_refs,
+
+        .scratch = &scratch,
+        .rirs = arena_alloc(&scratch, Role, input->def_count),
+        .tir_refs = arena_alloc(&scratch, TirId, input->def_count),
+        .tir = {
+            .global = &global_tir,
+        },
+        .functions = arena_alloc(permanent, DefId, input->function_body_count),
+        .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
+        .module_import_notes = arena_alloc(&scratch, bool, input->module_table->count),
+    };
     LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
-    global_tc.functions = arena_alloc(permanent, DefId, input->function_body_count);
-    global_tc.function_locals = arena_alloc(&scratch, LocalList, input->function_body_count);
-    global_tc.module_import_notes = arena_alloc(&scratch, bool, input->module_table->count);
 
     for (int32_t i = 0; i < input->def_count; i++) {
         analyze_def(&global_tc, (DefId) {i});
@@ -2418,20 +2420,23 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     {
         Arena thread_base_scratch = new_arena(64 << 20);
         Arena thread_scratch = thread_base_scratch;
-        Context local_tc = {0};
-        local_tc.options = global_tc.options;
-        local_tc.sources = global_tc.sources;
-        local_tc.asts = global_tc.asts;
-        local_tc.files = input->files;
-        local_tc.module_table = input->module_table;
-        local_tc.modules = input->modules;
-        local_tc.global_scope = input->global_scope;
-        local_tc.ast_refs = input->ast_refs;
-        local_tc.permanent = permanent;
-        local_tc.scratch = &thread_scratch;
-        local_tc.rirs = global_tc.rirs;
-        local_tc.tir_refs = global_tc.tir_refs;
-        local_tc.tir.global = &global_tir;
+        Context local_tc = {
+            .options = input->options,
+            .sources = input->sources,
+            .asts = input->asts,
+            .files = input->files,
+            .module_table = input->module_table,
+            .modules = input->modules,
+            .global_scope = input->global_scope,
+            .ast_refs = input->ast_refs,
+
+            .scratch = &thread_scratch,
+            .rirs = global_tc.rirs,
+            .tir_refs = global_tc.tir_refs,
+            .tir = {
+                .global = &global_tir,
+            },
+        };
 
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_body_count; i++) {
