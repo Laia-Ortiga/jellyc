@@ -13,7 +13,7 @@ function assert_program_status(program i32, pname i32) {
         gl.glGetProgramiv(program, gl.INFO_LOG_LENGTH, &log_length)
         mut log = std.alloc(<isize> `cast[log_length], `size_of[i8])
         gl.glGetProgramInfoLog(program, log_length, null, &log[0])
-        libc.puts(&"Couldn't link shader program"[0])
+        std.print_str(&"Couldn't link shader program")
         libc.puts(&log[0])
         libc.exit(-1)
     }
@@ -36,10 +36,12 @@ function compile_shader(type i32, file_name @i8) -> i32 {
     gl.glGetShaderiv(shader, gl.COMPILE_STATUS, &compile_status)
 
     if compile_status == gl.FALSE {
+        mut log_max = <i32> 0
+        gl.glGetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_max)
+        mut log = std.alloc(<isize> `cast[log_max], `size_of[i8])
         mut log_length = <i32> 0
-        gl.glGetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_length)
-        mut log = std.alloc(<isize> `cast[log_length], `size_of[i8])
-        gl.glGetShaderInfoLog(shader, log_length, null, &log[0])
+        gl.glGetShaderInfoLog(shader, log_max, &log_length, &log[0])
+        log.length = `cast[log_length]
         std.print_str(&"Error in shader")
         libc.puts(&log[0])
         libc.exit(-1)

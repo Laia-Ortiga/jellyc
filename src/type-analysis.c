@@ -67,7 +67,6 @@ typedef struct {
     HashTable *global_scope;
     AstRefs ast_refs;
 
-    Table(ModuleId, bool) module_import_notes;
     Scope *scope;
 
     Arena *scratch;
@@ -93,8 +92,8 @@ typedef struct {
     int32_t loop_depth;
 } Context;
 
-static ModuleId find_module(Context *c, String name) {
-    int32_t *m = htable_lookup(c->module_table, name);
+static ModuleId find_module(HashTable *module_table, String name) {
+    int32_t *m = htable_lookup(module_table, name);
     return (ModuleId) {m ? *m : -1};
 }
 
@@ -604,7 +603,7 @@ static TirId analyze_return_type(Context *c, AstId node) {
 static TirId analyze_import(Context *c, AstId node) {
     AstRef ref = {node, c->file};
     String name = get_id_source(c, ref);
-    ModuleId module = find_module(c, name);
+    ModuleId module = find_module(c->module_table, name);
 
     if (!id_is_valid(module)) {
         name_diagnostic(c, ref, Diagnostic(ErrorUndefinedModule, {0}));
@@ -1109,14 +1108,6 @@ static TirId analyze_id(Context *c, AstId node) {
     switch (symbol.kind) {
         case SYM_UNDEFINED: {
             name_diagnostic(c, ref, Diagnostic(ErrorUndefinedName, {0}));
-
-            // Check module names for hints.
-            ModuleId m = find_module(c, name);
-            if (id_is_valid(m) && !nth(c->module_import_notes, m)) {
-                name_diagnostic(c, ref, Diagnostic(NoteForgotImport, {0}));
-                nth(c->module_import_notes, m) = true;
-            }
-
             register_id(c, ref, null_tir);
             break;
         }
@@ -2622,15 +2613,31 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
     }
 }
 
-static void print_sema_error(TirInput *input, SemaError *e) {
+typedef struct {
+    TirInput *input;
+    Table(ModuleId, bool) module_import_notes;
+} ErrorContext;
+
+static void print_sema_error(ErrorContext *c, SemaError *e) {
     SourceLoc loc = {
-        .path = nth(input->paths, e->file),
-        .source = nth(input->sources, e->file),
+        .path = nth(c->input->paths, e->file),
+        .source = nth(c->input->sources, e->file),
         .where = e->where,
         .len = e->len,
         .mark = e->mark,
     };
     print_diagnostic(&loc, &e->diag);
+
+    if (e->diag.kind == DIAGNOSTIC_ErrorUndefinedName) {
+        String name = {e->len, &nth(c->input->sources, e->file).ptr[e->where.index]};
+
+        // Check module names for hints.
+        ModuleId m = find_module(c->input->module_table, name);
+        if (id_is_valid(m) && !nth(c->module_import_notes, m)) {
+            nth(c->module_import_notes, m) = true;
+            print_diagnostic(&loc, &Diagnostic(NoteForgotImport, {0}));
+        }
+    }
 }
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
@@ -2667,7 +2674,6 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         },
         .functions = arena_alloc(permanent, GlobalId, input->function_body_count),
         .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
-        .module_import_notes = {arena_alloc(&scratch, bool, input->module_table->count)},
     };
     LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
 
@@ -2756,12 +2762,16 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         }
     }
 
+    ErrorContext err_ctx = {
+        .input = input,
+        .module_import_notes = {arena_alloc(&scratch, bool, input->module_table->count)},
+    };
     for (int32_t i = 0; i < global_tc.diagnostics.len; i++) {
-        print_sema_error(input, &global_tc.diagnostics.ptr[i]);
+        print_sema_error(&err_ctx, &global_tc.diagnostics.ptr[i]);
     }
     for (int32_t i = 0; i < n; i++) {
         for (int32_t j = 0; j < local_errors[i].len; j++) {
-            print_sema_error(input, &local_errors[i].ptr[j]);
+            print_sema_error(&err_ctx, &local_errors[i].ptr[j]);
         }
     }
 

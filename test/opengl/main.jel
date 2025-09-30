@@ -3,6 +3,7 @@ module main
 import gl
 import glfw
 import libc
+import std
 
 struct Vec3 {
     x f32,
@@ -193,7 +194,7 @@ function main() {
     glfw.setCursorPosCallback(window, mouse_cursor_pos_callback)
 
     if gl.gladLoadGL(glfw.getProcAddress) == 0 {
-        libc.puts(&"Couldn't initialize GLAD"[0])
+        std.print_str(&"Couldn't initialize GLAD")
         return
     }
 
