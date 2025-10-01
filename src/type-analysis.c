@@ -353,9 +353,9 @@ static int analyze_def(Context *c, GlobalId def) {
     new_c.ast = &nth(c->asts, ref.ref.file);
     new_c.scope = NULL;
     new_c.loop_depth = 0;
-    new_c.current_function_type = null_tir;
+    new_c.current_function_type = error_term;
     new_c.tir.thread = NULL;
-    analyze_term(&new_c, ref.ref.node, null_tir);
+    analyze_term(&new_c, ref.ref.node, error_term);
     c->diagnostics = new_c.diagnostics;
     c->error |= new_c.error;
     nth(c->visited, def) = VISITED;
@@ -375,7 +375,7 @@ static TirId resolve_global(Context *c, AstRef ref, GlobalId global) {
 static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
     TirId result = analyze_term(c, node, hint);
     switch (get_value_category(c->tir, result)) {
-        case VALUE_INVALID: return null_tir;
+        case VALUE_INVALID: return error_term;
         case VALUE_PLACE: {
             if (!is_value_mutable(c->tir, result)) {
                 break;
@@ -398,12 +398,12 @@ static TirId expect_mutable_place(Context *c, AstId node, TirId hint) {
         }
     }
 
-    return null_tir;
+    return error_term;
 }
 
 static TirId expect_type(Context *c, AstId node) {
-    TirId result = analyze_term(c, node, null_tir);
-    if (is_tir_type(get_term_tag(c->tir, result))) {
+    TirId result = analyze_term(c, node, error_term);
+    if (get_term_category(c->tir, result) == TIRCAT_TYPE) {
         return result;
     }
 
@@ -411,12 +411,12 @@ static TirId expect_type(Context *c, AstId node) {
         node_diagnostic(c, node, Diagnostic(ErrorExpectedType, {0}));
     }
 
-    return null_tir;
+    return error_term;
 }
 
 static TirId expect_value(Context *c, AstId node, TirId hint) {
     TirId result = analyze_term(c, node, hint);
-    if (is_tir_value(get_term_tag(c->tir, result))) {
+    if (get_term_category(c->tir, result) == TIRCAT_VALUE) {
         return result;
     }
 
@@ -424,7 +424,7 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
         node_diagnostic(c, node, Diagnostic(ErrorExpectedValue, {0}));
     }
 
-    return null_tir;
+    return error_term;
 }
 
 static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirId wanted_type) {
@@ -570,7 +570,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
         .expected = wanted_type,
         .provided = provided,
     }));
-    return null_tir;
+    return error_term;
 }
 
 static TirId expect_value_type(Context *c, AstId node, TirId wanted_type) {
@@ -608,7 +608,7 @@ static TirId analyze_import(Context *c, AstId node) {
 
     if (!id_is_valid(module)) {
         name_diagnostic(c, ref, Diagnostic(ErrorUndefinedModule, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId result = module_to_tir(module);
@@ -679,11 +679,6 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     return value;
 }
 
-typedef struct {
-    int32_t index;
-    int32_t length;
-} TirBlock;
-
 static TirId analyze_return(Context *c, AstId operand) {
     if (!c->current_function_type.id) {
         compiler_error("return statement outside of function");
@@ -696,63 +691,71 @@ static TirId analyze_return(Context *c, AstId operand) {
 
         if (func_type.ret.id == TYPE_VOID) {
             node_diagnostic(c, operand, Diagnostic(ErrorReturnExpectedValue, {0}));
-            operand_hint = null_tir;
+            operand_hint = error_term;
         }
 
         TirId operand_value = expect_value_type(c, operand, operand_hint);
-        return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, operand_value);
+        return new_unary_tir(c->tir, TIR_RETURN, operand, error_term, operand_value);
     } else {
         if (func_type.ret.id != TYPE_VOID) {
             node_diagnostic(c, operand, Diagnostic(ErrorReturnMissingValue, {0}));
         }
 
-        return new_unary_tir(c->tir, TIR_RETURN, operand, null_tir, null_tir);
+        return new_unary_tir(c->tir, TIR_RETURN, operand, error_term, error_term);
     }
 }
 
-static TirId analyze_block(Context *c, AstId block, TirId hint, bool has_return) {
+typedef struct {
+    int32_t index;
+    int32_t length;
+} TirBlock;
+
+static TirBlock analyze_block(
+    Context *c,
+    AstId block,
+    TirId hint,
+    bool has_return
+) {
     AstList list = get_ast_list(block, c->ast);
+    BlockExtra prev_extra = c->current_block;
+    c->current_block = (BlockExtra) {0};
+
     for (int32_t i = 0; i < list.count; i++) {
-        TirId tir = null_tir;
+        TirId tir = error_term;
         if (i == list.count - 1) {
             if (has_return) {
                 tir = analyze_return(c, list.nodes[i]);
-            } else if (hint.id && hint.id != TYPE_VOID) {
-                tir = expect_value(c, list.nodes[i], hint);
             } else {
                 tir = analyze_term(c, list.nodes[i], hint);
             }
         } else {
-            tir = analyze_term(c, list.nodes[i], null_tir);
+            tir = analyze_term(c, list.nodes[i], error_term);
         }
-        if (is_tir_value(get_term_tag(c->tir, tir))) {
+        if (get_term_category(c->tir, tir) == TIRCAT_VALUE) {
             vec_push(&c->current_block, tir);
         }
-        if (i == list.count - 1) {
-            return tir;
-        }
     }
-    // TODO
-    return ptype(VOID);
-}
 
-static TirId analyze_block_expr(Context *c, AstId block, TirId hint) {
-    push_scope(c);
-    TirId t = analyze_block(c, block, hint, false);
-    pop_scope(c);
-    return t;
-}
-
-static TirBlock analyze_block_statement(Context *c, AstId block, TirId hint, bool has_return) {
-    BlockExtra prev_extra = c->current_block;
-    c->current_block = (BlockExtra) {0};
-    analyze_block(c, block, hint, has_return);
     BlockExtra extra = c->current_block;
     c->current_block = prev_extra;
     return (TirBlock) {
         .index = push_extra(c, (int32_t *) extra.ptr, extra.len),
         .length = extra.len,
     };
+}
+
+static TirId analyze_block_expr(Context *c, AstId node, TirId hint) {
+    push_scope(c);
+    TirBlock t = analyze_block(c, node, hint, false);
+    pop_scope(c);
+    return new_instr(
+        c->tir,
+        TIR_BLOCK,
+        node,
+        error_term,
+        t.index,
+        t.length
+    );
 }
 
 static void analyze_function(Context *c, AstId node, TirId value) {
@@ -775,7 +778,7 @@ static void analyze_function(Context *c, AstId node, TirId value) {
     }
     c->local_tir->local_count = func_type.param_count;
     c->current_function_type = type;
-    TirBlock tir_block = analyze_block_statement(c, f.body, func_type.ret, func_type.ret.id != TYPE_VOID);
+    TirBlock tir_block = analyze_block(c, f.body, func_type.ret, func_type.ret.id != TYPE_VOID);
     if (tir_block.length == 0 && func_type.ret.id != TYPE_VOID) {
         node_diagnostic(c, f.body, Diagnostic(ErrorMissingReturn, {0}));
     }
@@ -804,7 +807,7 @@ static TirId analyze_enum(Context *c, AstId node) {
             .ctx = c->tir,
             .type = repr_type,
         }));
-        repr_type = null_tir;
+        repr_type = error_term;
     }
 
     SourceIndex token = get_ast_token(node, c->ast);
@@ -998,13 +1001,11 @@ static TirId analyze_extern_mut(Context *c, AstId node) {
 
 static TirId analyze_const(Context *c, AstId node) {
     AstId init = get_ast_unary(node, c->ast);
-    TirId init_result = analyze_term(c, init, null_tir);
+    TirId init_result = analyze_term(c, init, error_term);
 
     register_id(c, (AstRef) {node, c->file}, init_result);
 
-    TirTag tag = get_term_tag(c->tir, init_result);
-
-    if (is_tir_type(tag)) {
+    if (get_term_category(c->tir, init_result) == TIRCAT_TYPE) {
         return init_result;
     }
 
@@ -1032,7 +1033,7 @@ static TirId analyze_const(Context *c, AstId node) {
 
 static TirId analyze_let(Context *c, AstId node, bool mutable) {
     AstId init = get_ast_unary(node, c->ast);
-    TirId init_value = expect_value(c, init, null_tir);
+    TirId init_value = expect_value(c, init, error_term);
     TirId init_type = get_value_type(c->tir, init_value);
     if (type_is_unknown_size(c->tir, init_type)) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeSize, {
@@ -1080,7 +1081,7 @@ static TirId analyze_array_type(Context *c, AstId node) {
             .ctx = c->tir,
             .type = index,
         }));
-        index = null_tir;
+        index = error_term;
     }
 
     return new_array_type(c->tir, &(ArrayType) {
@@ -1093,7 +1094,7 @@ static TirId analyze_array_type_sugar(Context *c, AstId node) {
     AstBinary array = get_ast_binary(node, c->ast);
     TirId length_result = expect_value_type(c, array.left, ptype(isize));
     int64_t len = 0;
-    TirId index = try_get_int_const(c, length_result, &len) ? new_array_length_type(c->tir, len) : null_tir;
+    TirId index = try_get_int_const(c, length_result, &len) ? new_array_length_type(c->tir, len) : error_term;
     TirId element = expect_type(c, array.right);
     return new_array_type(c->tir, &(ArrayType) {
         .index = index,
@@ -1109,7 +1110,7 @@ static TirId analyze_id(Context *c, AstId node) {
     switch (symbol.kind) {
         case SYM_UNDEFINED: {
             name_diagnostic(c, ref, Diagnostic(ErrorUndefinedName, {0}));
-            register_id(c, ref, null_tir);
+            register_id(c, ref, error_term);
             break;
         }
         case SYM_BUILTIN: {
@@ -1126,7 +1127,7 @@ static TirId analyze_id(Context *c, AstId node) {
         }
     }
 
-    return null_tir;
+    return error_term;
 }
 
 static TirId analyze_int(Context *c, AstId node, TirId hint) {
@@ -1288,7 +1289,7 @@ static TirId analyze_un_arithmetic(Context *c, AstId node, TirId hint, TirTag ta
             .ctx = c->tir,
             .type = operand_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_unary_tir(c->tir, tag, node, operand_type, operand_value);
@@ -1325,13 +1326,13 @@ static TirId analyze_address(Context *c, AstId node, TirId hint) {
             return operand_value;
         }
     }
-    return null_tir;
+    return error_term;
 }
 
 static TirId analyze_deref(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
 
-    TirId operand_value = expect_value(c, operand, null_tir);
+    TirId operand_value = expect_value(c, operand, error_term);
     TirId operand_type = get_value_type(c->tir, operand_value);
 
     TirId type = remove_pointer(c->tir, operand_type);
@@ -1340,7 +1341,7 @@ static TirId analyze_deref(Context *c, AstId node) {
             .ctx = c->tir,
             .type = operand_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_unary_tir(c->tir, TIR_DEREF, node, type, operand_value);
@@ -1386,7 +1387,7 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
     return false;
 }
 
-static TirId get_internal_term(Context *c, PrimitiveTerm p) {
+static TirId get_internal_term(Context *c, ReservedTerm p) {
     return nth(c->tir_refs, (GlobalId) {p - TERM_COUNT});
 }
 
@@ -1410,7 +1411,7 @@ static TirId analyze_alignof(Context *c, AstId node) {
         .ctx = c->tir,
         .type = operand_type,
     }));
-    return null_tir;
+    return error_term;
 }
 
 static TirId analyze_sizeof(Context *c, AstId node) {
@@ -1433,7 +1434,7 @@ static TirId analyze_sizeof(Context *c, AstId node) {
         .ctx = c->tir,
         .type = operand_type,
     }));
-    return null_tir;
+    return error_term;
 }
 
 static TirTag get_cast_type(Context *c, TirId operand_type, TirId cast_type) {
@@ -1465,7 +1466,7 @@ static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
 
     if (!cast_type.id) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId operand_value = expect_value(c, get_call_arg(&call, 0), cast_type);
@@ -1483,7 +1484,7 @@ static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
             .type1 = operand_type,
             .type2 = cast_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_unary_tir(c->tir, cast_kind, node, cast_type, operand_value);
@@ -1496,7 +1497,7 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
 
     if (!hint.id || !type_is_fixed_int(hint)) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId operand_type = get_value_type(c->tir, operand_value);
@@ -1506,7 +1507,7 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
             .type1 = operand_type,
             .type2 = hint,
         }));
-        return null_tir;
+        return error_term;
     }
 
     if (bigger_primitive_type(hint, operand_type, c->options->target).id == operand_type.id) {
@@ -1529,7 +1530,7 @@ static TirId analyze_slice_constructor(Context *c, AstId node, TirId hint) {
             .ctx = c->tir,
             .type = data_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     int32_t extra[2] = {
@@ -1556,7 +1557,7 @@ static TirId analyze_array_length_type(Context *c, AstId node) {
         return new_array_length_type(c->tir, 1);
     }
 
-    return null_tir;
+    return error_term;
 }
 
 static TirId analyze_bin_arithmetic(Context *c, AstId node, TirId hint, TirTag tag) {
@@ -1574,7 +1575,7 @@ static TirId analyze_bin_arithmetic(Context *c, AstId node, TirId hint, TirTag t
             .type1 = left_type,
             .type2 = right_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_binary_tir(c->tir, tag, node, left_type, left_value, right_value);
@@ -1595,7 +1596,7 @@ static TirId analyze_bin_bit(Context *c, AstId node, TirId hint, TirTag tag) {
             .type1 = left_type,
             .type2 = right_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_binary_tir(c->tir, tag, node, left_type, left_value, right_value);
@@ -1603,7 +1604,7 @@ static TirId analyze_bin_bit(Context *c, AstId node, TirId hint, TirTag tag) {
 
 static TirId analyze_eq(Context *c, AstId node, TirTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
-    TirId left_value = expect_value(c, bin.left, null_tir);
+    TirId left_value = expect_value(c, bin.left, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
     TirId right_value = expect_value(c, bin.right, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
@@ -1614,7 +1615,7 @@ static TirId analyze_eq(Context *c, AstId node, TirTag tag) {
             .type1 = left_type,
             .type2 = right_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_binary_tir(c->tir, tag, node, ptype(bool), left_value, right_value);
@@ -1622,7 +1623,7 @@ static TirId analyze_eq(Context *c, AstId node, TirTag tag) {
 
 static TirId analyze_rel(Context *c, AstId node, TirTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
-    TirId left_value = expect_value(c, bin.left, null_tir);
+    TirId left_value = expect_value(c, bin.left, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
     TirId right_value = expect_value(c, bin.right, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
@@ -1633,7 +1634,7 @@ static TirId analyze_rel(Context *c, AstId node, TirTag tag) {
             .type1 = left_type,
             .type2 = right_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return new_binary_tir(c->tir, tag, node, ptype(bool), left_value, right_value);
@@ -1660,7 +1661,7 @@ static TirId analyze_logic(Context *c, AstId node, bool is_and) {
 
 static TirId analyze_assign(Context *c, AstId node) {
     AstBinary bin = get_ast_binary(node, c->ast);
-    TirId left_value = expect_mutable_place(c, bin.left, null_tir);
+    TirId left_value = expect_mutable_place(c, bin.left, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
     TirId right_value = expect_value_type(c, bin.right, left_type);
     if (type_is_unknown_size(c->tir, left_type)) {
@@ -1674,7 +1675,7 @@ static TirId analyze_assign(Context *c, AstId node) {
 
 static TirId analyze_assign_arithmetic(Context *c, AstId node, TirTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
-    TirId left_value = expect_mutable_place(c, bin.left, null_tir);
+    TirId left_value = expect_mutable_place(c, bin.left, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
     TirId right_value = expect_value_type(c, bin.right, left_type);
     if (!type_is_arithmetic(left_type)) {
@@ -1689,7 +1690,7 @@ static TirId analyze_assign_arithmetic(Context *c, AstId node, TirTag tag) {
 
 static TirId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
     AstBinary bin = get_ast_binary(node, c->ast);
-    TirId left_value = expect_mutable_place(c, bin.left, null_tir);
+    TirId left_value = expect_mutable_place(c, bin.left, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
     TirId right_value = expect_value_type(c, bin.right, left_type);
     if (!type_is_int(left_type)) {
@@ -1724,7 +1725,7 @@ static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
             .ctx = c->tir,
             .type = type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[*sym_ptr];
@@ -1740,7 +1741,7 @@ static TirId analyze_enum_member(Context *c, AstId node) {
             .ctx = c->tir,
             .type = type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     return resolve_enum_member(c, node, type);
@@ -1749,7 +1750,7 @@ static TirId analyze_enum_member(Context *c, AstId node) {
 static TirId analyze_enum_member_inferred(Context *c, AstId node, TirId hint) {
     if (!hint.id || get_term_tag(c->tir, hint) != TIR_ENUM_TYPE) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     return resolve_enum_member(c, node, hint);
@@ -1767,7 +1768,7 @@ static TirId resolve_length(Context *c, AstId node, TirId array_like) {
             return new_instr(c->tir, TIR_ACCESS, node, ptype(isize), array_like.id, 0);
         }
         default: {
-            return null_tir;
+            return error_term;
         }
     }
 }
@@ -1776,7 +1777,7 @@ static TirId resolve_slice_data(Context *c, AstId node, TirId array_like) {
     TirId type = get_value_type(c->tir, array_like);
     type = replace_slice_with_pointer(c->tir, type);
     if (!type.id) {
-        return null_tir;
+        return error_term;
     }
     return new_instr(c->tir, TIR_ACCESS, node, type, array_like.id, 1);
 }
@@ -1785,10 +1786,9 @@ static TirId analyze_access(Context *c, AstId node) {
     AstId operand = get_ast_unary(node, c->ast);
     SourceIndex field_token = get_ast_token(node, c->ast);
     String field_name = id_token_to_string(ctx_source(c), field_token);
-    TirId operand_value = analyze_term(c, operand, null_tir);
-    TirTag tag = get_term_tag(c->tir, operand_value);
+    TirId operand_value = analyze_term(c, operand, error_term);
 
-    if (tag == TIR_MODULE) {
+    if (get_term_category(c->tir, operand_value) == TIRCAT_MODULE) {
         ModuleId module = tir_to_module(operand_value);
         ModuleSymbol symbol = lookup_module_symbol(c, module, field_name);
 
@@ -1803,23 +1803,26 @@ static TirId analyze_access(Context *c, AstId node) {
                 })
             );
 
-            return null_tir;
+            return error_term;
         }
 
         return resolve_global(c, (AstRef) {operand, c->file}, symbol.def);
     }
 
-    if (is_tir_type(tag)) {
+    if (get_term_category(c->tir, operand_value) == TIRCAT_TYPE) {
         return analyze_enum_member(c, node);
     }
 
-    if (!is_tir_value(tag)) {
+    if (get_term_category(c->tir, operand_value) != TIRCAT_VALUE) {
         name_diagnostic(
             c,
             (AstRef) {node, c->file},
-            Diagnostic(ErrorAccessOperandRole, {0})
+            Diagnostic(ErrorAccessOperandRole, {
+                .ctx = c->tir,
+                .provided = operand_value,
+            })
         );
-        return null_tir;
+        return error_term;
     }
 
     TirId operand_type = get_value_type(c->tir, operand_value);
@@ -1839,7 +1842,7 @@ static TirId analyze_access(Context *c, AstId node) {
             .ctx = c->tir,
             .type = type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     TirId array_elem_type = remove_array_like(c->tir, type);
@@ -1853,7 +1856,7 @@ static TirId analyze_access(Context *c, AstId node) {
             .ctx = c->tir,
             .type = type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     if (get_term_tag(c->tir, type) != TIR_STRUCT_TYPE) {
@@ -1861,7 +1864,7 @@ static TirId analyze_access(Context *c, AstId node) {
             .ctx = c->tir,
             .type = operand_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     int32_t field_sym = find_field(c, type, field_name);
@@ -1871,7 +1874,7 @@ static TirId analyze_access(Context *c, AstId node) {
             .ctx = c->tir,
             .type = type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[field_sym];
@@ -1938,7 +1941,7 @@ static TirId analyze_struct_ctor(
 
     if (!type_args_inferred) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeArgumentInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId type = term->inner;
@@ -1965,7 +1968,7 @@ static TirId analyze_affine_ctor(Context *c, AstId node, TirId affine_type) {
 
     if (1 != call.arg_count) {
         node_diagnostic(c, call.operand, Diagnostic(ErrorAffineCtorCount, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId param_type = get_affine_elem_type(c->tir, affine_type);
@@ -1978,7 +1981,7 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
 
     if (!hint.id) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     GenericTerm g = get_generic_term(c->tir, hint);
@@ -1997,7 +2000,7 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
                         .ctx = c->tir,
                         .type = hint,
                     }));
-                    return null_tir;
+                    return error_term;
                 }
                 TypeScopeSymbol sym = tir_get_storage(c->tir, inner)->type_scope_symbols.ptr[field];
                 values[i] = get_ast_unary(map.nodes[i], c->ast);
@@ -2011,7 +2014,7 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
                 .ctx = c->tir,
                 .type = g.inner,
             }));
-            return null_tir;
+            return error_term;
         }
     }
 }
@@ -2036,7 +2039,7 @@ static TirId analyze_constructor(Context *c, AstId node, GenericTerm *term) {
                 .ctx = c->tir,
                 .type = term->inner,
             }));
-            return null_tir;
+            return error_term;
         }
     }
 }
@@ -2050,7 +2053,7 @@ static TirId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
             .ctx = c->tir,
             .type = term->inner,
         }));
-        return null_tir;
+        return error_term;
     }
 
     FunctionType func_type = get_function_type(c->tir, operand_type);
@@ -2091,12 +2094,12 @@ static TirId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
             .type = operand_type,
             .provided = call.arg_count,
         }));
-        return null_tir;
+        return error_term;
     }
 
     if (!type_args_inferred) {
         node_diagnostic(c, call.operand, Diagnostic(ErrorTypeArgumentInference, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId result_type = func_type.ret;
@@ -2121,14 +2124,14 @@ static TirId analyze_function_call(Context *c, AstId node, GenericTerm *term) {
 
 static TirId analyze_call(Context *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
-    TirId operand_value = analyze_term(c, call.operand, null_tir);
+    TirId operand_value = analyze_term(c, call.operand, error_term);
     GenericTerm g = get_generic_term(c->tir, operand_value);
 
-    if (is_tir_type(get_term_tag(c->tir, g.inner))) {
+    if (get_term_category(c->tir, g.inner) == TIRCAT_TYPE) {
         return analyze_constructor(c, node, &g);
     }
 
-    if (is_tir_value(get_term_tag(c->tir, g.inner))) {
+    if (get_term_category(c->tir, g.inner) == TIRCAT_VALUE) {
         return analyze_function_call(c, node, &g);
     }
 
@@ -2140,7 +2143,7 @@ static TirId analyze_call(Context *c, AstId node) {
             .provided = operand_value,
         })
     );
-    return null_tir;
+    return error_term;
 }
 
 static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
@@ -2150,7 +2153,7 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
         arg_types[i] = expect_type(c, call.args[i]);
     }
     if (!term.id) {
-        return null_tir;
+        return error_term;
     }
     GenericTerm g = get_generic_term(c->tir, term);
     if (g.type_count != call.arg_count) {
@@ -2159,7 +2162,7 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
             .type = g.inner,
             .provided = call.arg_count,
         }));
-        return null_tir;
+        return error_term;
     }
     return replace_type_parameters(g.inner, &(ReplaceTypeInfo) {
         .c = c->tir,
@@ -2171,9 +2174,9 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
 
 static TirId analyze_index(Context *c, AstId node, TirId hint) {
     AstCall call = get_ast_call(node, c->ast);
-    TirId operand_value = analyze_term(c, call.operand, null_tir);
+    TirId operand_value = analyze_term(c, call.operand, error_term);
 
-    switch ((PrimitiveTerm) operand_value.id) {
+    switch ((ReservedTerm) operand_value.id) {
         case BUILTIN_ALIGNOF: return analyze_alignof(c, node);
         case BUILTIN_SIZEOF: return analyze_sizeof(c, node);
         case BUILTIN_CAST: return analyze_cast(c, node, hint);
@@ -2188,9 +2191,9 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
         return analyze_tagged_type(c, node, operand_value);
     }
 
-    if (!is_tir_value(get_term_tag(c->tir, operand_value))) {
+    if (get_term_category(c->tir, operand_value) != TIRCAT_VALUE) {
         name_diagnostic(c, (AstRef) {node, c->file}, Diagnostic(ErrorIndexOperandRole, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId operand_type = get_value_type(c->tir, operand_value);
@@ -2208,7 +2211,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
         node_diagnostic(c, call.operand, Diagnostic(ErrorIndexCount, {
             .provided = call.arg_count,
         }));
-        return null_tir;
+        return error_term;
     }
 
     TirId arg_result = expect_value_type(c, call.args[0], ptype(isize));
@@ -2222,7 +2225,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
     }
 
     if (e) {
-        return null_tir;
+        return error_term;
     }
 
     return new_binary_tir(c->tir, TIR_INDEX, node, elem_type, operand_value, arg_result);
@@ -2230,7 +2233,7 @@ static TirId analyze_index(Context *c, AstId node, TirId hint) {
 
 static TirId analyze_slice(Context *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
-    TirId operand_value = expect_value(c, call.operand, null_tir);
+    TirId operand_value = expect_value(c, call.operand, error_term);
     TirId operand_type = get_value_type(c->tir, operand_value);
     TirId elem_type = remove_array_like(c->tir, operand_type);
 
@@ -2239,7 +2242,7 @@ static TirId analyze_slice(Context *c, AstId node) {
             .ctx = c->tir,
             .type = elem_type,
         }));
-        return null_tir;
+        return error_term;
     }
 
     TirId type;
@@ -2293,7 +2296,7 @@ static TirId analyze_list(Context *c, AstId node, TirId hint) {
             TirId arg_result = expect_value_type(c, list.nodes[i], elem_type);
             args_tir[index++] = arg_result.id;
         } else {
-            TirId arg_result = expect_value(c, list.nodes[i], null_tir);
+            TirId arg_result = expect_value(c, list.nodes[i], error_term);
             elem_type = get_value_type(c->tir, arg_result);
             args_tir[index++] = arg_result.id;
         }
@@ -2301,7 +2304,7 @@ static TirId analyze_list(Context *c, AstId node, TirId hint) {
 
     if (!list.count) {
         node_diagnostic(c, node, Diagnostic(ErrorEmptyArray, {0}));
-        return null_tir;
+        return error_term;
     }
 
     TirId type = new_array_type(c->tir, &(ArrayType) {
@@ -2315,12 +2318,12 @@ static TirId analyze_if(Context *c, AstId node) {
     AstIf if_ = get_ast_if(node, c->ast);
     TirId cond_result = expect_value_type(c, if_.condition, ptype(bool));
     push_scope(c);
-    TirBlock true_tir = analyze_block_statement(c, if_.true_block, null_tir, false);
+    TirBlock true_tir = analyze_block(c, if_.true_block, error_term, false);
     pop_scope(c);
     TirBlock false_tir = {0};
     if (!is_ast_null(if_.false_block)) {
         push_scope(c);
-        false_tir = analyze_block_statement(c, if_.false_block, null_tir, false);
+        false_tir = analyze_block(c, if_.false_block, error_term, false);
         pop_scope(c);
     }
     int32_t extra[] = {
@@ -2337,7 +2340,7 @@ static TirId analyze_while(Context *c, AstId node) {
     c->loop_depth++;
     TirId cond_result = expect_value_type(c, while_.left, ptype(bool));
     push_scope(c);
-    TirBlock block_tir = analyze_block_statement(c, while_.right, null_tir, false);
+    TirBlock block_tir = analyze_block(c, while_.right, error_term, false);
     pop_scope(c);
     c->loop_depth--;
     int32_t extra[] = {
@@ -2353,7 +2356,7 @@ static TirId analyze_for(Context *c, AstId node) {
     AstFor for_ = get_ast_for(node, c->ast);
     push_scope(c);
 
-    TirId init_value = expect_value(c, for_.init, null_tir);
+    TirId init_value = expect_value(c, for_.init, error_term);
     TirId init_type = get_value_type(c->tir, init_value);
     if (type_is_unknown_size(c->tir, init_type)) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeSize, {
@@ -2375,7 +2378,7 @@ static TirId analyze_for(Context *c, AstId node) {
 
     c->loop_depth++;
     TirId cond_result = expect_value_type(c, for_.condition, ptype(bool));
-    TirBlock block_tir = analyze_block_statement(c, for_.block, null_tir, false);
+    TirBlock block_tir = analyze_block(c, for_.block, error_term, false);
     TirId next_tir = expect_value_type(c, for_.next, init_type);
     next_tir = new_binary_tir(
         c->tir,
@@ -2452,7 +2455,7 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
 
     TirId cond_value;
     if (!is_ast_null(switch_.operand)) {
-        cond_value = expect_value(c, switch_.operand, null_tir);
+        cond_value = expect_value(c, switch_.operand, error_term);
     } else {
         cond_value = new_int_constant(c->tir, ptype(bool), 1);
     }
@@ -2492,19 +2495,23 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
         }
     }
 
-    if (result_type.id) {
-        if (!consistent_types) {
-            node_diagnostic(c, first_incompatible_case, Diagnostic(ErrorSwitchIncompatibleCases, {0}));
-        } else {
-            if (result_type.id != TYPE_VOID) {
-                if (get_term_tag(c->tir, pattern_type) == TIR_ENUM_TYPE) {
-                    EnumType enum_type = get_enum_type(c->tir, pattern_type);
-                    HashTable const *scope = &tir_get_storage(c->tir, pattern_type)->type_scopes.ptr[enum_type.scope];
-                    validate_exhaustive_enum_switch(c, node, scope, branches_tir);
-                } else if (is_ast_null(else_case)) {
-                    node_diagnostic(c, node, Diagnostic(ErrorSwitchNotExhaustive, {0}));
-                }
-            }
+    // Check for consistency.
+    if (result_type.id && !consistent_types) {
+        node_diagnostic(
+            c,
+            first_incompatible_case,
+            Diagnostic(ErrorSwitchIncompatibleCases, {0})
+        );
+    }
+
+    // Check for exhautiveness.
+    if (result_type.id && result_type.id != TYPE_VOID) {
+        if (get_term_tag(c->tir, pattern_type) == TIR_ENUM_TYPE) {
+            EnumType enum_type = get_enum_type(c->tir, pattern_type);
+            HashTable const *scope = &tir_get_storage(c->tir, pattern_type)->type_scopes.ptr[enum_type.scope];
+            validate_exhaustive_enum_switch(c, node, scope, branches_tir);
+        } else if (is_ast_null(else_case)) {
+            node_diagnostic(c, node, Diagnostic(ErrorSwitchNotExhaustive, {0}));
         }
     }
 
@@ -2512,7 +2519,14 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
         push_extra(c, branches_tir, switch_.arg_count * 2),
         switch_.arg_count,
     };
-    return new_instr(c->tir, TIR_SWITCH, node, result_type, cond_value.id, push_extra(c, extra, ArrayLength(extra)));
+    return new_instr(
+        c->tir,
+        TIR_SWITCH,
+        node,
+        result_type,
+        cond_value.id,
+        push_extra(c, extra, ArrayLength(extra))
+    );
 }
 
 static TirId analyze_break(Context *c, AstId node) {

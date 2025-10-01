@@ -59,7 +59,7 @@ typedef enum {
 } SymbolKind;
 
 typedef enum {
-    TYPE_INVALID,
+    RESERVED_ERROR = 0,
 
     BUILTIN_TYPE_START = INT_MIN,
     TYPE_VOID = BUILTIN_TYPE_START,
@@ -83,12 +83,12 @@ typedef enum {
     BUILTIN_SIZE = TERM_COUNT,
     BUILTIN_ALIGNMENT,
     TERM_GLOBAL_COUNT,
-} PrimitiveTerm;
+} ReservedTerm;
 
 typedef struct {
     SymbolKind kind;
     union {
-        PrimitiveTerm builtin;
+        ReservedTerm builtin;
         GlobalId global;
         LocalId local;
     };

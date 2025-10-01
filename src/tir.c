@@ -2,15 +2,15 @@
 
 #include "adt.h"
 #include "arena.h"
+#include "fwd.h"
 #include "util.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-// Types
 
 typedef struct {
     TirTag tag;
@@ -36,7 +36,7 @@ static TirId get_type_elem(TirContext c, TirId type) {
         case TIR_MUT_SLICE_TYPE:
         case TIR_AFFINE_TYPE: return (TirId) {get_term_data(c, type)->a};
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -91,7 +91,7 @@ static bool type_eq(StructuralType a, StructuralType b) {
         return false;
     }
     switch (a.tag) {
-        case TIR_PRIMITIVE_TYPE:
+        case TIR_RESERVED:
         case TIR_ENUM_TYPE:
         case TIR_TYPE_PARAMETER: return false;
 
@@ -469,27 +469,18 @@ typedef struct {
     int32_t index;
 } TermIndex;
 
-static TermIndex get_term_index(TirContext c, TirId type) {
-    if (type.id - TERM_COUNT < c.global->terms.terms.len) {
-        return (TermIndex) {c.global, type.id - TERM_COUNT};
+static TermIndex get_term_index(TirContext c, TirId term) {
+    if (term.id - TERM_COUNT < c.global->terms.terms.len) {
+        return (TermIndex) {c.global, term.id - TERM_COUNT};
     }
-    return (TermIndex) {c.thread, type.id - TERM_COUNT - c.global->terms.terms.len};
+    return (TermIndex) {c.thread, term.id - TERM_COUNT - c.global->terms.terms.len};
 }
 
-TirTag get_term_tag(TirContext c, TirId type) {
-    if (type.id < TERM_COUNT) {
-        if (type.id == 0) {
-            return TIR_ERROR;
-        }
-        if (type.id >= BUILTIN_TYPE_START && type.id < BUILTIN_TYPE_END) {
-            return TIR_PRIMITIVE_TYPE;
-        }
-        if (type.id >= BUILTIN_MACRO_START && type.id < BUILTIN_MACRO_END) {
-            return TIR_MACRO;
-        }
-        return TIR_MODULE;
+TirTag get_term_tag(TirContext c, TirId term) {
+    if (term.id < TERM_COUNT) {
+        return term.id == RESERVED_ERROR ? TIR_ERROR : TIR_RESERVED;
     }
-    TermIndex i = get_term_index(c, type);
+    TermIndex i = get_term_index(c, term);
     return i.deps->terms.terms.tags[i.index];
 }
 
@@ -503,6 +494,68 @@ TermData const *get_term_data(TirContext c, TirId type) {
 
 int32_t get_term_extra(TirContext c, int32_t index) {
     return c.thread->terms.extra.ptr[index];
+}
+
+typedef struct {
+    int32_t index;
+    int32_t length;
+} TirBlock;
+
+TirBlock tir_get_term_block(TirContext c, TirId term) {
+    TirTag tag = get_term_tag(c, term);
+
+    assert(tag == TIR_BLOCK);
+
+    int32_t index = get_term_data(c, term)->b;
+    int32_t length = get_term_data(c, term)->c;
+    return (TirBlock) {
+        .index = index,
+        .length = length,
+    };
+}
+
+TirId tir_block_get_last(TirContext c, TirBlock const *block) {
+    assert(block->length > 0);
+
+    return (TirId) {get_term_extra(c, block->index + block->length - 1)};
+}
+
+TirCategory get_term_category(TirContext c, TirId term) {
+    TirTag tag = get_term_tag(c, term);
+    switch (tag) {
+        case TIR_RESERVED: {
+            if (term.id == 0) {
+                return TIRCAT_ERROR;
+            }
+            if (term.id >= BUILTIN_TYPE_START && term.id < BUILTIN_TYPE_END) {
+                return TIRCAT_TYPE;
+            }
+            if (term.id >= BUILTIN_MACRO_START && term.id < BUILTIN_MACRO_END) {
+                return TIRCAT_MACRO;
+            }
+            return TIRCAT_MODULE;
+        }
+        case TIR_GENERIC: {
+            return TIRCAT_OTHER;
+        }
+        case TIR_BLOCK: {
+            TirBlock block = tir_get_term_block(c, term);
+            if (block.length == 0) {
+                return TIRCAT_OTHER;
+            }
+            TirId last = tir_block_get_last(c, &block);
+            return get_term_category(c, last);
+        }
+        default: {
+            if (tag >= TIR_TYPE_START && tag < TIR_TYPE_END) {
+                return TIRCAT_TYPE;
+            }
+            if (tag >= TIR_VALUE_START && tag < TIR_VALUE_END) {
+                return TIRCAT_VALUE;
+            }
+            return TIRCAT_ERROR;
+        }
+    }
 }
 
 static int32_t *get_type_extra(TirContext c, TirId type) {
@@ -520,7 +573,7 @@ TirId remove_any_pointer(TirContext c, TirId type) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -529,7 +582,7 @@ TirId remove_pointer(TirContext c, TirId type) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: return get_type_elem(c, type);
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -538,7 +591,7 @@ TirId remove_slice(TirContext c, TirId type) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -546,7 +599,7 @@ TirId replace_slice_with_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_SLICE_TYPE: return new_ptr_type(c, get_type_elem(c, type));
         case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, get_type_elem(c, type));
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -554,7 +607,7 @@ TirId replace_pointer_with_slice(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_PTR_TYPE: return new_slice_type(c, get_type_elem(c, type));
         case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, get_type_elem(c, type));
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -566,7 +619,7 @@ TirId remove_c_pointer_like(TirContext c, TirId type) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -576,7 +629,7 @@ TirId remove_array_like(TirContext c, TirId type) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
 
-        default: return null_tir;
+        default: return error_term;
     }
 }
 
@@ -590,43 +643,147 @@ TirId remove_tags(TirContext c, TirId type) {
 
 bool is_aggregate_type(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_PRIMITIVE_TYPE:
+        case TIR_RESERVED: {
+            switch ((ReservedTerm) type.id) {
+                case TYPE_VOID:
+                case TYPE_i8:
+                case TYPE_i16:
+                case TYPE_i32:
+                case TYPE_i64:
+                case TYPE_byte:
+                case TYPE_isize:
+                case TYPE_f32:
+                case TYPE_f64:
+                case TYPE_bool: {
+                    return false;
+                }
+                default: {
+                    abort();
+                }
+            }
+        }
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
         case TIR_FUNCTION_TYPE:
-        case TIR_ENUM_TYPE: return false;
-
+        case TIR_ENUM_TYPE: {
+            return false;
+        }
         case TIR_ARRAY_TYPE:
-        case TIR_STRUCT_TYPE:
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
-        case TIR_TYPE_PARAMETER: return true;
-
-        case TIR_TAGGED_TYPE: return is_aggregate_type(c, get_tagged_type(c, type).inner);
-        case TIR_AFFINE_TYPE: return is_aggregate_type(c, get_affine_elem_type(c, type));
-
-        default: return false;
+        case TIR_STRUCT_TYPE:
+        case TIR_TYPE_PARAMETER: {
+            return true;
+        }
+        case TIR_TAGGED_TYPE: {
+            return is_aggregate_type(c, get_tagged_type(c, type).inner);
+        }
+        case TIR_AFFINE_TYPE: {
+            return is_aggregate_type(c, get_affine_elem_type(c, type));
+        }
+        default: {
+            abort();
+        }
     }
 }
 
 bool type_is_affine(TirContext c, TirId type) {
-    switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE: return type_is_affine(c, get_array_type(c, type).elem);
-        case TIR_TAGGED_TYPE: return type_is_affine(c, get_tagged_type(c, type).inner);
-        case TIR_STRUCT_TYPE: return ((StructTypeLayout *) get_type_extra(c, type))->is_affine;
-        case TIR_AFFINE_TYPE: return true;
-        default: return false;
+    TirTag tag = get_term_tag(c, type);
+    switch (tag) {
+        case TIR_RESERVED: {
+            switch ((ReservedTerm) type.id) {
+                case TYPE_VOID:
+                case TYPE_i8:
+                case TYPE_i16:
+                case TYPE_i32:
+                case TYPE_i64:
+                case TYPE_byte:
+                case TYPE_isize:
+                case TYPE_f32:
+                case TYPE_f64:
+                case TYPE_bool: {
+                    return false;
+                }
+                default: {
+                    abort();
+                }
+            }
+        }
+        case TIR_ARRAY_LENGTH_TYPE:
+        case TIR_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE:
+        case TIR_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE:
+        case TIR_FUNCTION_TYPE:
+        case TIR_ENUM_TYPE:
+        case TIR_TYPE_PARAMETER: {
+            return false;
+        }
+        case TIR_ARRAY_TYPE: {
+            return type_is_affine(c, get_array_type(c, type).elem);
+        }
+        case TIR_TAGGED_TYPE: {
+            return type_is_affine(c, get_tagged_type(c, type).inner);
+        }
+        case TIR_STRUCT_TYPE: {
+            return ((StructTypeLayout *) get_type_extra(c, type))->is_affine;
+        }
+        case TIR_AFFINE_TYPE: {
+            return true;
+        }
+        default: {
+            abort();
+        }
     }
 }
 
 bool type_is_unknown_size(TirContext c, TirId type) {
-    switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE: return type_is_unknown_size(c, get_array_type(c, type).elem);
-        case TIR_TAGGED_TYPE: return type_is_unknown_size(c, get_tagged_type(c, type).inner);
-        case TIR_AFFINE_TYPE: return type_is_unknown_size(c, get_affine_elem_type(c, type));
-        case TIR_TYPE_PARAMETER: return true;
-        default: return false;
+    TirTag tag = get_term_tag(c, type);
+    switch (tag) {
+        case TIR_RESERVED: {
+            switch ((ReservedTerm) type.id) {
+                case TYPE_i8:
+                case TYPE_i16:
+                case TYPE_i32:
+                case TYPE_i64:
+                case TYPE_byte:
+                case TYPE_isize:
+                case TYPE_f32:
+                case TYPE_f64:
+                case TYPE_bool: {
+                    return false;
+                }
+                default: {
+                    abort();
+                }
+            }
+        }
+        case TIR_ARRAY_LENGTH_TYPE:
+        case TIR_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE:
+        case TIR_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE:
+        case TIR_FUNCTION_TYPE:
+        case TIR_STRUCT_TYPE:
+        case TIR_ENUM_TYPE: {
+            return false;
+        }
+        case TIR_ARRAY_TYPE: {
+            return type_is_unknown_size(c, get_array_type(c, type).elem);
+        }
+        case TIR_TAGGED_TYPE: {
+            return type_is_unknown_size(c, get_tagged_type(c, type).inner);
+        }
+        case TIR_AFFINE_TYPE: {
+            return type_is_unknown_size(c, get_affine_elem_type(c, type));
+        }
+        case TIR_TYPE_PARAMETER: {
+            return true;
+        }
+        default: {
+            abort();
+        }
     }
 }
 
@@ -644,9 +801,12 @@ bool is_equality_type(TirContext c, TirId a) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
         case TIR_FUNCTION_TYPE:
-        case TIR_ENUM_TYPE: return true;
-
-        default: return false;
+        case TIR_ENUM_TYPE: {
+            return true;
+        }
+        default: {
+            return false;
+        }
     }
 }
 
@@ -655,8 +815,12 @@ bool is_relative_type(TirContext c, TirId a) {
         return true;
     }
     switch (get_term_tag(c, a)) {
-        case TIR_ENUM_TYPE: return true;
-        default: return false;
+        case TIR_ENUM_TYPE: {
+            return true;
+        }
+        default: {
+            return false;
+        }
     }
 }
 
@@ -671,8 +835,7 @@ bool int_fits_in_bytes(int64_t i, int bytes) {
 }
 
 static int64_t sizeof_primitive(TirId type, Target target) {
-    switch ((PrimitiveTerm) type.id) {
-        case TYPE_INVALID:
+    switch ((ReservedTerm) type.id) {
         case TYPE_VOID: return -1;
 
         case TYPE_i8:
@@ -763,12 +926,12 @@ FunctionType get_function_type(TirContext c, TirId type) {
 
 TirId get_function_type_param(TirContext c, TirId type, int32_t index) {
     if (get_term_tag(c, type) != TIR_FUNCTION_TYPE) {
-        return null_tir;
+        return error_term;
     }
 
     FunctionType f = get_function_type(c, type);
     if (index >= f.param_count) {
-        return null_tir;
+        return error_term;
     }
     return f.params[index];
 }
@@ -792,12 +955,12 @@ StructType get_struct_type(TirContext c, TirId type) {
 
 TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
     if (get_term_tag(c, type) != TIR_STRUCT_TYPE) {
-        return null_tir;
+        return error_term;
     }
 
     StructType s = get_struct_type(c, type);
     if (index >= s.field_count) {
-        return null_tir;
+        return error_term;
     }
     return s.fields[index];
 }
@@ -810,12 +973,12 @@ TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
         switch (index) {
             case 0: return ptype(isize);
             case 1: return (TirId) {get_term_data(c, type)->b};
-            default: return null_tir;
+            default: return error_term;
         }
     }
 
     if (tag != TIR_STRUCT_TYPE) {
-        return null_tir;
+        return error_term;
     }
 
     return get_struct_type_field(c, type, index);
@@ -854,12 +1017,12 @@ TaggedType get_tagged_type(TirContext c, TirId type) {
 
 TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index) {
     if (get_term_tag(c, type) != TIR_TAGGED_TYPE) {
-        return null_tir;
+        return error_term;
     }
 
     TaggedType t = get_tagged_type(c, type);
     if (index >= t.arg_count) {
-        return null_tir;
+        return error_term;
     }
     return t.args[index];
 }
@@ -892,11 +1055,11 @@ int32_t sizeof_pointer(Target target) {
 
 int32_t alignof_type(TirContext c, TirId type, Target target) {
     switch (get_term_tag(c, type)) {
-        case TIR_ERROR: return -1;
+        case TIR_RESERVED: return -1;
         case TIR_TYPE_PARAMETER: return -1;
 
         default: {
-            switch ((PrimitiveTerm) type.id) {
+            switch ((ReservedTerm) type.id) {
                 case TYPE_VOID: return -1;
 
                 case TYPE_i8:
@@ -934,10 +1097,9 @@ int32_t alignof_type(TirContext c, TirId type, Target target) {
 
 int64_t sizeof_type(TirContext c, TirId type, Target target) {
     switch (get_term_tag(c, type)) {
-        case TIR_ERROR: return -1;
-        case TIR_TYPE_PARAMETER: return -1;
+        case TIR_RESERVED: return sizeof_primitive(type, target);
 
-        case TIR_PRIMITIVE_TYPE: return sizeof_primitive(type, target);
+        case TIR_TYPE_PARAMETER: return -1;
 
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
@@ -964,12 +1126,9 @@ int64_t sizeof_type(TirContext c, TirId type, Target target) {
 
 void print_type(FILE *file, TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_ERROR: {
-            fprintf(file, "{error}");
-            return;
-        }
-        case TIR_PRIMITIVE_TYPE: {
-            switch ((PrimitiveTerm) type.id) {
+        case TIR_RESERVED: {
+            switch ((ReservedTerm) type.id) {
+                case RESERVED_ERROR: fprintf(file, "{error}"); return;
                 case TYPE_VOID: fprintf(file, "void"); return;
 
                 #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;
@@ -1070,8 +1229,6 @@ void debug_type(TirContext c, TirId type) {
     print_type(stderr, c, type);
     printf("\n");
 }
-
-// Type matching
 
 static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatcher *matcher) {
     if (!type.id) {
@@ -1177,7 +1334,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
         return 0;
     }
     switch (tag) {
-        case TIR_PRIMITIVE_TYPE: {
+        case TIR_RESERVED: {
             return 1;
         }
         case TIR_ARRAY_TYPE: {
@@ -1241,7 +1398,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
 
 TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
     switch (get_term_tag(info->c, generic)) {
-        case TIR_PRIMITIVE_TYPE:
+        case TIR_RESERVED:
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_ENUM_TYPE: {
             return generic;
@@ -1321,8 +1478,6 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
         }
     }
 }
-
-// Values
 
 TirId new_int_constant(TirContext c, TirId type, int64_t x) {
     TermList *terms = ctx_terms(c);
@@ -1436,8 +1591,17 @@ TirId new_generic(
 }
 
 TirId get_value_type(TirContext c, TirId value) {
-    if (!is_tir_value(get_term_tag(c, value))) {
-        return null_tir;
+    if (get_term_category(c, value) != TIRCAT_VALUE) {
+        return error_term;
+    }
+
+    if (get_term_tag(c, value) == TIR_BLOCK) {
+        TirBlock block = tir_get_term_block(c, value);
+        if (block.length == 0) {
+            return error_term;
+        }
+        TirId last = tir_block_get_last(c, &block);
+        return get_value_type(c, last);
     }
 
     return (TirId) {get_term_data(c, value)->a};
@@ -1511,6 +1675,14 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_ACCESS: return VALUE_PLACE;
 
         case TIR_SLICE: return VALUE_SLICE;
+        case TIR_BLOCK: {
+            TirBlock block = tir_get_term_block(c, value);
+            if (block.length == 0) {
+                return VALUE_INVALID;
+            }
+            TirId last = tir_block_get_last(c, &block);
+            return get_value_category(c, last);
+        }
         default: break;
     }
     return VALUE_INVALID;
@@ -1594,6 +1766,14 @@ bool is_value_mutable(TirContext c, TirId value) {
         case TIR_ACCESS: {
             TirId operand = {get_term_data(c, value)->b};
             return is_value_mutable(c, operand);
+        }
+        case TIR_BLOCK: {
+            TirBlock block = tir_get_term_block(c, value);
+            if (block.length == 0) {
+                return VALUE_INVALID;
+            }
+            TirId last = tir_block_get_last(c, &block);
+            return is_value_mutable(c, last);
         }
         default: break;
     }

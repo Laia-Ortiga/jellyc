@@ -12,10 +12,10 @@
 
 typedef enum {
     TIR_ERROR,
+    TIR_RESERVED,
 
     TIR_TYPE_START,
-    TIR_PRIMITIVE_TYPE = TIR_TYPE_START,
-    TIR_ARRAY_TYPE,
+    TIR_ARRAY_TYPE = TIR_TYPE_START,
     TIR_ARRAY_LENGTH_TYPE,
     TIR_PTR_TYPE,
     TIR_MUT_PTR_TYPE,
@@ -109,19 +109,18 @@ typedef enum {
 
     TIR_VALUE_END,
 
-    TIR_MACRO = TIR_VALUE_END,
-    TIR_MODULE,
-
-    TIR_GENERIC,
+    TIR_GENERIC = TIR_VALUE_END,
+    TIR_BLOCK,
 } TirTag;
 
-static inline bool is_tir_type(TirTag tag) {
-    return tag >= TIR_TYPE_START && tag < TIR_TYPE_END;
-}
-
-static inline bool is_tir_value(TirTag tag) {
-    return tag >= TIR_VALUE_START && tag < TIR_VALUE_END;
-}
+typedef enum {
+    TIRCAT_ERROR,
+    TIRCAT_OTHER,
+    TIRCAT_TYPE,
+    TIRCAT_VALUE,
+    TIRCAT_MACRO,
+    TIRCAT_MODULE,
+} TirCategory;
 
 typedef enum {
     VALUE_INVALID,
@@ -134,7 +133,7 @@ typedef struct {
     int32_t id;
 } TirId;
 
-static TirId const null_tir = {0};
+static TirId const error_term = {0};
 #define ptype(type) ((TirId) {TYPE_##type})
 
 typedef struct {
@@ -191,6 +190,7 @@ typedef struct {
 TirTag get_term_tag(TirContext c, TirId type);
 TermData const *get_term_data(TirContext c, TirId term);
 int32_t get_term_extra(TirContext c, int32_t index);
+TirCategory get_term_category(TirContext c, TirId term);
 
 // Types
 

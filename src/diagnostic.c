@@ -20,30 +20,27 @@ static int find_line_num(String source, SourceIndex where) {
 }
 
 static void print_term(TirContext c, TirId term) {
-    TirTag tag = get_term_tag(c, term);
-
-    if (is_tir_type(tag)) {
-        print_type(stderr, c, term);
-        return;
+    switch (get_term_category(c, term)) {
+        case TIRCAT_ERROR:
+        case TIRCAT_OTHER:
+        case TIRCAT_MACRO: {
+            fprintf(stderr, "{error}");
+            break;
+        }
+        case TIRCAT_TYPE: {
+            print_type(stderr, c, term);
+            break;
+        }
+        case TIRCAT_VALUE: {
+            fprintf(stderr, "value of type ");
+            print_type(stderr, c, get_value_type(c, term));
+            break;
+        }
+        case TIRCAT_MODULE: {
+            fprintf(stderr, "module");
+            break;
+        }
     }
-
-    if (is_tir_value(tag)) {
-        fprintf(stderr, "value of type ");
-        print_type(stderr, c, get_value_type(c, term));
-        return;
-    }
-
-    if (tag == TIR_MODULE) {
-        fprintf(stderr, "module");
-        return;
-    }
-
-    if (tag == TIR_GENERIC) {
-        fprintf(stderr, "generic");
-        return;
-    }
-
-    fprintf(stderr, "{error}");
 }
 
 void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {

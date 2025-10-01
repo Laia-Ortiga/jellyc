@@ -287,6 +287,21 @@ static void transform_statement(Context *c, TirId tir_id) {
     }
 }
 
+static void transform_block(Context *c, TirId tir_id) {
+    TermData const *data = get_term_data(c->tir, tir_id);
+    int32_t index = {data->b};
+    int32_t length = {data->c};
+
+    for (int32_t i = 0; i < length; i++) {
+        TirId statement = {get_term_extra(c->tir, index + i)};
+        if (i == length - 1) {
+            transform_node(c, statement);
+        } else {
+            transform_statement(c, statement);
+        }
+    }
+}
+
 static void transform_if(Context *c, TirId tir_id) {
     TermData const *data = get_term_data(c->tir, tir_id);
     TirId condition = {data->b};
@@ -566,6 +581,7 @@ static void transform_node(Context *c, TirId tir_id) {
         case TIR_SLICE: transform_slice(c, tir_id); break;
         case TIR_NEW_STRUCT: transform_new_struct(c, tir_id); break;
         case TIR_NEW_ARRAY: transform_new_array(c, tir_id); break;
+        case TIR_BLOCK: transform_block(c, tir_id); break;
         case TIR_IF: transform_if(c, tir_id); break;
         case TIR_SWITCH: transform_switch(c, tir_id); break;
         case TIR_LOOP: transform_loop(c, tir_id); break;

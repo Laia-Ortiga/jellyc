@@ -51,8 +51,8 @@ static void gen_struct_name(GenContext *ctx, TirId type) {
 
 static void gen_type(GenContext *ctx, TirId type) {
     switch (get_term_tag(ctx->tir, type)) {
-        case TIR_PRIMITIVE_TYPE: {
-            switch ((PrimitiveTerm) type.id) {
+        case TIR_RESERVED: {
+            switch ((ReservedTerm) type.id) {
                 case TYPE_VOID: fprintf(ctx->stream, "void"); return;
 
                 case TYPE_i8:
