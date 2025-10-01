@@ -283,11 +283,7 @@ static AstId parse_if(Parser *parser) {
 
     AstId false_block = null_ast;
     if (accept(parser, TOK_KW_else)) {
-        if (parser->lookahead.tag == TOK_KW_if) {
-            false_block = parse_if(parser);
-        } else {
-            false_block = parse_block(parser);
-        }
+        false_block = parse_block(parser);
     }
 
     int32_t extra[] = {

@@ -2449,15 +2449,15 @@ static void validate_exhaustive_enum_switch(
 
 static TirId analyze_switch(Context *c, AstId node, TirId hint) {
     AstCall switch_ = get_ast_call(node, c->ast);
-    TirId pattern_type = ptype(bool);
-    TirId cond_value = null_tir;
 
+    TirId cond_value;
     if (!is_ast_null(switch_.operand)) {
-        TirId cond_result = expect_value(c, switch_.operand, null_tir);
-        pattern_type = get_value_type(c->tir, cond_result);
-        cond_value = cond_result;
+        cond_value = expect_value(c, switch_.operand, null_tir);
+    } else {
+        cond_value = new_int_constant(c->tir, ptype(bool), 1);
     }
 
+    TirId pattern_type = get_value_type(c->tir, cond_value);
     int32_t *branches_tir = arena_alloc(c->scratch, int32_t, switch_.arg_count * 2);
     TirId result_type = hint;
     bool consistent_types = true;

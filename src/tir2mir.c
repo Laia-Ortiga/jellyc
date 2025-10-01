@@ -1,6 +1,7 @@
 #include "tir2mir.h"
 
 #include "arena.h"
+#include "fwd.h"
 #include "mir.h"
 #include "tir.h"
 #include "util.h"
@@ -347,8 +348,10 @@ static void transform_switch(Context *c, TirId tir_id) {
     }
 
     int32_t copy_inst = -1;
+    bool condition_is_true = get_value_type(c->tir, switch_).id == TYPE_bool
+        && get_value_int(c->tir, switch_);
 
-    if (switch_.id) {
+    if (!condition_is_true) {
         copy_inst = -2;
         transform_node(c, switch_);
     }
@@ -361,7 +364,7 @@ static void transform_switch(Context *c, TirId tir_id) {
         TirId value = {get_term_extra(c->tir, branches + i * 2 + 1)};
 
         if (pattern.id) {
-            if (switch_.id) {
+            if (!condition_is_true) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY);
                 transform_node(c, pattern);
                 vec_push(&c->mir.insts, MIR_EQ);
@@ -401,7 +404,7 @@ static void transform_switch(Context *c, TirId tir_id) {
         patch_br(c, br_list[i], c->basic_block);
     }
 
-    if (switch_.id) {
+    if (!condition_is_true) {
         vec_push(&c->mir.insts, MIR_STACK_POP);
     }
 }
