@@ -18,4 +18,7 @@ test jellyc -backend=llvm lib/*.jel test/fibonacci.jel
 test jellyc -backend=c    lib/*.jel test/opengl/*.jel
 test jellyc -backend=llvm lib/*.jel test/opengl/*.jel
 test jellyc -print-debug test/print_type.jel
+test jellyc lib/*.jel test/feature/if.jel
+test jellyc lib/*.jel test/feature/switch.jel
+test jellyc lib/*.jel test/feature/while.jel
 rm -f a.c a.ll

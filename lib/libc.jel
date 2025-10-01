@@ -4,6 +4,10 @@ module libc
 
 public extern function sinf(x f32) -> f32
 public extern function cosf(x f32) -> f32
+
+public extern function fabs(x f64) -> f64
+public extern function fabsf(x f32) -> f32
+
 public extern function fminf(x f32, y f32) -> f32
 public extern function fmaxf(x f32, y f32) -> f32
 

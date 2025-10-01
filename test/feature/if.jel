@@ -1,0 +1,17 @@
+module main
+
+import std
+
+function main() {
+    let x = 5
+
+    if x < 10 {
+        std.print_str(&"x is less than 10")
+    }
+
+    if x != 5 {
+        std.print_str(&"x is not 5")
+    } else {
+        std.print_str(&"x is 5")
+    }
+}

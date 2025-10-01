@@ -1,0 +1,19 @@
+module main
+
+import libc
+import std
+
+function main() {
+    # Use Newton's method to find the derivative of f(x) = x^3 - x^2 + x + 1
+    # The derivative is f'(x) = 3x^2 - 2x + 1
+
+    mut x = 0.0
+
+    while {
+        let d = {x * x * x - x * x + x + 1.0} / {3.0 * x * x - 2.0 * x + 1.0}
+        x -= d
+        libc.fabs(d) > 0.001
+    } {}
+
+    std.print_int(<i64> `cast[x * 1000000.0])
+}
