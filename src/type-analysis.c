@@ -9,6 +9,7 @@
 #include "fwd.h"
 #include "hash.h"
 #include "lex.h"
+#include "type-match.h"
 #include "util.h"
 
 #include <assert.h>
