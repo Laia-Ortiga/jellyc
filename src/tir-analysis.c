@@ -6,6 +6,7 @@
 #include "fwd.h"
 #include "lex.h"
 #include "tir.h"
+#include "type.h"
 
 #include <stdlib.h>
 #include <string.h>

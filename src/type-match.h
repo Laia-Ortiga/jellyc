@@ -1,5 +1,6 @@
 #pragma once
 
+#include "arena.h"
 #include "tir.h"
 
 typedef struct TypeMatcher {

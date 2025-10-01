@@ -3,6 +3,7 @@
 #include "adt.h"
 #include "mir.h"
 #include "tir.h"
+#include "type.h"
 #include "fwd.h"
 
 #include <assert.h>

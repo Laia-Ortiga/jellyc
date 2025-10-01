@@ -4,6 +4,7 @@
 #include "fwd.h"
 #include "mir.h"
 #include "tir.h"
+#include "type.h"
 #include "util.h"
 
 #include <stdint.h>

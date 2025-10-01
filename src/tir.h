@@ -1,6 +1,5 @@
 #pragma once
 
-#include "arena.h"
 #include "ast.h"
 #include "fwd.h"
 #include "hash.h"
@@ -8,7 +7,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 typedef enum {
     TIR_ERROR,
@@ -210,6 +208,10 @@ typedef struct {
     int32_t name;
     int32_t field_count;
     TirId *fields;
+
+    bool is_affine;
+    int32_t alignment;
+    int64_t size;
 } StructType;
 
 typedef struct {
@@ -244,6 +246,7 @@ TirId new_affine_type(TirContext c, TirId elem);
 TirId new_type_parameter(TirContext c, int32_t i, int32_t name);
 TirId new_tagged_type(TirContext c, TaggedType *t);
 
+TirId get_type_elem(TirContext c, TirId type);
 ArrayType get_array_type(TirContext c, TirId type);
 int64_t get_array_length_type(TirContext c, TirId type);
 TirId get_affine_elem_type(TirContext c, TirId type);
@@ -256,42 +259,6 @@ TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index);
 EnumType get_enum_type(TirContext c, TirId type);
 TaggedType get_tagged_type(TirContext c, TirId type);
 TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index);
-
-TirId remove_any_pointer(TirContext c, TirId a);
-TirId remove_pointer(TirContext c, TirId a);
-TirId remove_slice(TirContext c, TirId a);
-TirId replace_slice_with_pointer(TirContext c, TirId a);
-TirId replace_pointer_with_slice(TirContext c, TirId a);
-TirId remove_c_pointer_like(TirContext c, TirId a);
-TirId remove_array_like(TirContext c, TirId a);
-TirId remove_tags(TirContext c, TirId a);
-bool is_aggregate_type(TirContext c, TirId a);
-bool type_is_affine(TirContext c, TirId a);
-bool type_is_unknown_size(TirContext c, TirId a);
-bool is_equality_type(TirContext c, TirId a);
-bool is_relative_type(TirContext c, TirId a);
-
-bool int_fits_in_type(int64_t i, TirId a, Target target);
-TirId bigger_primitive_type(TirId a, TirId b, Target target);
-int32_t sizeof_pointer(Target target);
-int32_t alignof_type(TirContext c, TirId type, Target target);
-int64_t sizeof_type(TirContext c, TirId type, Target target);
-
-static inline bool type_is_fixed_int(TirId type) {
-    return type.id >= TYPE_i8 && type.id <= TYPE_i64;
-}
-
-static inline bool type_is_int(TirId type) {
-    return type_is_fixed_int(type) || type.id == TYPE_isize;
-}
-
-static inline bool type_is_float(TirId type) {
-    return type.id >= TYPE_f32 && type.id <= TYPE_f64;
-}
-
-static inline bool type_is_arithmetic(TirId type) {
-    return type_is_int(type) || type_is_float(type);
-}
 
 // Values
 

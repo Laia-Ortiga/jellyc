@@ -21,6 +21,7 @@ set(SOURCE
     src/tir2mir.c
     src/type-analysis.c
     src/type-match.c
+    src/type.c
     src/util.c
 )
 

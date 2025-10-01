@@ -2,6 +2,7 @@
 
 #include "mir.h"
 #include "tir.h"
+#include "type.h"
 #include "fwd.h"
 #include "util.h"
 

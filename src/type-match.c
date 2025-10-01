@@ -1,5 +1,7 @@
 #include "type-match.h"
+
 #include "tir.h"
+#include "type.h"
 
 static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatcher *matcher) {
     if (!type.id) {

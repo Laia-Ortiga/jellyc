@@ -738,22 +738,22 @@ void print_type(FILE *file, TirContext c, TirId type) {
         }
         case TIR_PTR_TYPE: {
             fprintf(file, "*");
-            print_type(file, c, remove_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_MUT_PTR_TYPE: {
             fprintf(file, "*mut ");
-            print_type(file, c, remove_pointer(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_SLICE_TYPE: {
             fprintf(file, "@");
-            print_type(file, c, remove_slice(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_MUT_SLICE_TYPE: {
             fprintf(file, "@mut ");
-            print_type(file, c, remove_slice(c, type));
+            print_type(file, c, get_type_elem(c, type));
             return;
         }
         case TIR_FUNCTION_TYPE: {
