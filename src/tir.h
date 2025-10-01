@@ -293,9 +293,6 @@ static inline bool type_is_arithmetic(TirId type) {
     return type_is_int(type) || type_is_float(type);
 }
 
-void print_type(FILE *file, TirContext c, TirId type);
-void debug_type(TirContext c, TirId type);
-
 // Values
 
 TirId new_int_constant(TirContext c, TirId type, int64_t x);

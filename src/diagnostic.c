@@ -1,6 +1,7 @@
 #include "diagnostic.h"
 
 #include "lex.h"
+#include "print.h"
 #include "tir.h"
 
 #include <inttypes.h>

@@ -10,3 +10,6 @@ void print_tir(
     int32_t first,
     int32_t length
 );
+
+void print_type(FILE *file, TirContext c, TirId type);
+void debug_type(TirContext c, TirId type);
