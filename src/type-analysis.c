@@ -1229,7 +1229,7 @@ static int parse_hex_int(char const *s, int64_t *out) {
 
 static int parse_int(char const *s, int64_t *out) {
     if (s[0] == '0' && (s[1] == 'X' || s[1] == 'x')) {
-        return parse_hex_int(s, out);
+        return parse_hex_int(s + 2, out);
     }
 
     int64_t result = 0;
