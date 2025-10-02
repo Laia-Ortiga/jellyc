@@ -26,7 +26,7 @@ static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatc
         }
         case TYPE_MATCH_ARRAY: {
             if (get_term_tag(c, type) == TIR_ARRAY_TYPE) {
-                ArrayType array_type = get_array_type(c, type);
+                TirArrayType array_type = tir_get_array_type(c, type);
                 return match_types_single(c, results, array_type.index, &matcher->inner[0])
                     && match_types_single(c, results, array_type.elem, &matcher->inner[1]);
             }
@@ -95,7 +95,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
 
     TirTag tag = get_term_tag(c, param);
     if (tag == TIR_TYPE_PARAMETER) {
-        int32_t index = get_type_parameter_index(c, param);
+        int32_t index = tir_get_type_parameter(c, param).index;
         if (!results[index].id) {
             results[index] = arg;
         } else if (results[index].id != arg.id) {
@@ -111,8 +111,8 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
             return 1;
         }
         case TIR_ARRAY_TYPE: {
-            ArrayType param_array = get_array_type(c, param);
-            ArrayType arg_array = get_array_type(c, arg);
+            TirArrayType param_array = tir_get_array_type(c, param);
+            TirArrayType arg_array = tir_get_array_type(c, arg);
             return match_type_parameters(c, results, param_array.index, arg_array.index)
                 && match_type_parameters(c, results, param_array.elem, arg_array.elem);
         }
@@ -132,17 +132,17 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
             return match_type_parameters(c, results, param_elem, arg_elem);
         }
         case TIR_AFFINE_TYPE: {
-            TirId param_elem = get_affine_elem_type(c, param);
-            TirId arg_elem = get_affine_elem_type(c, arg);
+            TirId param_elem = tir_get_affine_type(c, param).elem;
+            TirId arg_elem = tir_get_affine_type(c, arg).elem;
             return match_type_parameters(c, results, param_elem, arg_elem);
         }
         case TIR_FUNCTION_TYPE: {
-            FunctionType param_f = get_function_type(c, param);
-            FunctionType arg_f = get_function_type(c, arg);
-            if (param_f.param_count != arg_f.param_count) {
+            TirFunctionType param_f = tir_get_function_type(c, param);
+            TirFunctionType arg_f = tir_get_function_type(c, arg);
+            if (param_f.params.len != arg_f.params.len) {
                 return 0;
             }
-            for (int32_t i = 0; i < param_f.param_count; i++) {
+            for (int32_t i = 0; i < param_f.params.len; i++) {
                 if (!match_type_parameters(c, results, get_function_type_param(c, param, i), get_function_type_param(c, arg, i))) {
                     return 0;
                 }
@@ -150,15 +150,15 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
             return match_type_parameters(c, results, param_f.ret, arg_f.ret);
         }
         case TIR_TAGGED_TYPE: {
-            TaggedType param_t = get_tagged_type(c, param);
-            TaggedType arg_t = get_tagged_type(c, arg);
+            TirTaggedType param_t = tir_get_tagged_type(c, param);
+            TirTaggedType arg_t = tir_get_tagged_type(c, arg);
             if (param_t.name != arg_t.name) {
                 return 0;
             }
-            if (param_t.arg_count != arg_t.arg_count) {
+            if (param_t.args.len != arg_t.args.len) {
                 return 0;
             }
-            for (int32_t i = 0; i < param_t.arg_count; i++) {
+            for (int32_t i = 0; i < param_t.args.len; i++) {
                 if (!match_type_parameters(c, results, get_tagged_type_arg(c, param, i), get_tagged_type_arg(c, arg, i))) {
                     return 0;
                 }
@@ -185,12 +185,12 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             return generic;
         }
         case TIR_TYPE_PARAMETER: {
-            int32_t index = get_type_parameter_index(info->c, generic);
+            int32_t index = tir_get_type_parameter(info->c, generic).index;
             return info->args[index];
         }
         case TIR_ARRAY_TYPE: {
-            ArrayType array = get_array_type(info->c, generic);
-            return new_array_type(info->c, &(ArrayType) {
+            TirArrayType array = tir_get_array_type(info->c, generic);
+            return new_array_type(info->c, &(TirArrayType) {
                 .index = replace_type_parameters(array.index, info),
                 .elem = replace_type_parameters(array.elem, info),
             });
@@ -212,46 +212,43 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             return new_mut_slice_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_AFFINE_TYPE: {
-            TirId elem = get_affine_elem_type(info->c, generic);
+            TirId elem = tir_get_affine_type(info->c, generic).elem;
             return new_affine_type(info->c, replace_type_parameters(elem, info));
         }
         case TIR_FUNCTION_TYPE: {
-            FunctionType f = get_function_type(info->c, generic);
-            TirId *params = arena_alloc(&info->scratch, TirId, f.param_count);
-            for (int32_t i = 0; i < f.param_count; i++) {
+            TirFunctionType f = tir_get_function_type(info->c, generic);
+            TirId *params = arena_alloc(&info->scratch, TirId, f.params.len);
+            for (int32_t i = 0; i < f.params.len; i++) {
                 params[i] = replace_type_parameters(get_function_type_param(info->c, generic, i), info);
             }
-            return new_function_type(info->c, &(FunctionType) {
-                .param_count = f.param_count,
-                .params = params,
+            return new_function_type(info->c, &(TirFunctionType) {
+                .params = {f.params.len, params},
                 .ret = replace_type_parameters(f.ret, info),
             });
         }
         case TIR_TAGGED_TYPE: {
-            TaggedType t = get_tagged_type(info->c, generic);
-            TirId *tags = arena_alloc(&info->scratch, TirId, t.arg_count);
-            for (int32_t i = 0; i < t.arg_count; i++) {
+            TirTaggedType t = tir_get_tagged_type(info->c, generic);
+            TirId *tags = arena_alloc(&info->scratch, TirId, t.args.len);
+            for (int32_t i = 0; i < t.args.len; i++) {
                 tags[i] = replace_type_parameters(get_tagged_type_arg(info->c, generic, i), info);
             }
             TirId inner = replace_type_parameters(t.inner, info);
-            return new_tagged_type(info->c, &(TaggedType) {
+            return new_tagged_type(info->c, &(TirTaggedType) {
                 .name = t.name,
                 .inner = inner,
-                .arg_count = t.arg_count,
-                .args = tags,
+                .args = {t.args.len, tags},
             });
         }
         case TIR_STRUCT_TYPE: {
-            StructType t = get_struct_type(info->c, generic);
-            TirId *fields = arena_alloc(&info->scratch, TirId, t.field_count);
-            for (int32_t i = 0; i < t.field_count; i++) {
+            TirStructType t = tir_get_struct_type(info->c, generic);
+            TirId *fields = arena_alloc(&info->scratch, TirId, t.fields.len);
+            for (int32_t i = 0; i < t.fields.len; i++) {
                 fields[i] = replace_type_parameters(get_struct_type_field(info->c, generic, i), info);
             }
-            return new_struct_type(info->c, info->target, &(StructType) {
+            return new_struct_type(info->c, info->target, &(TirStructType) {
                 .name = t.name,
                 .scope = t.scope,
-                .field_count = t.field_count,
-                .fields = t.fields,
+                .fields = {t.fields.len, fields},
             });
         }
         default: {

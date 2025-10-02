@@ -332,382 +332,33 @@ void print_ast(char const *path, String source, Ast const *ast) {
 
 
 typedef struct {
-    TirContext context;
+    TirContext tir;
     int depth;
 } TirPrinter;
 
-static void print_tir_node(TirPrinter *printer, TirId tir_id);
-
-static void print_tir_leaf_statement(TirPrinter *printer, char const *name) {
-    print_indent(printer->depth);
-    printf("%s\n", name);
-}
-
-static void print_tir_let(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId v = {get_term_data(printer->context, tir_id)->b};
-    int32_t var = get_term_data(printer->context, v)->b;
-    TirId init = {data->c};
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    print_indent(printer->depth);
-    printf("variable_%d\n", var);
-    print_tir_node(printer, init);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_unary_value(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId operand = {data->b};
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    print_tir_node(printer, operand);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_binary_value(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId left = {data->b};
-    TirId right = {data->c};
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    print_tir_node(printer, left);
-    print_tir_node(printer, right);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_return(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId operand = {data->b};
-    print_indent(printer->depth);
-    printf("return(\n");
-    printer->depth++;
-    if (operand.id) {
-        print_tir_node(printer, operand);
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_access(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId operand = {data->b};
-    int32_t index = data->c;
-    print_indent(printer->depth);
-    printf("access(\n");
-    printer->depth++;
-    print_tir_node(printer, operand);
-    print_indent(printer->depth);
-    printf("%d\n", index);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_call(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId operand = {data->b};
-    int32_t args = data->c;
-    TirId function_type = get_value_type(printer->context, operand);
-    int32_t arg_count = get_function_type(printer->context, function_type).param_count;
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    print_tir_node(printer, operand);
-    for (int32_t i = 0; i < arg_count; i++) {
-        TirId arg = {get_term_extra(printer->context, args + i)};
-        print_tir_node(printer, arg);
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")");
-    if (get_value_type(printer->context, tir_id).id != TYPE_VOID) {
-        printf(": ");
-        print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    }
-    printf("\n");
-}
-
-static void print_tir_slice(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId operand = {data->b};
-    int32_t index = data->c;
-    TirId low = {get_term_extra(printer->context, index)};
-    TirId high = {get_term_extra(printer->context, index + 1)};
-    print_indent(printer->depth);
-    printf("slice(\n");
-    printer->depth++;
-    print_tir_node(printer, operand);
-    print_tir_node(printer, low);
-    print_tir_node(printer, high);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_new_type(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    int32_t args = data->b;
-    int32_t arg_count = data->c;
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    for (int32_t i = 0; i < arg_count; i++) {
-        TirId arg = {get_term_extra(printer->context, args + i)};
-        print_tir_node(printer, arg);
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_assignment(TirPrinter *printer, char const *name, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId left = {data->b};
-    TirId right = {data->c};
-    print_indent(printer->depth);
-    printf("%s(\n", name);
-    printer->depth++;
-    print_tir_node(printer, left);
-    print_tir_node(printer, right);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_switch(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId switch_ = {data->b};
-    int32_t extra = data->c;
-    int32_t branches = get_term_extra(printer->context, extra);
-    int32_t branch_count = get_term_extra(printer->context, extra + 1);
-    print_indent(printer->depth);
-    printf("switch(\n");
-    printer->depth++;
-    print_tir_node(printer, switch_);
-    for (int32_t i = 0; i < branch_count; i++) {
-        print_indent(printer->depth);
-        printf("case(\n");
-        printer->depth++;
-        TirId pattern = {get_term_extra(printer->context, branches + i * 2)};
-        TirId value = {get_term_extra(printer->context, branches + i * 2 + 1)};
-        if (pattern.id) {
-            print_tir_node(printer, pattern);
-        } else {
-            print_indent(printer->depth);
-            printf("else\n");
-        }
-        print_tir_node(printer, value);
-        printer->depth--;
-        print_indent(printer->depth);
-        printf(")");
-        printf("\n");
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf("): ");
-    print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-    printf("\n");
-}
-
-static void print_tir_block(TirPrinter *printer, int32_t block, int32_t length) {
-    print_indent(printer->depth);
-    printf("block(\n");
-    printer->depth++;
-    for (int32_t i = 0; i < length; i++) {
-        TirId statement = {get_term_extra(printer->context, block + i)};
-        print_tir_node(printer, statement);
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_if(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId condition = {data->b};
-    int32_t extra = data->c;
-    int32_t true_block = get_term_extra(printer->context, extra);
-    int32_t true_block_length = get_term_extra(printer->context, extra + 1);
-    int32_t false_block = get_term_extra(printer->context, extra + 2);
-    int32_t false_block_length = get_term_extra(printer->context, extra + 3);
-    print_indent(printer->depth);
-    printf("if(\n");
-    printer->depth++;
-    print_tir_node(printer, condition);
-    print_tir_block(printer, true_block, true_block_length);
-    print_tir_block(printer, false_block, false_block_length);
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_for(TirPrinter *printer, TirId tir_id) {
-    TermData const *data = get_term_data(printer->context, tir_id);
-    TirId condition = {data->b};
-    int32_t extra = data->c;
-    TirId next = {get_term_extra(printer->context, extra)};
-    int32_t block = get_term_extra(printer->context, extra + 1);
-    int32_t block_length = get_term_extra(printer->context, extra + 2);
-    print_indent(printer->depth);
-    printf("for(\n");
-    printer->depth++;
-    print_tir_node(printer, condition);
-    print_tir_block(printer, block, block_length);
-    if (next.id) {
-        print_tir_node(printer, next);
-    }
-    printer->depth--;
-    print_indent(printer->depth);
-    printf(")\n");
-}
-
-static void print_tir_node(TirPrinter *printer, TirId tir_id) {
-    switch (get_term_tag(printer->context, tir_id)) {
-        default: {
-            print_indent(printer->depth);
-            printf("(error)\n");
-            break;
-        }
-        case TIR_FUNCTION:
-        case TIR_EXTERN_FUNCTION:
-        case TIR_EXTERN_VAR: {
-            print_indent(printer->depth);
-            char const *name = get_value_str(printer->context, tir_id);
-            printf("%s: ", name);
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_CONST_INT: {
-            print_indent(printer->depth);
-            printf("%ld: ", get_value_int(printer->context, tir_id));
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_CONST_FLOAT: {
-            print_indent(printer->depth);
-            printf("%f: ", get_value_float(printer->context, tir_id));
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_CONST_NULL: {
-            print_indent(printer->depth);
-            printf("null: ");
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_STRING: {
-            print_indent(printer->depth);
-            printf("\"%s\": ", get_value_str(printer->context, tir_id));
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_PARAMETER:
-        case TIR_VARIABLE:
-        case TIR_MUTABLE_VARIABLE: {
-            print_indent(printer->depth);
-            printf("variable_%d: ", get_term_data(printer->context, tir_id)->b);
-            print_type(stdout, printer->context, get_value_type(printer->context, tir_id));
-            printf("\n");
-            break;
-        }
-        case TIR_LET: print_tir_let(printer, "let", tir_id); break;
-        case TIR_PLUS: print_tir_unary_value(printer, "plus", tir_id); break;
-        case TIR_MINUS: print_tir_unary_value(printer, "minus", tir_id); break;
-        case TIR_NOT: print_tir_unary_value(printer, "not", tir_id); break;
-        case TIR_ADDRESS_OF_TEMPORARY: print_tir_unary_value(printer, "address temporary", tir_id); break;
-        case TIR_ADDRESS: print_tir_unary_value(printer, "address", tir_id); break;
-        case TIR_DEREF: print_tir_unary_value(printer, "deref", tir_id); break;
-        case TIR_ADD: print_tir_binary_value(printer, "add", tir_id); break;
-        case TIR_SUB: print_tir_binary_value(printer, "sub", tir_id); break;
-        case TIR_MUL: print_tir_binary_value(printer, "mul", tir_id); break;
-        case TIR_DIV: print_tir_binary_value(printer, "div", tir_id); break;
-        case TIR_MOD: print_tir_binary_value(printer, "mod", tir_id); break;
-        case TIR_AND: print_tir_binary_value(printer, "and", tir_id); break;
-        case TIR_OR: print_tir_binary_value(printer, "or", tir_id); break;
-        case TIR_XOR: print_tir_binary_value(printer, "xor", tir_id); break;
-        case TIR_SHL: print_tir_binary_value(printer, "shl", tir_id); break;
-        case TIR_SHR: print_tir_binary_value(printer, "shr", tir_id); break;
-        case TIR_EQ: print_tir_binary_value(printer, "eq", tir_id); break;
-        case TIR_NE: print_tir_binary_value(printer, "ne", tir_id); break;
-        case TIR_LT: print_tir_binary_value(printer, "lt", tir_id); break;
-        case TIR_GT: print_tir_binary_value(printer, "gt", tir_id); break;
-        case TIR_LE: print_tir_binary_value(printer, "le", tir_id); break;
-        case TIR_GE: print_tir_binary_value(printer, "ge", tir_id); break;
-        case TIR_ASSIGN: print_tir_assignment(printer, "assign", tir_id); break;
-        case TIR_ASSIGN_ADD: print_tir_assignment(printer, "assign add", tir_id); break;
-        case TIR_ASSIGN_SUB: print_tir_assignment(printer, "assign sub", tir_id); break;
-        case TIR_ASSIGN_MUL: print_tir_assignment(printer, "assign mul", tir_id); break;
-        case TIR_ASSIGN_DIV: print_tir_assignment(printer, "assign div", tir_id); break;
-        case TIR_ASSIGN_MOD: print_tir_assignment(printer, "assign mod", tir_id); break;
-        case TIR_ASSIGN_AND: print_tir_assignment(printer, "assign and", tir_id); break;
-        case TIR_ASSIGN_OR: print_tir_assignment(printer, "assign or", tir_id); break;
-        case TIR_ASSIGN_XOR: print_tir_assignment(printer, "assign xor", tir_id); break;
-        case TIR_ACCESS: print_tir_access(printer, tir_id); break;
-        case TIR_ITOF: print_tir_unary_value(printer, "cast itof", tir_id); break;
-        case TIR_ITRUNC: print_tir_unary_value(printer, "cast itrunc", tir_id); break;
-        case TIR_SEXT: print_tir_unary_value(printer, "cast sext", tir_id); break;
-        case TIR_ZEXT: print_tir_unary_value(printer, "cast zext", tir_id); break;
-        case TIR_FTOI: print_tir_unary_value(printer, "cast ftoi", tir_id); break;
-        case TIR_FTRUNC: print_tir_unary_value(printer, "cast ftrunc", tir_id); break;
-        case TIR_FEXT: print_tir_unary_value(printer, "cast fext", tir_id); break;
-        case TIR_PTR_CAST: print_tir_unary_value(printer, "cast ptr", tir_id); break;
-        case TIR_NOP: print_tir_unary_value(printer, "cast nop", tir_id); break;
-        case TIR_ARRAY_TO_SLICE: print_tir_unary_value(printer, "cast slice", tir_id); break;
-        case TIR_CALL: print_tir_call(printer, "call", tir_id); break;
-        case TIR_INDEX: print_tir_binary_value(printer, "index", tir_id); break;
-        case TIR_SLICE: print_tir_slice(printer, tir_id); break;
-        case TIR_NEW_STRUCT: print_tir_new_type(printer, "struct", tir_id); break;
-        case TIR_NEW_ARRAY: print_tir_new_type(printer, "array", tir_id); break;
-        case TIR_IF: print_tir_if(printer, tir_id); break;
-        case TIR_SWITCH: print_tir_switch(printer, tir_id); break;
-        case TIR_LOOP: print_tir_for(printer, tir_id); break;
-        case TIR_BREAK: print_tir_leaf_statement(printer, "break"); break;
-        case TIR_CONTINUE: print_tir_leaf_statement(printer, "continue"); break;
-        case TIR_RETURN: print_tir_return(printer, tir_id); break;
-    }
-}
+#include "tir-print.c"
 
 void print_tir(
-    TirContext context,
+    TirContext c,
     char const *name,
     int32_t first,
     int32_t length
 ) {
     TirPrinter printer = {0};
-    printer.context = context;
+    printer.tir = c;
     printf("Tir(%s) {\n", name);
     printer.depth++;
     for (int32_t i = 0; i < length; i++) {
-        TirId statement = {get_term_extra(context, first + i)};
+        TirId statement = {get_term_extra(c.thread, first + i)};
         print_tir_node(&printer, statement);
     }
     printf("}\n");
+}
+
+void print_tir_term(TirContext c, TirId term) {
+    TirPrinter printer = {0};
+    printer.tir = c;
+    print_tir_node(&printer, term);
 }
 
 void print_type(FILE *file, TirContext c, TirId type) {
@@ -725,46 +376,45 @@ void print_type(FILE *file, TirContext c, TirId type) {
             compiler_error("print_type: unknown primitive type");
         }
         case TIR_ARRAY_TYPE: {
-            ArrayType array = get_array_type(c, type);
-            int64_t length = get_array_length_type(c, array.index);
+            TirArrayType array = tir_get_array_type(c, type);
+            int64_t length = tir_get_array_length_type(c, array.index).length;
             fprintf(file, "[:%ld]", length);
             print_type(file, c, array.elem);
             return;
         }
         case TIR_ARRAY_LENGTH_TYPE: {
-            int64_t length = get_array_length_type(c, type);
+            int64_t length = tir_get_array_length_type(c, type).length;
             fprintf(file, "`ArrayLength(%ld)", length);
             return;
         }
         case TIR_PTR_TYPE: {
             fprintf(file, "*");
-            print_type(file, c, get_type_elem(c, type));
+            print_type(file, c, tir_get_ptr_type(c, type).elem);
             return;
         }
         case TIR_MUT_PTR_TYPE: {
             fprintf(file, "*mut ");
-            print_type(file, c, get_type_elem(c, type));
+            print_type(file, c, tir_get_ptr_type(c, type).elem);
             return;
         }
         case TIR_SLICE_TYPE: {
             fprintf(file, "@");
-            print_type(file, c, get_type_elem(c, type));
+            print_type(file, c, tir_get_slice_type(c, type).elem);
             return;
         }
         case TIR_MUT_SLICE_TYPE: {
             fprintf(file, "@mut ");
-            print_type(file, c, get_type_elem(c, type));
+            print_type(file, c, tir_get_slice_type(c, type).elem);
             return;
         }
         case TIR_FUNCTION_TYPE: {
-            FunctionType f = get_function_type(c, type);
+            TirFunctionType f = tir_get_function_type(c, type);
             fprintf(file, "function (");
-            for (int32_t j = 0; j < f.param_count; j++) {
+            for (int32_t j = 0; j < f.params.len; j++) {
                 if (j != 0) {
                     fprintf(file, ", ");
                 }
-                TirId param_type = get_function_type_param(c, type, j);
-                print_type(file, c, param_type);
+                print_type(file, c, f.params.ptr[j]);
             }
             fprintf(file, ")");
             if (f.ret.id != TYPE_VOID) {
@@ -774,21 +424,20 @@ void print_type(FILE *file, TirContext c, TirId type) {
             return;
         }
         case TIR_ENUM_TYPE: {
-            fprintf(file, "%s", tir_get_str(c, get_enum_type(c, type).name));
+            fprintf(file, "%s", tir_get_str(c, tir_get_enum_type(c, type).name));
             return;
         }
         case TIR_TAGGED_TYPE: {
-            TaggedType t = get_tagged_type(c, type);
+            TirTaggedType t = tir_get_tagged_type(c, type);
             fprintf(file, "%s", tir_get_str(c, t.name));
 
-            if (t.arg_count) {
+            if (t.args.len) {
                 fprintf(file, "[");
-                for (int32_t j = 0; j < t.arg_count; j++) {
+                for (int32_t j = 0; j < t.args.len; j++) {
                     if (j != 0) {
                         fprintf(file, ", ");
                     }
-                    TirId arg = get_tagged_type_arg(c, type, j);
-                    print_type(file, c, arg);
+                    print_type(file, c, t.args.ptr[j]);
                 }
                 fprintf(file, "]");
             }
@@ -796,13 +445,13 @@ void print_type(FILE *file, TirContext c, TirId type) {
         }
         case TIR_AFFINE_TYPE: {
             fprintf(file, "`Affine[");
-            print_type(file, c, get_affine_elem_type(c, type));
+            print_type(file, c, tir_get_affine_type(c, type).elem);
             fprintf(file, "]");
             return;
         }
         case TIR_TYPE_PARAMETER: {
-            char const *name = get_value_str(c, type);
-            fputs(name, file);
+            TirTypeParameter t = tir_get_type_parameter(c, type);
+            fputs(tir_get_str(c, t.name), file);
             return;
         }
         default: {

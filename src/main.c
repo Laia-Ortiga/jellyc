@@ -471,8 +471,13 @@ int main(int argc, char **argv) {
                 .global = &tir_output.global_deps,
                 .thread = &tir_output.insts[i].deps,
             };
-            char const *name = get_value_str(ctx, tir_output.global_deps.functions.ptr[i]);
-            print_tir(ctx, name, tir_output.insts[i].body_first, tir_output.insts[i].body_length);
+            TirFunction t = tir_get_function(ctx, tir_output.global_deps.functions.ptr[i]);
+            print_tir(
+                ctx,
+                tir_get_str(ctx, t.name),
+                tir_output.insts[i].body_first,
+                tir_output.insts[i].body_length
+            );
         }
     }
     err = check_substructural_types(

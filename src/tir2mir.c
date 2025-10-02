@@ -35,111 +35,91 @@ static void patch_br(Context *c, int32_t br, int32_t basic_block) {
 static void transform_node(Context *c, TirId tir_id);
 
 static void transform_let(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId var = {data->b};
-    TirId init = {data->c};
+    TirLet t = tir_get_let(c->tir, tir_id);
     vec_push(&c->mir.insts, MIR_ALLOC_VAR);
-    vec_push(&c->mir.data, var.id);
-    transform_node(c, init);
+    vec_push(&c->mir.data, t.var.id);
+    transform_node(c, t.init);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 }
 
 static void transform_plus(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
+    TirUnary t = tir_get_unary(c->tir, tir_id);
+    transform_node(c, t.a);
 }
 
 static void transform_unary(Context *c, TirId tir_id, MirTag tag) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
+    TirUnary t = tir_get_unary(c->tir, tir_id);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, tag);
 }
 
 static void transform_deref(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
+    TirUnary t = tir_get_unary(c->tir, tir_id);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, MIR_DEREF);
 }
 
 static void transform_cast(Context *c, TirId tir_id, MirTag tag) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
-    TirId cast_type = get_value_type(c->tir, tir_id);
+    TirCast t = tir_get_cast(c->tir, tir_id);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, tag);
-    vec_push(&c->mir.data, cast_type.id);
+    vec_push(&c->mir.data, t.type.id);
 }
 
 static void transform_nop(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
+    TirCast t = tir_get_cast(c->tir, tir_id);
+    transform_node(c, t.a);
 }
 
 static void transform_tmp_address(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    TirId type = get_value_type(c->tir, operand);
+    TirUnary t = tir_get_unary(c->tir, tir_id);
+    TirId type = get_value_type(c->tir, t.a);
     vec_push(&c->mir.insts, MIR_ALLOC);
     vec_push(&c->mir.data, type.id);
     vec_push(&c->mir.insts, MIR_STACK_COPY);
-    transform_node(c, operand);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, MIR_ASSIGN);
     vec_push(&c->mir.insts, MIR_ADDRESS);
-    vec_push(&c->mir.data, get_value_type(c->tir, tir_id).id);
+    vec_push(&c->mir.data, t.type.id);
 }
 
 static void transform_address(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    transform_node(c, operand);
+    TirUnary t = tir_get_unary(c->tir, tir_id);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, MIR_ADDRESS);
-    vec_push(&c->mir.data, get_value_type(c->tir, tir_id).id);
+    vec_push(&c->mir.data, t.type.id);
 }
 
 static void transform_binary(Context *c, TirId tir_id, MirTag tag) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId left = {data->b};
-    TirId right = {data->c};
-    transform_node(c, left);
-    transform_node(c, right);
+    TirBinary t = tir_get_binary(c->tir, tir_id);
+    transform_node(c, t.a);
+    transform_node(c, t.b);
     vec_push(&c->mir.insts, tag);
 }
 
 static void transform_compound_assignment(Context *c, TirId tir_id, MirTag tag) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId left = {data->b};
-    TirId right = {data->c};
-    transform_node(c, left);
+    TirBinary t = tir_get_binary(c->tir, tir_id);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, MIR_STACK_COPY);
-    transform_node(c, right);
+    transform_node(c, t.b);
     vec_push(&c->mir.insts, tag);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 }
 
 static void transform_access(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    int32_t index = data->c;
-    transform_node(c, operand);
+    TirAccess t = tir_get_access(c->tir, tir_id);
+    transform_node(c, t.s);
     vec_push(&c->mir.insts, MIR_ACCESS);
-    vec_push(&c->mir.data, index);
+    vec_push(&c->mir.data, t.field);
 }
 
 static void transform_call(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    int32_t args = data->c;
-    TirId type = get_value_type(c->tir, operand);
-    FunctionType function_type = get_function_type(c->tir, type);
-    transform_node(c, operand);
+    TirCall t = tir_get_call(c->tir, tir_id);
+    TirId type = get_value_type(c->tir, t.f);
+    transform_node(c, t.f);
 
-    for (int32_t i = 0; i < function_type.param_count; i++) {
-        TirId arg = {get_term_extra(c->tir, args + i)};
-        transform_node(c, arg);
+    for (int32_t i = 0; i < t.args.len; i++) {
+        transform_node(c, t.args.ptr[i]);
     }
 
     vec_push(&c->mir.insts, MIR_CALL);
@@ -147,12 +127,10 @@ static void transform_call(Context *c, TirId tir_id) {
 }
 
 static void transform_index(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    TirId index = {data->c};
-    TirId type = get_value_type(c->tir, operand);
-    transform_node(c, operand);
-    transform_node(c, index);
+    TirIndex t = tir_get_index(c->tir, tir_id);
+    TirId type = get_value_type(c->tir, t.a);
+    transform_node(c, t.a);
+    transform_node(c, t.index);
     MirTag tag = MIR_INDEX;
     if (remove_slice(c->tir, type).id) {
         tag = MIR_SLICE_INDEX;
@@ -161,18 +139,14 @@ static void transform_index(Context *c, TirId tir_id) {
 }
 
 static void transform_slice(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    int32_t index = data->c;
-    TirId low = {get_term_extra(c->tir, index)};
-    TirId high = {get_term_extra(c->tir, index + 1)};
+    TirSlice t = tir_get_slice(c->tir, tir_id);
 
     vec_push(&c->mir.insts, MIR_ALLOC);
-    vec_push(&c->mir.data, get_value_type(c->tir, tir_id).id);
+    vec_push(&c->mir.data, t.type.id);
 
-    transform_node(c, operand);
-    transform_node(c, low);
-    transform_node(c, high);
+    transform_node(c, t.a);
+    transform_node(c, t.low);
+    transform_node(c, t.high);
 
     vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
     vec_push(&c->mir.data, -4);
@@ -194,14 +168,14 @@ static void transform_slice(Context *c, TirId tir_id) {
 
     vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
     vec_push(&c->mir.data, -4);
-    TirId operand_type = get_value_type(c->tir, operand);
+    TirId operand_type = get_value_type(c->tir, t.a);
     MirTag tag = MIR_INDEX;
     if (remove_slice(c->tir, operand_type).id) {
         tag = MIR_SLICE_INDEX;
     }
     vec_push(&c->mir.insts, tag);
     vec_push(&c->mir.insts, MIR_ADDRESS);
-    vec_push(&c->mir.data, get_any_struct_type_field(c->tir, get_value_type(c->tir, tir_id), 1).id);
+    vec_push(&c->mir.data, get_any_struct_type_field(c->tir, t.type, 1).id);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 
     vec_push(&c->mir.insts, MIR_STACK_POP);
@@ -210,13 +184,13 @@ static void transform_slice(Context *c, TirId tir_id) {
 }
 
 static void transform_array_to_slice(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
-    TirId index_type = {data->c};
-    int64_t length = get_array_length_type(c->tir, index_type);
+    TirCast t = tir_get_cast(c->tir, tir_id);
+    TirId array_type = remove_any_pointer(c->tir, get_value_type(c->tir, t.a));
+    TirId index_type = tir_get_array_type(c->tir, array_type).index;
+    int64_t length = tir_get_array_length_type(c->tir, index_type).length;
 
     vec_push(&c->mir.insts, MIR_ALLOC);
-    vec_push(&c->mir.data, get_value_type(c->tir, tir_id).id);
+    vec_push(&c->mir.data, t.type.id);
 
     vec_push(&c->mir.insts, MIR_STACK_COPY);
     vec_push(&c->mir.insts, MIR_ACCESS);
@@ -232,45 +206,37 @@ static void transform_array_to_slice(Context *c, TirId tir_id) {
     vec_push(&c->mir.insts, MIR_STACK_COPY);
     vec_push(&c->mir.insts, MIR_ACCESS);
     vec_push(&c->mir.data, 1);
-    transform_node(c, operand);
+    transform_node(c, t.a);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 }
 
 static void transform_new_struct(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    int32_t args = data->b;
-    int32_t arg_count = data->c;
-    TirId type = get_value_type(c->tir, tir_id);
+    TirNewStruct t = tir_get_new_struct(c->tir, tir_id);
     vec_push(&c->mir.insts, MIR_ALLOC);
-    vec_push(&c->mir.data, type.id);
+    vec_push(&c->mir.data, t.type.id);
 
-    for (int32_t i = 0; i < arg_count; i++) {
-        TirId arg = {get_term_extra(c->tir, args + i)};
+    for (int32_t i = 0; i < t.fields.len; i++) {
         vec_push(&c->mir.insts, MIR_STACK_COPY);
         vec_push(&c->mir.insts, MIR_ACCESS);
         vec_push(&c->mir.data, i);
-        transform_node(c, arg);
+        transform_node(c, t.fields.ptr[i]);
         vec_push(&c->mir.insts, MIR_ASSIGN);
     }
 }
 
 static void transform_new_array(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    int32_t args = data->b;
-    int32_t arg_count = data->c;
-    TirId type = get_value_type(c->tir, tir_id);
+    TirNewArray t = tir_get_new_array(c->tir, tir_id);
 
     vec_push(&c->mir.insts, MIR_ALLOC);
-    vec_push(&c->mir.data, type.id);
+    vec_push(&c->mir.data, t.type.id);
 
-    for (int32_t i = 0; i < arg_count; i++) {
-        TirId arg = {get_term_extra(c->tir, args + i)};
+    for (int32_t i = 0; i < t.args.len; i++) {
         vec_push(&c->mir.insts, MIR_STACK_COPY);
         vec_push(&c->mir.insts, MIR_INT);
         vec_push(&c->mir.data, i);
         vec_push(&c->mir.data, 0);
         vec_push(&c->mir.insts, MIR_INDEX);
-        transform_node(c, arg);
+        transform_node(c, t.args.ptr[i]);
         vec_push(&c->mir.insts, MIR_ASSIGN);
     }
 }
@@ -289,34 +255,24 @@ static void transform_statement(Context *c, TirId tir_id) {
 }
 
 static void transform_block(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    int32_t index = {data->b};
-    int32_t length = {data->c};
+    TirBlock t = tir_get_block(c->tir, tir_id);
 
-    for (int32_t i = 0; i < length; i++) {
-        TirId statement = {get_term_extra(c->tir, index + i)};
-        if (i == length - 1) {
-            transform_node(c, statement);
+    for (int32_t i = 0; i < t.stmts.len; i++) {
+        if (i == t.stmts.len - 1) {
+            transform_node(c, t.stmts.ptr[i]);
         } else {
-            transform_statement(c, statement);
+            transform_statement(c, t.stmts.ptr[i]);
         }
     }
 }
 
 static void transform_if(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId condition = {data->b};
-    int32_t extra = data->c;
-    int32_t true_block = get_term_extra(c->tir, extra);
-    int32_t true_block_length = get_term_extra(c->tir, extra + 1);
-    int32_t false_block = get_term_extra(c->tir, extra + 2);
-    int32_t false_block_length = get_term_extra(c->tir, extra + 3);
-    transform_node(c, condition);
+    TirIf t = tir_get_if(c->tir, tir_id);
+    transform_node(c, t.condition);
     int32_t condition_br = add_br_instruction(c, MIR_BR_IF_NOT);
 
-    for (int32_t i = 0; i < true_block_length; i++) {
-        TirId statement = {get_term_extra(c->tir, true_block + i)};
-        transform_statement(c, statement);
+    for (int32_t i = 0; i < t.true_block.len; i++) {
+        transform_statement(c, t.true_block.ptr[i]);
     }
 
     int32_t true_br = condition_br;
@@ -327,9 +283,8 @@ static void transform_if(Context *c, TirId tir_id) {
 
     int32_t false_basic_block = c->basic_block;
 
-    for (int32_t i = 0; i < false_block_length; i++) {
-        TirId statement = {get_term_extra(c->tir, false_block + i)};
-        transform_statement(c, statement);
+    for (int32_t i = 0; i < t.false_block.len; i++) {
+        transform_statement(c, t.false_block.ptr[i]);
     }
 
     int32_t false_br = condition_br;
@@ -351,33 +306,29 @@ static void transform_if(Context *c, TirId tir_id) {
 }
 
 static void transform_switch(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId switch_ = {data->b};
-    int32_t extra = data->c;
-    int32_t branches = get_term_extra(c->tir, extra);
-    int32_t branch_count = get_term_extra(c->tir, extra + 1);
-    TirId type = get_value_type(c->tir, tir_id);
+    TirSwitch t = tir_get_switch(c->tir, tir_id);
 
-    if (type.id != TYPE_VOID) {
+    if (t.type.id != TYPE_VOID) {
         vec_push(&c->mir.insts, MIR_ALLOC);
-        vec_push(&c->mir.data, type.id);
+        vec_push(&c->mir.data, t.type.id);
     }
 
     int32_t copy_inst = -1;
-    bool condition_is_true = get_value_type(c->tir, switch_).id == TYPE_bool
-        && get_value_int(c->tir, switch_);
+    bool condition_is_true = get_value_type(c->tir, t.condition).id == TYPE_bool
+        && get_term_tag(c->tir, t.condition) == TIR_INT
+        && tir_get_int(c->tir, t.condition).value;
 
     if (!condition_is_true) {
         copy_inst = -2;
-        transform_node(c, switch_);
+        transform_node(c, t.condition);
     }
 
-    int32_t *br_list = arena_alloc(&c->scratch, int32_t, branch_count);
+    int32_t *br_list = arena_alloc(&c->scratch, int32_t, t.branches.len / 2);
     int32_t real_count = 0;
 
-    for (int32_t i = 0; i < branch_count; i++) {
-        TirId pattern = {get_term_extra(c->tir, branches + i * 2)};
-        TirId value = {get_term_extra(c->tir, branches + i * 2 + 1)};
+    for (int32_t i = 0; i < t.branches.len; i += 2) {
+        TirId pattern = t.branches.ptr[i];
+        TirId value = t.branches.ptr[i + 1];
 
         if (pattern.id) {
             if (!condition_is_true) {
@@ -389,7 +340,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             }
 
             int32_t condition_br = add_br_instruction(c, MIR_BR_IF_NOT);
-            if (type.id != TYPE_VOID) {
+            if (t.type.id != TYPE_VOID) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -401,7 +352,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             int32_t next_case_basic_block = c->basic_block;
             patch_br(c, condition_br, next_case_basic_block);
         } else {
-            if (type.id != TYPE_VOID) {
+            if (t.type.id != TYPE_VOID) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -426,39 +377,33 @@ static void transform_switch(Context *c, TirId tir_id) {
 }
 
 static void transform_loop(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId condition = {data->b};
-    int32_t extra = data->c;
-    TirId let = {get_term_extra(c->tir, extra)};
-    if (let.id) {
-        transform_statement(c, let);
+    TirLoop t = tir_get_loop(c->tir, tir_id);
+
+    if (t.init.id) {
+        transform_statement(c, t.init);
     }
-    TirId next = {get_term_extra(c->tir, extra + 1)};
-    int32_t block = get_term_extra(c->tir, extra + 2);
-    int32_t block_length = get_term_extra(c->tir, extra + 3);
 
     int32_t entry_br = add_br_instruction(c, MIR_BR);
     int32_t condition_basic_block = c->basic_block;
     patch_br(c, entry_br, condition_basic_block);
 
-    transform_node(c, condition);
+    transform_node(c, t.condition);
     int32_t condition_br = add_br_instruction(c, MIR_BR_IF_NOT);
 
     int32_t break_index = c->break_instructions.len;
     int32_t continue_index = c->continue_instructions.len;
 
-    for (int32_t i = 0; i < block_length; i++) {
-        TirId statement = {get_term_extra(c->tir, block + i)};
-        transform_statement(c, statement);
+    for (int32_t i = 0; i < t.block.len; i++) {
+        transform_statement(c, t.block.ptr[i]);
     }
 
     int32_t continue_basic_block = condition_basic_block;
 
-    if (next.id) {
+    if (t.next.id) {
         int32_t continue_br = add_br_instruction(c, MIR_BR);
         continue_basic_block = c->basic_block;
         patch_br(c, continue_br, continue_basic_block);
-        transform_statement(c, next);
+        transform_statement(c, t.next);
     }
 
     int32_t next_iteration_br = add_br_instruction(c, MIR_BR);
@@ -489,11 +434,10 @@ static void transform_continue(Context *c) {
 }
 
 static void transform_return(Context *c, TirId tir_id) {
-    TermData const *data = get_term_data(c->tir, tir_id);
-    TirId operand = {data->b};
+    TirReturn t = tir_get_return(c->tir, tir_id);
 
-    if (operand.id) {
-        transform_node(c, operand);
+    if (t.value.id) {
+        transform_node(c, t.value);
         c->basic_block++;
         vec_push(&c->mir.insts, MIR_RET);
         return;
@@ -505,11 +449,11 @@ static void transform_return(Context *c, TirId tir_id) {
 
 static void transform_function(Context *c, int32_t block, int32_t block_length, TirId value) {
     TirId type = get_value_type(c->tir, value);
-    FunctionType func_type = get_function_type(c->tir, type);
+    TirFunctionType func_type = tir_get_function_type(c->tir, type);
     int32_t start = c->mir.insts.len;
 
     for (int32_t i = 0; i < block_length; i++) {
-        TirId statement = {get_term_extra(c->tir, block + i)};
+        TirId statement = {get_term_extra(c->tir.thread, block + i)};
         transform_statement(c, statement);
     }
 
@@ -523,9 +467,9 @@ static void transform_node(Context *c, TirId tir_id) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
         case TIR_EXTERN_VAR:
-        case TIR_CONST_INT:
-        case TIR_CONST_FLOAT:
-        case TIR_CONST_NULL:
+        case TIR_INT:
+        case TIR_FLOAT:
+        case TIR_NULL:
         case TIR_STRING:
         case TIR_PARAMETER:
         case TIR_VARIABLE:

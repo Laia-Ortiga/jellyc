@@ -250,7 +250,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         })
         CASE(ErrorArgumentCount, d, {
-            int32_t param_count = get_function_type(d.ctx, d.type).param_count;
+            int32_t param_count = tir_get_function_type(d.ctx, d.type).params.len;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
@@ -266,7 +266,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         })
         CASE(ErrorFieldCount, d, {
-            int32_t field_count = get_struct_type(d.ctx, d.type).field_count;
+            int32_t field_count = tir_get_struct_type(d.ctx, d.type).fields.len;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,
@@ -296,7 +296,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         })
         CASE(ErrorTaggedTypeWrongCount, d, {
-            int32_t param_count = get_generic_term(d.ctx, d.type).type_count;
+            int32_t param_count = get_generic_term(d.ctx, d.type).params.len;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,

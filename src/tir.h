@@ -9,109 +9,6 @@
 #include <stdint.h>
 
 typedef enum {
-    TIR_ERROR,
-    TIR_RESERVED,
-
-    TIR_TYPE_START,
-    TIR_ARRAY_TYPE = TIR_TYPE_START,
-    TIR_ARRAY_LENGTH_TYPE,
-    TIR_PTR_TYPE,
-    TIR_MUT_PTR_TYPE,
-    TIR_SLICE_TYPE,
-    TIR_MUT_SLICE_TYPE,
-    TIR_FUNCTION_TYPE,
-    TIR_TAGGED_TYPE,
-    TIR_STRUCT_TYPE,
-    TIR_ENUM_TYPE,
-    TIR_AFFINE_TYPE,
-    TIR_TYPE_PARAMETER,
-    TIR_TYPE_END,
-
-    TIR_VALUE_START = TIR_TYPE_END,
-    TIR_FUNCTION = TIR_VALUE_START,
-
-    TIR_EXTERN_FUNCTION,
-    TIR_EXTERN_VAR,
-
-    TIR_CONST_INT,
-    TIR_CONST_FLOAT,
-    TIR_CONST_NULL,
-    TIR_STRING,
-
-    TIR_PARAMETER,
-    TIR_VARIABLE,
-    TIR_MUTABLE_VARIABLE,
-
-    TIR_LET,
-
-    TIR_PLUS,
-    TIR_MINUS,
-    TIR_NOT,
-    TIR_DEREF,
-    TIR_ADDRESS,
-    TIR_ADDRESS_OF_TEMPORARY,
-
-    TIR_ADD,
-    TIR_SUB,
-    TIR_MUL,
-    TIR_DIV,
-    TIR_MOD,
-
-    TIR_AND,
-    TIR_OR,
-    TIR_XOR,
-    TIR_SHL,
-    TIR_SHR,
-
-    TIR_EQ,
-    TIR_NE,
-    TIR_LT,
-    TIR_GT,
-    TIR_LE,
-    TIR_GE,
-
-    TIR_ASSIGN,
-    TIR_ASSIGN_ADD,
-    TIR_ASSIGN_SUB,
-    TIR_ASSIGN_MUL,
-    TIR_ASSIGN_DIV,
-    TIR_ASSIGN_MOD,
-    TIR_ASSIGN_AND,
-    TIR_ASSIGN_OR,
-    TIR_ASSIGN_XOR,
-
-    TIR_ITOF,
-    TIR_ITRUNC,
-    TIR_SEXT,
-    TIR_ZEXT,
-    TIR_FTOI,
-    TIR_FTRUNC,
-    TIR_FEXT,
-    TIR_PTR_CAST,
-    TIR_NOP,
-    TIR_ARRAY_TO_SLICE,
-
-    TIR_CALL,
-    TIR_INDEX,
-    TIR_SLICE,
-    TIR_ACCESS,
-    TIR_NEW_STRUCT,
-    TIR_NEW_ARRAY,
-
-    TIR_IF,
-    TIR_SWITCH,
-    TIR_LOOP,
-    TIR_BREAK,
-    TIR_CONTINUE,
-    TIR_RETURN,
-
-    TIR_VALUE_END,
-
-    TIR_GENERIC = TIR_VALUE_END,
-    TIR_BLOCK,
-} TirTag;
-
-typedef enum {
     TIRCAT_ERROR,
     TIRCAT_OTHER,
     TIRCAT_TYPE,
@@ -141,10 +38,10 @@ typedef struct {
 } TermSet;
 
 typedef struct {
-    AstId node;
     int32_t a;
     int32_t b;
     int32_t c;
+    int32_t d;
 } TermData;
 
 typedef struct {
@@ -185,111 +82,39 @@ typedef struct {
     Tir *thread;
 } TirContext;
 
-TirTag get_term_tag(TirContext c, TirId type);
-TermData const *get_term_data(TirContext c, TirId term);
-int32_t get_term_extra(TirContext c, int32_t index);
-TirCategory get_term_category(TirContext c, TirId term);
+#include "tir-types.h"
 
-// Types
+// Constructors
 
-typedef struct {
-    TirId index;
-    TirId elem;
-} ArrayType;
+TirId new_tir(TirContext c, TirTag tag, TermData data);
 
-typedef struct {
-    int32_t param_count;
-    TirId *params;
-    TirId ret;
-} FunctionType;
-
-typedef struct {
-    int32_t scope;
-    int32_t name;
-    int32_t field_count;
-    TirId *fields;
-
-    bool is_affine;
-    int32_t alignment;
-    int64_t size;
-} StructType;
-
-typedef struct {
-    int32_t scope;
-    int32_t name;
-    TirId repr;
-} EnumType;
-
-typedef struct {
-    int32_t name;
-    TirId inner;
-    int32_t arg_count;
-    TirId *args;
-} TaggedType;
-
-typedef struct {
-    TirId inner;
-    int32_t type_count;
-    TirId *types;
-} GenericTerm;
-
-TirId new_array_type(TirContext c, ArrayType *t);
+TirId new_array_type(TirContext c, TirArrayType *t);
 TirId new_array_length_type(TirContext c, int64_t length);
 TirId new_ptr_type(TirContext c, TirId elem);
 TirId new_mut_ptr_type(TirContext c, TirId elem);
 TirId new_slice_type(TirContext c, TirId elem);
 TirId new_mut_slice_type(TirContext c, TirId elem);
-TirId new_function_type(TirContext c, FunctionType *t);
-TirId new_struct_type(TirContext c, Target target, StructType *t);
-TirId new_enum_type(TirContext c, EnumType *t);
+TirId new_function_type(TirContext c, TirFunctionType *t);
+TirId new_struct_type(TirContext c, Target target, TirStructType *t);
 TirId new_affine_type(TirContext c, TirId elem);
-TirId new_type_parameter(TirContext c, int32_t i, int32_t name);
-TirId new_tagged_type(TirContext c, TaggedType *t);
+TirId new_tagged_type(TirContext c, TirTaggedType *t);
 
-TirId get_type_elem(TirContext c, TirId type);
-ArrayType get_array_type(TirContext c, TirId type);
-int64_t get_array_length_type(TirContext c, TirId type);
-TirId get_affine_elem_type(TirContext c, TirId type);
-int32_t get_type_parameter_index(TirContext c, TirId type);
-FunctionType get_function_type(TirContext c, TirId type);
-TirId get_function_type_param(TirContext c, TirId type, int32_t index);
-StructType get_struct_type(TirContext c, TirId type);
-TirId get_struct_type_field(TirContext c, TirId type, int32_t index);
-TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index);
-EnumType get_enum_type(TirContext c, TirId type);
-TaggedType get_tagged_type(TirContext c, TirId type);
-TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index);
+// Other
 
-// Values
-
-TirId new_int_constant(TirContext c, TirId type, int64_t x);
-TirId new_float_constant(TirContext c, TirId type, double x);
-TirId new_null_constant(TirContext c, TirId type);
-TirId new_string_constant(TirContext c, TirId type, int32_t s);
-TirId new_function(TirContext c, TirId type, int32_t name);
-TirId new_extern_function(TirContext c, TirId type, int32_t name);
-TirId new_extern_var(TirContext c, TirId type, int32_t name);
-TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, TirTag tag);
-TirId new_unary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a);
-TirId new_binary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a, TirId b);
-TirId new_instr(TirContext c, TirTag tag, AstId node, TirId type, int32_t a, int32_t b);
+TirTag get_term_tag(TirContext c, TirId type);
+TermData const *get_term_data(TirContext c, TirId term);
+int32_t get_term_extra(Tir *c, int32_t index);
+TirCategory get_term_category(TirContext c, TirId term);
 
 TirId get_value_type(TirContext c, TirId value);
 ValueCategory get_value_category(TirContext c, TirId value);
 bool is_value_mutable(TirContext c, TirId value);
-char const *get_value_str(TirContext c, TirId value);
-int64_t get_value_int(TirContext c, TirId value);
-double get_value_float(TirContext c, TirId value);
 
-// Other
-
-TirId new_generic(
-    TirContext c,
-    TirId inner,
-    int32_t type_count,
-    TirId *types
-);
-GenericTerm get_generic_term(TirContext c, TirId term);
+TirId get_function_type_param(TirContext c, TirId type, int32_t index);
+TirId get_struct_type_field(TirContext c, TirId type, int32_t index);
+TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index);
+TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index);
+TirGeneric get_generic_term(TirContext c, TirId term);
 
 char const *tir_get_str(TirContext c, int32_t s);
 int32_t tir_push_str(TirContext c, String s);

@@ -16,6 +16,7 @@ set(SOURCE
     src/main.c
     src/parse.c
     src/print.c
+    src/tir-types.c
     src/tir.c
     src/tir-analysis.c
     src/tir2mir.c

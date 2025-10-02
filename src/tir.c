@@ -3,7 +3,6 @@
 #include "adt.h"
 #include "fwd.h"
 #include "type.h"
-#include "util.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -14,15 +13,14 @@
 typedef struct {
     TirTag tag;
     union {
-        TirId unary;
-        int64_t array_length;
-        ArrayType array;
-        struct {
-            TirId elem;
-            TirId ptr;
-        } slice;
-        FunctionType function;
-        TaggedType tagged;
+        TirId nominal;
+        TirPtrType ptr;
+        TirSliceType slice;
+        TirArrayLengthType array_length;
+        TirArrayType array;
+        TirFunctionType function;
+        TirTaggedType tagged;
+        TirAffineType affine;
     };
 } StructuralType;
 
@@ -32,42 +30,52 @@ static StructuralType get_type_from_id(TirContext c, TirId type) {
         case TIR_ARRAY_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .array = get_array_type(c, type),
+                .array = tir_get_array_type(c, type),
             };
         }
         case TIR_ARRAY_LENGTH_TYPE: {
-            int64_t length = get_array_length_type(c, type);
-            return (StructuralType) {.tag = tag, .array_length = length};
+            return (StructuralType) {
+                .tag = tag,
+                .array_length = tir_get_array_length_type(c, type),
+            };
         }
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: {
+            return (StructuralType) {
+                .tag = tag,
+                .ptr = tir_get_ptr_type(c, type),
+            };
+        }
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .unary = get_type_elem(c, type),
+                .slice = tir_get_slice_type(c, type),
             };
         }
         case TIR_FUNCTION_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .function = get_function_type(c, type),
+                .function = tir_get_function_type(c, type),
             };
         }
         case TIR_TAGGED_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .tagged = get_tagged_type(c, type),
+                .tagged = tir_get_tagged_type(c, type),
             };
         }
         case TIR_AFFINE_TYPE: {
             return (StructuralType) {
                 .tag = tag,
-                .unary = get_affine_elem_type(c, type),
+                .affine = tir_get_affine_type(c, type),
             };
         }
         default: {
-            return (StructuralType) {.tag = tag, .unary = type};
+            return (StructuralType) {
+                .tag = tag,
+                .nominal = type,
+            };
         }
     }
 }
@@ -79,26 +87,33 @@ static bool type_eq(StructuralType a, StructuralType b) {
     switch (a.tag) {
         case TIR_RESERVED:
         case TIR_ENUM_TYPE:
-        case TIR_TYPE_PARAMETER: return false;
-
+        case TIR_TYPE_PARAMETER: {
+            return false;
+        }
         case TIR_ARRAY_TYPE: {
             return a.array.index.id == b.array.index.id
                 && a.array.elem.id == b.array.elem.id;
         }
-        case TIR_ARRAY_LENGTH_TYPE: return a.array_length == b.array_length;
-
+        case TIR_ARRAY_LENGTH_TYPE: {
+            return a.array_length.length == b.array_length.length;
+        }
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: {
+            return a.ptr.elem.id == b.ptr.elem.id;
+        }
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE:
-        case TIR_AFFINE_TYPE: return a.unary.id == b.unary.id;
-
+        case TIR_MUT_SLICE_TYPE: {
+            return a.slice.elem.id == b.slice.elem.id;
+        }
+        case TIR_AFFINE_TYPE: {
+            return a.affine.elem.id == b.affine.elem.id;
+        }
         case TIR_FUNCTION_TYPE: {
-            if (a.function.param_count != b.function.param_count) {
+            if (a.function.params.len != b.function.params.len) {
                 return false;
             }
-            for (int32_t i = 0; i < a.function.param_count; i++) {
-                if (a.function.params[i].id != b.function.params[i].id) {
+            for (int32_t i = 0; i < a.function.params.len; i++) {
+                if (a.function.params.ptr[i].id != b.function.params.ptr[i].id) {
                     return false;
                 }
             }
@@ -108,11 +123,11 @@ static bool type_eq(StructuralType a, StructuralType b) {
             if (a.tagged.name != b.tagged.name) {
                 return false;
             }
-            if (a.tagged.arg_count != b.tagged.arg_count) {
+            if (a.tagged.args.len != b.tagged.args.len) {
                 return false;
             }
-            for (int32_t i = 0; i < a.tagged.arg_count; i++) {
-                if (a.tagged.args[i].id != b.tagged.args[i].id) {
+            for (int32_t i = 0; i < a.tagged.args.len; i++) {
+                if (a.tagged.args.ptr[i].id != b.tagged.args.ptr[i].id) {
                     return false;
                 }
             }
@@ -134,35 +149,41 @@ static int32_t hash_type(TirContext c, StructuralType type) {
             break;
         }
         case TIR_ARRAY_LENGTH_TYPE: {
-            result = 31 * result + type.array_length;
+            result = 31 * result + type.array_length.length;
             break;
         }
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: {
+            result = 31 * result + hash_type(c, get_type_from_id(c, type.ptr.elem));
+            break;
+        }
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE: {
+            result = 31 * result + hash_type(c, get_type_from_id(c, type.slice.elem));
+            break;
+        }
         case TIR_AFFINE_TYPE: {
-            result = 31 * result + hash_type(c, get_type_from_id(c, type.unary));
+            result = 31 * result + hash_type(c, get_type_from_id(c, type.affine.elem));
             break;
         }
         case TIR_FUNCTION_TYPE: {
-            result = 31 * result + type.function.param_count;
-            for (int32_t i = 0; i < type.function.param_count; i++) {
-                result = 31 * result + hash_type(c, get_type_from_id(c, type.function.params[i]));
+            result = 31 * result + type.function.params.len;
+            for (int32_t i = 0; i < type.function.params.len; i++) {
+                result = 31 * result + hash_type(c, get_type_from_id(c, type.function.params.ptr[i]));
             }
             result = 31 * result + hash_type(c, get_type_from_id(c, type.function.ret));
             break;
         }
         case TIR_TAGGED_TYPE: {
             result = 31 * result + type.tagged.name;
-            result = 31 * result + type.tagged.arg_count;
-            for (int32_t i = 0; i < type.tagged.arg_count; i++) {
-                result = 31 * result + hash_type(c, get_type_from_id(c, type.tagged.args[i]));
+            result = 31 * result + type.tagged.args.len;
+            for (int32_t i = 0; i < type.tagged.args.len; i++) {
+                result = 31 * result + hash_type(c, get_type_from_id(c, type.tagged.args.ptr[i]));
             }
             break;
         }
         default: {
-            result = 31 * result + type.unary.id;
+            result = 31 * result + type.nominal.id;
             break;
         }
     }
@@ -233,81 +254,49 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
         }
     }
 
-    TirId type = {c.global->terms.terms.len + TERM_COUNT};
-    if (c.thread) {
-        type.id += c.thread->terms.terms.len;
-    }
-    set->ptr[slot] = type;
-    set->count++;
-
-    TermList *types = ctx_terms(c);
+    TirId type;
     switch (descriptor.tag) {
-        default: {
-            abort();
-        }
         case TIR_ARRAY_TYPE: {
-            TermData data = {
-                .a = descriptor.array.elem.id,
-                .b = descriptor.array.index.id,
-            };
-            sum_vec_push(&types->terms, data, descriptor.tag);
+            type = tir_push(c, descriptor.array);
             break;
         }
         case TIR_ARRAY_LENGTH_TYPE: {
-            sum_vec_push(&types->terms, *(TermData *) &descriptor.array_length, descriptor.tag);
+            type = tir_push(c, descriptor.array_length);
             break;
         }
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
-        case TIR_AFFINE_TYPE: {
-            TermData data = {
-                .a = descriptor.unary.id,
-            };
-            sum_vec_push(&types->terms, data, descriptor.tag);
+        case TIR_MUT_PTR_TYPE: {
+            type = tir_push_tag(c, descriptor.tag, descriptor.ptr);
             break;
         }
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: {
-            TermData data = {
-                .a = descriptor.slice.elem.id,
-                .b = descriptor.slice.ptr.id,
-            };
-            sum_vec_push(&types->terms, data, descriptor.tag);
+            type = tir_push_tag(c, descriptor.tag, descriptor.slice);
             break;
         }
         case TIR_FUNCTION_TYPE: {
-            int32_t index = types->extra.len;
-            vec_push(&types->extra, descriptor.function.ret.id);
-            for (int32_t i = 0; i < descriptor.function.param_count; i++) {
-                vec_push(&types->extra, descriptor.function.params[i].id);
-            }
-            TermData data = {
-                .a = descriptor.function.param_count,
-                .b = index,
-            };
-            sum_vec_push(&types->terms, data, descriptor.tag);
+            type = tir_push(c, descriptor.function);
             break;
         }
         case TIR_TAGGED_TYPE: {
-            int32_t index = types->extra.len;
-            vec_push(&types->extra, descriptor.tagged.name);
-            vec_push(&types->extra, descriptor.tagged.inner.id);
-            for (int32_t i = 0; i < descriptor.tagged.arg_count; i++) {
-                vec_push(&types->extra, descriptor.tagged.args[i].id);
-            }
-            TermData data = {
-                .a = descriptor.tagged.arg_count,
-                .b = index,
-            };
-            sum_vec_push(&types->terms, data, descriptor.tag);
+            type = tir_push(c, descriptor.tagged);
             break;
+        }
+        case TIR_AFFINE_TYPE: {
+            type = tir_push(c, descriptor.affine);
+            break;
+        }
+        default: {
+            abort();
         }
     }
 
+    set->ptr[slot] = type;
+    set->count++;
     return type;
 }
 
-static TirId new_tir(TirContext c, TirTag tag, TermData data) {
+TirId new_tir(TirContext c, TirTag tag, TermData data) {
     if (!c.thread) {
         TirId t = {c.global->terms.terms.len + TERM_COUNT};
         sum_vec_push(&c.global->terms.terms, data, tag);
@@ -319,12 +308,7 @@ static TirId new_tir(TirContext c, TirTag tag, TermData data) {
     return t;
 }
 
-static TirId new_term(TirContext c, TirTag tag, int32_t a, int32_t b) {
-    TermData data = {.a = a, .b = b};
-    return new_tir(c, tag, data);
-}
-
-TirId new_array_type(TirContext c, ArrayType *t) {
+TirId new_array_type(TirContext c, TirArrayType *t) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_ARRAY_TYPE,
         .array = *t,
@@ -334,21 +318,21 @@ TirId new_array_type(TirContext c, ArrayType *t) {
 TirId new_array_length_type(TirContext c, int64_t length) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_ARRAY_LENGTH_TYPE,
-        .array_length = length,
+        .array_length = {length},
     });
 }
 
 TirId new_ptr_type(TirContext c, TirId elem) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_PTR_TYPE,
-        .unary = elem,
+        .ptr = {elem},
     });
 }
 
 TirId new_mut_ptr_type(TirContext c, TirId elem) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_MUT_PTR_TYPE,
-        .unary = elem,
+        .ptr = {elem},
     });
 }
 
@@ -368,68 +352,39 @@ TirId new_mut_slice_type(TirContext c, TirId elem) {
     });
 }
 
-TirId new_function_type(TirContext c, FunctionType *t) {
+TirId new_function_type(TirContext c, TirFunctionType *t) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_FUNCTION_TYPE,
         .function = *t,
     });
 }
 
-typedef struct {
-    int32_t scope;
-    int32_t name;
-    int32_t alignment;
-    int32_t size;
-    int32_t is_affine;
-} StructTypeLayout;
-
-typedef struct {
-    int32_t tags;
-    int32_t name;
-} NewtypeLayout;
-
-static void init_struct_layout(StructTypeLayout *layout, TirContext c, int32_t field_count, TirId const *fields, Target target) {
+static void init_struct_type_cache(TirContext c, TirStructType *t, Target target) {
     int32_t alignment = 1;
     int64_t size = 0;
-    for (int32_t i = 0; i < field_count; i++) {
-        int32_t field_align = alignof_type(c, fields[i], target);
+    bool is_affine = false;
+    for (int32_t i = 0; i < t->fields.len; i++) {
+        int32_t field_align = alignof_type(c, t->fields.ptr[i], target);
         size = (size + field_align - 1) / field_align * field_align;
-        size += sizeof_type(c, fields[i], target);
+        size += sizeof_type(c, t->fields.ptr[i], target);
         if (field_align > alignment) {
             alignment = field_align;
         }
-    }
-    layout->alignment = alignment;
-    layout->size = size;
-}
-
-TirId new_struct_type(TirContext c, Target target, StructType *t) {
-    TermList *types = ctx_terms(c);
-    int32_t index = types->extra.len;
-    int32_t *ptr = vec_grow(&types->extra, t->field_count + sizeof(StructTypeLayout) / sizeof(int32_t));
-    StructTypeLayout *layout = (StructTypeLayout *) ptr;
-    layout->scope = t->scope;
-    layout->name = t->name;
-    init_struct_layout(layout, c, t->field_count, t->fields, target);
-    layout->is_affine = false;
-    for (int32_t i = 0; i < t->field_count; i++) {
-        ptr[i + sizeof(StructTypeLayout) / sizeof(int32_t)] = t->fields[i].id;
-        if (!layout->is_affine && type_is_affine(c, t->fields[i])) {
-            layout->is_affine = true;
+        if (!is_affine && type_is_affine(c, t->fields.ptr[i])) {
+            is_affine = true;
         }
     }
-    return new_term(c, TIR_STRUCT_TYPE, t->field_count, index);
+    t->alignment = alignment;
+    t->size = size;
+    t->is_affine = is_affine;
 }
 
-TirId new_enum_type(TirContext c, EnumType *t) {
-    TermList *types = ctx_terms(c);
-    int32_t index = types->extra.len;
-    vec_push(&types->extra, t->scope);
-    vec_push(&types->extra, t->name);
-    return new_term(c, TIR_ENUM_TYPE, t->repr.id, index);
+TirId new_struct_type(TirContext c, Target target, TirStructType *t) {
+    init_struct_type_cache(c, t, target);
+    return tir_push_struct_type(c, *t);
 }
 
-TirId new_tagged_type(TirContext c, TaggedType *t) {
+TirId new_tagged_type(TirContext c, TirTaggedType *t) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_TAGGED_TYPE,
         .tagged = *t,
@@ -442,12 +397,8 @@ TirId new_affine_type(TirContext c, TirId elem) {
     }
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_AFFINE_TYPE,
-        .unary = elem,
+        .affine = {elem},
     });
-}
-
-TirId new_type_parameter(TirContext c, int32_t i, int32_t name) {
-    return new_term(c, TIR_TYPE_PARAMETER, i, name);
 }
 
 typedef struct {
@@ -470,40 +421,21 @@ TirTag get_term_tag(TirContext c, TirId term) {
     return i.deps->terms.terms.tags[i.index];
 }
 
-TermData const *get_term_data(TirContext c, TirId type) {
-    if (type.id < TERM_COUNT) {
+TermData const *get_term_data(TirContext c, TirId term) {
+    if (term.id < TERM_COUNT) {
         return NULL;
     }
-    TermIndex i = get_term_index(c, type);
+    TermIndex i = get_term_index(c, term);
     return &i.deps->terms.terms.datas[i.index];
 }
 
-int32_t get_term_extra(TirContext c, int32_t index) {
-    return c.thread->terms.extra.ptr[index];
+int32_t get_term_extra(Tir *c, int32_t index) {
+    return c->terms.extra.ptr[index];
 }
 
-typedef struct {
-    int32_t index;
-    int32_t length;
-} TirBlock;
-
-TirBlock tir_get_term_block(TirContext c, TirId term) {
-    TirTag tag = get_term_tag(c, term);
-
-    assert(tag == TIR_BLOCK);
-
-    int32_t index = get_term_data(c, term)->b;
-    int32_t length = get_term_data(c, term)->c;
-    return (TirBlock) {
-        .index = index,
-        .length = length,
-    };
-}
-
-TirId tir_block_get_last(TirContext c, TirBlock const *block) {
-    assert(block->length > 0);
-
-    return (TirId) {get_term_extra(c, block->index + block->length - 1)};
+TirId tir_block_get_last(TirBlock const *block) {
+    assert(block->stmts.len > 0);
+    return block->stmts.ptr[block->stmts.len - 1];
 }
 
 TirCategory get_term_category(TirContext c, TirId term) {
@@ -525,11 +457,11 @@ TirCategory get_term_category(TirContext c, TirId term) {
             return TIRCAT_OTHER;
         }
         case TIR_BLOCK: {
-            TirBlock block = tir_get_term_block(c, term);
-            if (block.length == 0) {
+            TirBlock block = tir_get_block(c, term);
+            if (block.stmts.len == 0) {
                 return TIRCAT_OTHER;
             }
-            TirId last = tir_block_get_last(c, &block);
+            TirId last = tir_block_get_last(&block);
             return get_term_category(c, last);
         }
         default: {
@@ -544,110 +476,16 @@ TirCategory get_term_category(TirContext c, TirId term) {
     }
 }
 
-static int32_t *get_type_extra(TirContext c, TirId type) {
-    if (type.id < TERM_COUNT) {
-        return NULL;
-    }
-    TermIndex i = get_term_index(c, type);
-    return &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
-}
-
-TirId get_type_elem(TirContext c, TirId type) {
-    switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE:
-        case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
-        case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE:
-        case TIR_AFFINE_TYPE: return (TirId) {get_term_data(c, type)->a};
-
-        default: return error_term;
-    }
-}
-
-ArrayType get_array_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_ARRAY_TYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(c, type);
-    ArrayType array = {
-        .index = {data->b},
-        .elem = {data->a},
-    };
-    return array;
-}
-
-int64_t get_array_length_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_ARRAY_LENGTH_TYPE) {
-        abort();
-    }
-
-    return *(int64_t const *) get_term_data(c, type);
-}
-
-TirId get_affine_elem_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_AFFINE_TYPE) {
-        abort();
-    }
-
-    return get_type_elem(c, type);
-}
-
-int32_t get_type_parameter_index(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_TYPE_PARAMETER) {
-        abort();
-    }
-
-    return get_term_data(c, type)->a;
-}
-
-FunctionType get_function_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_FUNCTION_TYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(c, type);
-    int32_t *extra = get_type_extra(c, type);
-    FunctionType function = {
-        .param_count = data->a,
-        .params = (TirId *) &extra[1],
-        .ret = {extra[0]},
-    };
-    return function;
-}
-
 TirId get_function_type_param(TirContext c, TirId type, int32_t index) {
     if (get_term_tag(c, type) != TIR_FUNCTION_TYPE) {
         return error_term;
     }
 
-    FunctionType f = get_function_type(c, type);
-    if (index >= f.param_count) {
+    TirFunctionType f = tir_get_function_type(c, type);
+    if (index >= f.params.len) {
         return error_term;
     }
-    return f.params[index];
-}
-
-StructType get_struct_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_STRUCT_TYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(c, type);
-    int32_t *extra = get_type_extra(c, type);
-    StructTypeLayout *layout = (StructTypeLayout *) extra;
-    StructType s = {
-        .scope = layout->scope,
-        .name = layout->name,
-        .field_count = data->a,
-        .fields = (TirId *) &extra[sizeof(StructTypeLayout) / sizeof(int32_t)],
-
-        .is_affine = layout->is_affine,
-        .alignment = layout->alignment,
-        .size = layout->size,
-    };
-    return s;
+    return f.params.ptr[index];
 }
 
 TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
@@ -655,11 +493,11 @@ TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
         return error_term;
     }
 
-    StructType s = get_struct_type(c, type);
-    if (index >= s.field_count) {
+    TirStructType s = tir_get_struct_type(c, type);
+    if (index >= s.fields.len) {
         return error_term;
     }
-    return s.fields[index];
+    return s.fields.ptr[index];
 }
 
 TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
@@ -669,7 +507,7 @@ TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
     if (tag == TIR_SLICE_TYPE || tag == TIR_MUT_SLICE_TYPE) {
         switch (index) {
             case 0: return ptype(isize);
-            case 1: return (TirId) {get_term_data(c, type)->b};
+            case 1: return tir_get_slice_type(c, type).cached_ptr;
             default: return error_term;
         }
     }
@@ -681,176 +519,27 @@ TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index) {
     return get_struct_type_field(c, type, index);
 }
 
-EnumType get_enum_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_ENUM_TYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(c, type);
-    int32_t *extra = get_type_extra(c, type);
-    EnumType e = {
-        .scope = extra[0],
-        .name = extra[1],
-        .repr = {data->a},
-    };
-    return e;
-}
-
-TaggedType get_tagged_type(TirContext c, TirId type) {
-    if (get_term_tag(c, type) != TIR_TAGGED_TYPE) {
-        abort();
-    }
-
-    TermData const *data = get_term_data(c, type);
-    int32_t *extra = get_type_extra(c, type);
-    TaggedType t = {
-        .name = extra[0],
-        .inner = {extra[1]},
-        .arg_count = data->a,
-        .args = (TirId *) &extra[2],
-    };
-    return t;
-}
-
 TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index) {
     if (get_term_tag(c, type) != TIR_TAGGED_TYPE) {
         return error_term;
     }
 
-    TaggedType t = get_tagged_type(c, type);
-    if (index >= t.arg_count) {
+    TirTaggedType t = tir_get_tagged_type(c, type);
+    if (index >= t.args.len) {
         return error_term;
     }
-    return t.args[index];
+    return t.args.ptr[index];
 }
 
-GenericTerm get_generic_term(TirContext c, TirId term) {
+TirGeneric get_generic_term(TirContext c, TirId term) {
     if (get_term_tag(c, term) != TIR_GENERIC) {
-        return (GenericTerm) {
+        return (TirGeneric) {
             .inner = term,
-            .type_count = 0,
-            .types = NULL,
+            .params = {0},
         };
     }
 
-    TermData const *data = get_term_data(c, term);
-    int32_t *extra = get_type_extra(c, term);
-    return (GenericTerm) {
-        .inner = {data->a},
-        .type_count = extra[0],
-        .types = (TirId *) &extra[1],
-    };
-}
-
-TirId new_int_constant(TirContext c, TirId type, int64_t x) {
-    TermList *terms = ctx_terms(c);
-    uint32_t low, high;
-    store_i64(x, &low, &high);
-    vec_push(&terms->extra, low);
-    vec_push(&terms->extra, high);
-    return new_tir(c, TIR_CONST_INT, (TermData) {
-        .a = type.id,
-        .b = terms->extra.len - 2,
-    });
-}
-
-TirId new_float_constant(TirContext c, TirId type, double x) {
-    TermList *terms = ctx_terms(c);
-    uint32_t low, high;
-    store_f64(x, &low, &high);
-    vec_push(&terms->extra, low);
-    vec_push(&terms->extra, high);
-    return new_tir(c, TIR_CONST_FLOAT, (TermData) {
-        .a = type.id,
-        .b = terms->extra.len - 2,
-    });
-}
-
-TirId new_null_constant(TirContext c, TirId type) {
-    return new_tir(c, TIR_CONST_NULL, (TermData) {
-        .a = type.id,
-    });
-}
-
-TirId new_string_constant(TirContext c, TirId type, int32_t s) {
-    return new_tir(c, TIR_STRING, (TermData) {
-        .a = type.id,
-        .b = s,
-    });
-}
-
-TirId new_function(TirContext c, TirId type, int32_t name) {
-    return new_tir(c, TIR_FUNCTION, (TermData) {
-        .a = type.id,
-        .b = name,
-    });
-}
-
-TirId new_extern_function(TirContext c, TirId type, int32_t name) {
-    return new_tir(c, TIR_EXTERN_FUNCTION, (TermData) {
-        .a = type.id,
-        .b = name,
-    });
-}
-
-TirId new_extern_var(TirContext c, TirId type, int32_t name) {
-    return new_tir(c, TIR_EXTERN_VAR, (TermData) {
-        .a = type.id,
-        .b = name,
-    });
-}
-
-TirId new_variable(TirContext c, AstId node, TirId type, int32_t index, TirTag tag) {
-    return new_tir(
-        c,
-        tag,
-        (TermData) {
-            .node = node,
-            .a = type.id,
-            .b = index,
-        }
-    );
-}
-
-TirId new_unary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a) {
-    return new_tir(c, tag, (TermData) {
-        .node = node,
-        .a = type.id,
-        .b = a.id,
-    });
-}
-
-TirId new_binary_tir(TirContext c, TirTag tag, AstId node, TirId type, TirId a, TirId b) {
-    return new_tir(c, tag, (TermData) {
-        .node = node,
-        .a = type.id,
-        .b = a.id,
-        .c = b.id,
-    });
-}
-
-TirId new_instr(TirContext c, TirTag tag, AstId node, TirId type, int32_t a, int32_t b) {
-    return new_tir(c, tag, (TermData) {
-        .node = node,
-        .a = type.id,
-        .b = a,
-        .c = b,
-    });
-}
-
-TirId new_generic(
-    TirContext c,
-    TirId inner,
-    int32_t type_count,
-    TirId *types
-) {
-    TermList *terms = ctx_terms(c);
-    int32_t extra = terms->extra.len;
-    vec_push(&terms->extra, type_count);
-    for (int32_t i = 0; i < type_count; i++) {
-        vec_push(&terms->extra, types[i].id);
-    }
-    return new_term(c, TIR_GENERIC, inner.id, extra);
+    return tir_get_generic(c, term);
 }
 
 TirId get_value_type(TirContext c, TirId value) {
@@ -859,24 +548,24 @@ TirId get_value_type(TirContext c, TirId value) {
     }
 
     if (get_term_tag(c, value) == TIR_BLOCK) {
-        TirBlock block = tir_get_term_block(c, value);
-        if (block.length == 0) {
+        TirBlock block = tir_get_block(c, value);
+        if (block.stmts.len == 0) {
             return error_term;
         }
-        TirId last = tir_block_get_last(c, &block);
+        TirId last = tir_block_get_last(&block);
         return get_value_type(c, last);
     }
 
-    return (TirId) {get_term_data(c, value)->a};
+    return (TirId) {get_term_data(c, value)->b};
 }
 
 ValueCategory get_value_category(TirContext c, TirId value) {
     switch (get_term_tag(c, value)) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
-        case TIR_CONST_INT:
-        case TIR_CONST_FLOAT:
-        case TIR_CONST_NULL:
+        case TIR_INT:
+        case TIR_FLOAT:
+        case TIR_NULL:
         case TIR_PARAMETER:
         case TIR_LET:
         case TIR_PLUS:
@@ -939,11 +628,11 @@ ValueCategory get_value_category(TirContext c, TirId value) {
 
         case TIR_SLICE: return VALUE_SLICE;
         case TIR_BLOCK: {
-            TirBlock block = tir_get_term_block(c, value);
-            if (block.length == 0) {
+            TirBlock block = tir_get_block(c, value);
+            if (block.stmts.len == 0) {
                 return VALUE_INVALID;
             }
-            TirId last = tir_block_get_last(c, &block);
+            TirId last = tir_block_get_last(&block);
             return get_value_category(c, last);
         }
         default: break;
@@ -955,9 +644,9 @@ bool is_value_mutable(TirContext c, TirId value) {
     switch (get_term_tag(c, value)) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
-        case TIR_CONST_INT:
-        case TIR_CONST_FLOAT:
-        case TIR_CONST_NULL:
+        case TIR_INT:
+        case TIR_FLOAT:
+        case TIR_NULL:
         case TIR_PARAMETER:
         case TIR_LET:
         case TIR_PLUS:
@@ -1016,7 +705,7 @@ bool is_value_mutable(TirContext c, TirId value) {
         case TIR_VARIABLE: return false;
 
         case TIR_DEREF: {
-            TirId operand = {get_term_data(c, value)->b};
+            TirId operand = tir_get_unary(c, value).a;
             switch (get_term_tag(c, get_value_type(c, operand))) {
                 case TIR_PTR_TYPE: return false;
                 case TIR_MUT_PTR_TYPE: return true;
@@ -1024,40 +713,26 @@ bool is_value_mutable(TirContext c, TirId value) {
             }
             break;
         }
-        case TIR_INDEX:
-        case TIR_SLICE:
+        case TIR_INDEX: {
+            return is_value_mutable(c, tir_get_index(c, value).a);
+        }
+        case TIR_SLICE: {
+            return is_value_mutable(c, tir_get_slice(c, value).a);
+        }
         case TIR_ACCESS: {
-            TirId operand = {get_term_data(c, value)->b};
-            return is_value_mutable(c, operand);
+            return is_value_mutable(c, tir_get_access(c, value).s);
         }
         case TIR_BLOCK: {
-            TirBlock block = tir_get_term_block(c, value);
-            if (block.length == 0) {
+            TirBlock block = tir_get_block(c, value);
+            if (block.stmts.len == 0) {
                 return VALUE_INVALID;
             }
-            TirId last = tir_block_get_last(c, &block);
+            TirId last = tir_block_get_last(&block);
             return is_value_mutable(c, last);
         }
         default: break;
     }
     return false;
-}
-
-char const *get_value_str(TirContext c, TirId value) {
-    TermIndex i = get_term_index(c, value);
-    return tir_get_str(c, i.deps->terms.terms.datas[i.index].b);
-}
-
-int64_t get_value_int(TirContext c, TirId value) {
-    TermIndex i = get_term_index(c, value);
-    int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
-    return load_i64(p[0], p[1]);
-}
-
-double get_value_float(TirContext c, TirId value) {
-    TermIndex i = get_term_index(c, value);
-    int32_t *p = &i.deps->terms.extra.ptr[i.deps->terms.terms.datas[i.index].b];
-    return load_f64(p[0], p[1]);
 }
 
 char const *tir_get_str(TirContext c, int32_t s) {

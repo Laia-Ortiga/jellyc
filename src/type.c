@@ -1,12 +1,13 @@
 #include "type.h"
+
 #include "tir.h"
 
 TirId remove_any_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
+        case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
 
         default: return error_term;
     }
@@ -15,7 +16,7 @@ TirId remove_any_pointer(TirContext c, TirId type) {
 TirId remove_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE: return get_type_elem(c, type);
+        case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
 
         default: return error_term;
     }
@@ -24,7 +25,7 @@ TirId remove_pointer(TirContext c, TirId type) {
 TirId remove_slice(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
+        case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
 
         default: return error_term;
     }
@@ -32,27 +33,27 @@ TirId remove_slice(TirContext c, TirId type) {
 
 TirId replace_slice_with_pointer(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_SLICE_TYPE: return new_ptr_type(c, get_type_elem(c, type));
-        case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, get_type_elem(c, type));
+        case TIR_SLICE_TYPE: return new_ptr_type(c, tir_get_slice_type(c, type).elem);
+        case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, tir_get_slice_type(c, type).elem);
         default: return error_term;
     }
 }
 
 TirId replace_pointer_with_slice(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_PTR_TYPE: return new_slice_type(c, get_type_elem(c, type));
-        case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, get_type_elem(c, type));
+        case TIR_PTR_TYPE: return new_slice_type(c, tir_get_ptr_type(c, type).elem);
+        case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, tir_get_ptr_type(c, type).elem);
         default: return error_term;
     }
 }
 
 TirId remove_c_pointer_like(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE:
+        case TIR_ARRAY_TYPE: return tir_get_array_type(c, type).elem;
         case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
+        case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
 
         default: return error_term;
     }
@@ -60,9 +61,9 @@ TirId remove_c_pointer_like(TirContext c, TirId type) {
 
 TirId remove_array_like(TirContext c, TirId type) {
     switch (get_term_tag(c, type)) {
-        case TIR_ARRAY_TYPE:
+        case TIR_ARRAY_TYPE: return tir_get_array_type(c, type).elem;
         case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return get_type_elem(c, type);
+        case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
 
         default: return error_term;
     }
@@ -73,7 +74,7 @@ TirId remove_tags(TirContext c, TirId type) {
         return type;
     }
 
-    return get_tagged_type(c, type).inner;
+    return tir_get_tagged_type(c, type).inner;
 }
 
 bool is_aggregate_type(TirContext c, TirId type) {
@@ -112,10 +113,10 @@ bool is_aggregate_type(TirContext c, TirId type) {
             return true;
         }
         case TIR_TAGGED_TYPE: {
-            return is_aggregate_type(c, get_tagged_type(c, type).inner);
+            return is_aggregate_type(c, tir_get_tagged_type(c, type).inner);
         }
         case TIR_AFFINE_TYPE: {
-            return is_aggregate_type(c, get_affine_elem_type(c, type));
+            return is_aggregate_type(c, tir_get_affine_type(c, type).elem);
         }
         default: {
             abort();
@@ -156,13 +157,13 @@ bool type_is_affine(TirContext c, TirId type) {
             return false;
         }
         case TIR_ARRAY_TYPE: {
-            return type_is_affine(c, get_array_type(c, type).elem);
+            return type_is_affine(c, tir_get_array_type(c, type).elem);
         }
         case TIR_TAGGED_TYPE: {
-            return type_is_affine(c, get_tagged_type(c, type).inner);
+            return type_is_affine(c, tir_get_tagged_type(c, type).inner);
         }
         case TIR_STRUCT_TYPE: {
-            return get_struct_type(c, type).is_affine;
+            return tir_get_struct_type(c, type).is_affine;
         }
         case TIR_AFFINE_TYPE: {
             return true;
@@ -205,13 +206,13 @@ bool type_is_unknown_size(TirContext c, TirId type) {
             return false;
         }
         case TIR_ARRAY_TYPE: {
-            return type_is_unknown_size(c, get_array_type(c, type).elem);
+            return type_is_unknown_size(c, tir_get_array_type(c, type).elem);
         }
         case TIR_TAGGED_TYPE: {
-            return type_is_unknown_size(c, get_tagged_type(c, type).inner);
+            return type_is_unknown_size(c, tir_get_tagged_type(c, type).inner);
         }
         case TIR_AFFINE_TYPE: {
-            return type_is_unknown_size(c, get_affine_elem_type(c, type));
+            return type_is_unknown_size(c, tir_get_affine_type(c, type).elem);
         }
         case TIR_TYPE_PARAMETER: {
             return true;
@@ -348,12 +349,12 @@ int32_t alignof_type(TirContext c, TirId type, Target target) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return sizeof_pointer(target);
 
-        case TIR_ARRAY_TYPE: return alignof_type(c, get_array_type(c, type).elem, target);
+        case TIR_ARRAY_TYPE: return alignof_type(c, tir_get_array_type(c, type).elem, target);
         case TIR_ARRAY_LENGTH_TYPE: return sizeof_pointer(target);
-        case TIR_STRUCT_TYPE: return get_struct_type(c, type).alignment;
-        case TIR_ENUM_TYPE: return alignof_type(c, get_enum_type(c, type).repr, target);
-        case TIR_TAGGED_TYPE: return alignof_type(c, get_tagged_type(c, type).inner, target);
-        case TIR_AFFINE_TYPE: return alignof_type(c, get_affine_elem_type(c, type), target);
+        case TIR_STRUCT_TYPE: return tir_get_struct_type(c, type).alignment;
+        case TIR_ENUM_TYPE: return alignof_type(c, tir_get_enum_type(c, type).repr, target);
+        case TIR_TAGGED_TYPE: return alignof_type(c, tir_get_tagged_type(c, type).inner, target);
+        case TIR_AFFINE_TYPE: return alignof_type(c, tir_get_affine_type(c, type).elem, target);
     }
 }
 
@@ -371,15 +372,15 @@ int64_t sizeof_type(TirContext c, TirId type, Target target) {
         case TIR_MUT_SLICE_TYPE: return 2 * sizeof_pointer(target);
 
         case TIR_ARRAY_TYPE: {
-            ArrayType array = get_array_type(c, type);
-            int64_t length = get_array_length_type(c, array.index);
+            TirArrayType array = tir_get_array_type(c, type);
+            int64_t length = tir_get_array_length_type(c, array.index).length;
             return length * sizeof_type(c, array.elem, target);
         }
         case TIR_ARRAY_LENGTH_TYPE: return sizeof_pointer(target);
-        case TIR_STRUCT_TYPE: return get_struct_type(c, type).size;
-        case TIR_ENUM_TYPE: return sizeof_type(c, get_enum_type(c, type).repr, target);
-        case TIR_TAGGED_TYPE: return sizeof_type(c, get_tagged_type(c, type).inner, target);
-        case TIR_AFFINE_TYPE: return sizeof_type(c, get_affine_elem_type(c, type), target);
+        case TIR_STRUCT_TYPE: return tir_get_struct_type(c, type).size;
+        case TIR_ENUM_TYPE: return sizeof_type(c, tir_get_enum_type(c, type).repr, target);
+        case TIR_TAGGED_TYPE: return sizeof_type(c, tir_get_tagged_type(c, type).inner, target);
+        case TIR_AFFINE_TYPE: return sizeof_type(c, tir_get_affine_type(c, type).elem, target);
         default: {
             abort();
         }
