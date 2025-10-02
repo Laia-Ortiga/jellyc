@@ -7,7 +7,7 @@
 
 static void print_indent(int indent) {
     for (int i = 0; i < indent; i++) {
-        printf("    ");
+        printf("  ");
     }
 }
 
@@ -25,13 +25,28 @@ void print_ast(char const *path, String source, Ast *ast) {
     AstPrinter printer = {0};
     printer.source = source;
     printer.ast = ast;
-    printf("Ast(%s) {\n", path);
+    printf("%s: ", path);
+    AstRoot t = ast_get_root(ast, null_ast);
     printer.depth++;
-    AstRoot root = ast_get_root(ast, null_ast);
-    for (int32_t i = 0; i < root.defs.len; i++) {
-        print_ast_node(&printer, root.defs.ptr[i]);
+    printf("Root(\n");
+    print_indent(printer.depth);
+    printf("token: ");
+    Lexer lexer = new_lexer(substring(source, t.token.index, source.len));
+    Token token = next_token(&lexer);
+    String s = substring(lexer.source, token.start.index, token.end.index);
+    fwrite(s.ptr, 1, s.len, stdout);
+    printf(",\n");
+    print_indent(printer.depth++);
+    printf("defs: [\n");
+    for (int32_t i = 0; i < t.defs.len; i++) {
+        print_indent(printer.depth);
+        print_ast_node(&printer, t.defs.ptr[i]);
+        printf(",\n");
     }
-    printf("}\n");
+    print_indent(--printer.depth);
+    printf("],\n");
+    print_indent(--printer.depth);
+    printf(")\n");
 }
 
 
@@ -51,13 +66,15 @@ void print_tir(
 ) {
     TirPrinter printer = {0};
     printer.tir = c;
-    printf("Tir(%s) {\n", name);
+    printf("%s: Tir(\n", name);
     printer.depth++;
     for (int32_t i = 0; i < length; i++) {
+        print_indent(printer.depth);
         TirId statement = {get_term_extra(c.thread, first + i)};
         print_tir_node(&printer, statement);
+        printf(",\n");
     }
-    printf("}\n");
+    printf(")\n");
 }
 
 void print_tir_term(TirContext c, TirId term) {
@@ -68,9 +85,12 @@ void print_tir_term(TirContext c, TirId term) {
 
 void print_type(FILE *file, TirContext c, TirId type) {
     switch (get_tir_tag(c, type)) {
+        case TIR_ERROR: {
+            fprintf(file, "{error}");
+            return;
+        }
         case TIR_RESERVED: {
             switch ((ReservedTerm) type.id) {
-                case RESERVED_ERROR: fprintf(file, "{error}"); return;
                 case TYPE_VOID: fprintf(file, "void"); return;
 
                 #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;

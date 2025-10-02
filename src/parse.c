@@ -1,11 +1,11 @@
 #include "parse.h"
 
 #include "adt.h"
-#include "arena.h"
 #include "ast.h"
 #include "diagnostic.h"
 #include "lex.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -41,11 +41,6 @@ typedef struct {
     int32_t index;
 } ExtraList;
 
-typedef struct {
-    int32_t len;
-    AstId *ptr;
-} TemporaryList;
-
 static ExtraList new_list(Parser *parser) {
     return (ExtraList) {
         .index = parser->extra_stack.len,
@@ -53,15 +48,15 @@ static ExtraList new_list(Parser *parser) {
 }
 
 static void push_list(Parser *parser, ExtraList *list, AstId node) {
+    assert(list->index == parser->extra_stack.len - list->len);
     list->len++;
     vec_push(&parser->extra_stack, node);
 }
 
-static TemporaryList pop_list(Parser *parser, ExtraList list) {
-    return (TemporaryList) {
-        .len = list.len,
-        .ptr = parser->extra_stack.ptr + list.index,
-    };
+static AstId *pop_list(Parser *parser, ExtraList list) {
+    assert(list.index == parser->extra_stack.len - list.len);
+    parser->extra_stack.len -= list.len;
+    return parser->extra_stack.ptr + list.index;
 }
 
 static Precedence get_precedence(TokenTag tag) {
@@ -151,10 +146,10 @@ static SourceIndex expect_id(Parser *parser) {
     return consume(parser).start;
 }
 
-static TemporaryList parse_type_parameters(Parser *parser) {
+static ExtraList parse_type_parameters(Parser *parser) {
     ExtraList params = new_list(parser);
     if (!accept(parser, TOK_SQUAREL)) {
-        return pop_list(parser, params);
+        return params;
     }
     while (parser->lookahead.tag != TOK_SQUARER) {
         SourceIndex token = expect_id(parser);
@@ -167,10 +162,10 @@ static TemporaryList parse_type_parameters(Parser *parser) {
         }
     }
     expect(parser, TOK_SQUARER);
-    return pop_list(parser, params);
+    return params;
 }
 
-static TemporaryList parse_parameters(Parser *parser) {
+static ExtraList parse_parameters(Parser *parser) {
     expect(parser, TOK_ROUNDL);
     ExtraList params = new_list(parser);
     while (parser->lookahead.tag != TOK_ROUNDR) {
@@ -186,10 +181,10 @@ static TemporaryList parse_parameters(Parser *parser) {
         }
     }
     expect(parser, TOK_ROUNDR);
-    return pop_list(parser, params);
+    return params;
 }
 
-static TemporaryList parse_fields(Parser *parser) {
+static ExtraList parse_fields(Parser *parser) {
     expect(parser, TOK_CURLYL);
     ExtraList params = new_list(parser);
     while (parser->lookahead.tag != TOK_CURLYR) {
@@ -205,10 +200,10 @@ static TemporaryList parse_fields(Parser *parser) {
         }
     }
     expect(parser, TOK_CURLYR);
-    return pop_list(parser, params);
+    return params;
 }
 
-static TemporaryList parse_enum_members(Parser *parser) {
+static ExtraList parse_enum_members(Parser *parser) {
     expect(parser, TOK_CURLYL);
     ExtraList params = new_list(parser);
     while (parser->lookahead.tag != TOK_CURLYR) {
@@ -222,7 +217,7 @@ static TemporaryList parse_enum_members(Parser *parser) {
         }
     }
     expect(parser, TOK_CURLYR);
-    return pop_list(parser, params);
+    return params;
 }
 
 static AstId parse_let(Parser *parser, AstTag tag) {
@@ -295,7 +290,7 @@ static AstId parse_for(Parser *parser) {
     });
 }
 
-static TemporaryList parse_switch_cases(Parser *parser) {
+static ExtraList parse_switch_cases(Parser *parser) {
     expect(parser, TOK_CURLYL);
     ExtraList cases = new_list(parser);
     while (!accept(parser, TOK_SENTINEL) && !accept(parser, TOK_CURLYR)) {
@@ -325,7 +320,7 @@ static TemporaryList parse_switch_cases(Parser *parser) {
             push_list(parser, &cases, node);
         }
     }
-    return pop_list(parser, cases);
+    return cases;
 }
 
 static AstId parse_switch(Parser *parser, SourceIndex token) {
@@ -333,18 +328,18 @@ static AstId parse_switch(Parser *parser, SourceIndex token) {
     if (parser->lookahead.tag != TOK_CURLYL) {
         cond = parse_expr(parser, PREC_NONE);
     }
-    TemporaryList branches = parse_switch_cases(parser);
+    ExtraList branches = parse_switch_cases(parser);
     return ast_push(&parser->ast, (AstSwitch) {
         .token = token,
         .condition = cond,
-        .branches = {branches.len, branches.ptr},
+        .branches = {branches.len, pop_list(parser, branches)},
     });
 }
 
 static AstId parse_extern_function(Parser *parser) {
     expect(parser, TOK_KW_function);
     SourceIndex token = expect(parser, TOK_ID);
-    TemporaryList params = parse_parameters(parser);
+    ExtraList params = parse_parameters(parser);
 
     AstId return_type = null_ast;
     if (accept(parser, TOK_ARROW)) {
@@ -353,7 +348,7 @@ static AstId parse_extern_function(Parser *parser) {
 
     return ast_push(&parser->ast, (AstExternFunction) {
         .token = token,
-        .params = {params.len, params.ptr},
+        .params = {params.len, pop_list(parser, params)},
         .ret = return_type,
     });
 }
@@ -393,8 +388,8 @@ static AstId parse_extern(Parser *parser) {
 static AstId parse_function(Parser *parser) {
     expect(parser, TOK_KW_function);
     SourceIndex token = expect_id(parser);
-    TemporaryList type_parameters = parse_type_parameters(parser);
-    TemporaryList parameters = parse_parameters(parser);
+    ExtraList type_parameters = parse_type_parameters(parser);
+    ExtraList parameters = parse_parameters(parser);
 
     AstId return_type = null_ast;
     if (accept(parser, TOK_ARROW)) {
@@ -402,11 +397,13 @@ static AstId parse_function(Parser *parser) {
     }
 
     AstId body = parse_block(parser);
+    AstId *parameters_ptr = pop_list(parser, parameters);
+    AstId *type_parameters_ptr = pop_list(parser, type_parameters);
 
     return ast_push(&parser->ast, (AstFunction) {
         .token = token,
-        .type_params = {type_parameters.len, type_parameters.ptr},
-        .params = {parameters.len, parameters.ptr},
+        .type_params = {type_parameters.len, type_parameters_ptr},
+        .params = {parameters.len, parameters_ptr},
         .ret = return_type,
         .body = body,
     });
@@ -415,12 +412,14 @@ static AstId parse_function(Parser *parser) {
 static AstId parse_struct(Parser *parser) {
     expect(parser, TOK_KW_struct);
     SourceIndex token = expect_id(parser);
-    TemporaryList type_parameters = parse_type_parameters(parser);
-    TemporaryList fields = parse_fields(parser);
+    ExtraList type_parameters = parse_type_parameters(parser);
+    ExtraList fields = parse_fields(parser);
+    AstId *fields_ptr = pop_list(parser, fields);
+    AstId *type_parameters_ptr = pop_list(parser, type_parameters);
     return ast_push(&parser->ast, (AstStruct) {
         .token = token,
-        .type_params = {type_parameters.len, type_parameters.ptr},
-        .fields = {fields.len, fields.ptr},
+        .type_params = {type_parameters.len, type_parameters_ptr},
+        .fields = {fields.len, fields_ptr},
     });
 }
 
@@ -428,29 +427,29 @@ static AstId parse_enum(Parser *parser) {
     expect(parser, TOK_KW_enum);
     SourceIndex token = expect_id(parser);
     AstId enum_type = parse_expr(parser, PREC_NONE);
-    TemporaryList members = parse_enum_members(parser);
+    ExtraList members = parse_enum_members(parser);
     return ast_push(&parser->ast, (AstEnum) {
         .token = token,
         .repr = enum_type,
-        .members = {members.len, members.ptr},
+        .members = {members.len, pop_list(parser, members)},
     });
 }
 
 static AstId parse_newtype(Parser *parser) {
     expect(parser, TOK_KW_newtype);
     SourceIndex token = expect_id(parser);
-    TemporaryList type_parameters = parse_type_parameters(parser);
+    ExtraList type_parameters = parse_type_parameters(parser);
     expect(parser, TOK_ASSIGN);
     AstId inner = parse_expr(parser, PREC_NONE);
     return ast_push(&parser->ast, (AstNewtype) {
         .token = token,
-        .type_params = {type_parameters.len, type_parameters.ptr},
+        .type_params = {type_parameters.len, pop_list(parser, type_parameters)},
         .type = inner,
     });
 }
 
 static AstId parse_function_type(Parser *parser, SourceIndex token) {
-    TemporaryList params = parse_parameters(parser);
+    ExtraList params = parse_parameters(parser);
 
     AstId return_type = null_ast;
     if (accept(parser, TOK_ARROW)) {
@@ -459,7 +458,7 @@ static AstId parse_function_type(Parser *parser, SourceIndex token) {
 
     return ast_push(&parser->ast, (AstFunctionType) {
         .token = token,
-        .params = {params.len, params.ptr},
+        .params = {params.len, pop_list(parser, params)},
         .ret = return_type,
     });
 }
@@ -547,10 +546,9 @@ static AstId parse_block(Parser *parser) {
             }
         }
     }
-    TemporaryList tmp = pop_list(parser, stmts);
     return ast_push(&parser->ast, (AstBlock) {
         .token = block_token,
-        .stmts = {tmp.len, tmp.ptr},
+        .stmts = {stmts.len, pop_list(parser, stmts)},
     });
 }
 
@@ -591,10 +589,9 @@ static AstId parse_map(Parser *parser, SourceIndex token) {
     } while (accept(parser, TOK_COMMA));
 
     expect(parser, TOK_ROUNDR);
-    TemporaryList tmp = pop_list(parser, args);
     return ast_push(&parser->ast, (AstMap) {
         .token = token,
-        .entries = {tmp.len, tmp.ptr},
+        .entries = {args.len, pop_list(parser, args)},
     });
 }
 
@@ -628,10 +625,9 @@ static AstId parse_list(Parser *parser, SourceIndex token) {
     } while (accept(parser, TOK_COMMA));
 
     expect(parser, TOK_SQUARER);
-    TemporaryList tmp = pop_list(parser, args);
     return ast_push(&parser->ast, (AstList) {
         .token = token,
-        .elems = {tmp.len, tmp.ptr},
+        .elems = {args.len, pop_list(parser, args)},
     });
 }
 
@@ -774,11 +770,10 @@ static AstId parse_call(Parser *parser, SourceIndex token, AstId left) {
         push_list(parser, &args, parse_expr(parser, PREC_NONE));
     } while (accept(parser, TOK_COMMA));
     expect(parser, TOK_ROUNDR);
-    TemporaryList tmp = pop_list(parser, args);
     return ast_push_tag(&parser->ast, AST_CALL, (AstCall) {
         .token = token,
         .a = left,
-        .args = {tmp.len, tmp.ptr},
+        .args = {args.len, pop_list(parser, args)},
     });
 }
 
@@ -806,11 +801,10 @@ static AstId parse_index(Parser *parser, SourceIndex token, AstId left) {
         }
     }
     expect(parser, TOK_SQUARER);
-    TemporaryList tmp = pop_list(parser, args);
     return ast_push_tag(&parser->ast, is_range ? AST_SLICE : AST_INDEX, (AstCall) {
         .token = token,
         .a = left,
-        .args = {tmp.len, tmp.ptr},
+        .args = {args.len, pop_list(parser, args)},
     });
 }
 
@@ -928,11 +922,11 @@ static void parse_root(Parser *parser) {
         }
     }
 
-    TemporaryList tmp = pop_list(parser, defs);
-    nth(parser->ast.nodes.data_table, null_ast).a = tmp.len;
-    nth(parser->ast.nodes.data_table, null_ast).b = parser->ast.extra.len;
-    AstId *extra = (AstId *) vec_grow(&parser->ast.extra, tmp.len);
-    memcpy(extra, tmp.ptr, tmp.len * sizeof(AstId));
+    nth(parser->ast.nodes.data_table, null_ast).b = defs.len;
+    nth(parser->ast.nodes.data_table, null_ast).c = parser->ast.extra.len;
+    AstId *extra = (AstId *) vec_grow(&parser->ast.extra, defs.len);
+    memcpy(extra, pop_list(parser, defs), defs.len * sizeof(AstId));
+    assert(parser->extra_stack.len == 0);
 }
 
 int parse_ast(ParseInfo *info) {

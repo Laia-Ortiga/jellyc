@@ -1205,6 +1205,12 @@ static int parse_hex_int(char const *s, int64_t *out) {
             continue;
         }
 
+        int digit = parse_hex_char(c);
+
+        if (digit < 0) {
+            break;
+        }
+
         if (digits >= 16) {
             return 1;
         }
@@ -1233,6 +1239,10 @@ static int parse_int(char const *s, int64_t *out) {
 
         if (c == '_') {
             continue;
+        }
+
+        if (!(c >= '0' && c <= '9')) {
+            break;
         }
 
         if (result > INT64_MAX / 10) {
@@ -1973,11 +1983,11 @@ static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
 }
 
 static TirId analyze_enum_member(Context *c, AstId node) {
-    AstUnary n = ast_get_unary(c->ast, node);
-    TirId type = expect_type(c, n.a);
+    AstAccess n = ast_get_access(c->ast, node);
+    TirId type = expect_type(c, n.s);
 
     if (get_tir_tag(c->tir, type) != TIR_ENUM_TYPE) {
-        node_diagnostic(c, n.a, Diagnostic(ErrorUndefinedTypeScope, {
+        node_diagnostic(c, n.s, Diagnostic(ErrorUndefinedTypeScope, {
             .ctx = c->tir,
             .type = type,
         }));

@@ -4,12 +4,12 @@
 
 AstId ast_push_root(Ast *c, AstRoot a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    int32_t n = 1;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.defs.len + 0, sizeof(int32_t));
+    int32_t n = 0;
     n += a.defs.len * (sizeof(a.defs.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.defs.len;
     memcpy(extra, a.defs.ptr, a.defs.len * sizeof(a.defs.ptr[0]));
     extra += a.defs.len * (sizeof(a.defs.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_ROOT, data);
@@ -17,46 +17,45 @@ AstId ast_push_root(Ast *c, AstRoot a) {
 
 AstId ast_push_import(Ast *c, AstImport a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     return new_ast(c, AST_IMPORT, data);
 }
 
 AstId ast_push_public(Ast *c, AstPublic a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.def, sizeof(a.def));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.def + 0, sizeof(int32_t));
     return new_ast(c, AST_PUBLIC, data);
 }
 
 AstId ast_push_function(Ast *c, AstFunction a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.ret, sizeof(a.ret));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type_params.len + 0, sizeof(int32_t));
     int32_t n = 3;
     n += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     n += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.type_params.len;
+    memcpy(extra++, (int32_t *) &a.params.len + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.ret + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.body + 0, sizeof(int32_t));
     memcpy(extra, a.type_params.ptr, a.type_params.len * sizeof(a.type_params.ptr[0]));
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
-    *extra++ = a.params.len;
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
-    memcpy(extra, &a.body, sizeof(a.body));
-    extra += sizeof(a.body) / sizeof(int32_t);
     return new_ast(c, AST_FUNCTION, data);
 }
 
 AstId ast_push_enum(Ast *c, AstEnum a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.repr, sizeof(a.repr));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.repr + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.members.len * (sizeof(a.members.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.members.len;
+    memcpy(extra++, (int32_t *) &a.members.len + 0, sizeof(int32_t));
     memcpy(extra, a.members.ptr, a.members.len * sizeof(a.members.ptr[0]));
     extra += a.members.len * (sizeof(a.members.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_ENUM, data);
@@ -64,16 +63,16 @@ AstId ast_push_enum(Ast *c, AstEnum a) {
 
 AstId ast_push_struct(Ast *c, AstStruct a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    int32_t n = 2;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type_params.len + 0, sizeof(int32_t));
+    int32_t n = 1;
     n += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     n += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.type_params.len;
+    memcpy(extra++, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
     memcpy(extra, a.type_params.ptr, a.type_params.len * sizeof(a.type_params.ptr[0]));
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
-    *extra++ = a.fields.len;
     memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
     extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_STRUCT, data);
@@ -81,13 +80,13 @@ AstId ast_push_struct(Ast *c, AstStruct a) {
 
 AstId ast_push_newtype(Ast *c, AstNewtype a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.type, sizeof(a.type));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type_params.len + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.type_params.len;
+    memcpy(extra++, (int32_t *) &a.type + 0, sizeof(int32_t));
     memcpy(extra, a.type_params.ptr, a.type_params.len * sizeof(a.type_params.ptr[0]));
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_NEWTYPE, data);
@@ -95,20 +94,20 @@ AstId ast_push_newtype(Ast *c, AstNewtype a) {
 
 AstId ast_push_const(Ast *c, AstConst a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.init, sizeof(a.init));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.init + 0, sizeof(int32_t));
     return new_ast(c, AST_CONST, data);
 }
 
 AstId ast_push_extern_function(Ast *c, AstExternFunction a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.ret, sizeof(a.ret));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.params.len + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.params.len;
+    memcpy(extra++, (int32_t *) &a.ret + 0, sizeof(int32_t));
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_EXTERN_FUNCTION, data);
@@ -116,15 +115,15 @@ AstId ast_push_extern_function(Ast *c, AstExternFunction a) {
 
 AstId ast_push_extern_var(Ast *c, AstExternVar a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.type, sizeof(a.type));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
     return new_ast(c, AST_EXTERN_VAR, data);
 }
 
 AstId ast_push_param(Ast *c, AstParam a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.type, sizeof(a.type));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
     return new_ast(c, AST_PARAM, data);
 }
 
@@ -137,58 +136,53 @@ AstId ast_push_let(Ast *c, AstTag tag, AstLet a) {
             abort();
     }
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.init, sizeof(a.init));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.init + 0, sizeof(int32_t));
     return new_ast(c, tag, data);
 }
 
 AstId ast_push_if(Ast *c, AstIf a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.condition, sizeof(a.condition));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.condition + 0, sizeof(int32_t));
     int32_t n = 2;
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    memcpy(extra, &a.true_block, sizeof(a.true_block));
-    extra += sizeof(a.true_block) / sizeof(int32_t);
-    memcpy(extra, &a.false_block, sizeof(a.false_block));
-    extra += sizeof(a.false_block) / sizeof(int32_t);
+    memcpy(extra++, (int32_t *) &a.true_block + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.false_block + 0, sizeof(int32_t));
     return new_ast(c, AST_IF, data);
 }
 
 AstId ast_push_while(Ast *c, AstWhile a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.condition, sizeof(a.condition));
-    memcpy(&data.c, &a.block, sizeof(a.block));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.condition + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.block + 0, sizeof(int32_t));
     return new_ast(c, AST_WHILE, data);
 }
 
 AstId ast_push_for(Ast *c, AstFor a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.init, sizeof(a.init));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.init + 0, sizeof(int32_t));
     int32_t n = 3;
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    memcpy(extra, &a.condition, sizeof(a.condition));
-    extra += sizeof(a.condition) / sizeof(int32_t);
-    memcpy(extra, &a.next, sizeof(a.next));
-    extra += sizeof(a.next) / sizeof(int32_t);
-    memcpy(extra, &a.block, sizeof(a.block));
-    extra += sizeof(a.block) / sizeof(int32_t);
+    memcpy(extra++, (int32_t *) &a.condition + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.next + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.block + 0, sizeof(int32_t));
     return new_ast(c, AST_FOR, data);
 }
 
 AstId ast_push_switch(Ast *c, AstSwitch a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.condition, sizeof(a.condition));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.condition + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.branches.len * (sizeof(a.branches.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.branches.len;
+    memcpy(extra++, (int32_t *) &a.branches.len + 0, sizeof(int32_t));
     memcpy(extra, a.branches.ptr, a.branches.len * sizeof(a.branches.ptr[0]));
     extra += a.branches.len * (sizeof(a.branches.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_SWITCH, data);
@@ -196,44 +190,44 @@ AstId ast_push_switch(Ast *c, AstSwitch a) {
 
 AstId ast_push_switch_case(Ast *c, AstSwitchCase a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.pattern, sizeof(a.pattern));
-    memcpy(&data.c, &a.value, sizeof(a.value));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.pattern + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.value + 0, sizeof(int32_t));
     return new_ast(c, AST_SWITCH_CASE, data);
 }
 
 AstId ast_push_break(Ast *c, AstBreak a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     return new_ast(c, AST_BREAK, data);
 }
 
 AstId ast_push_continue(Ast *c, AstContinue a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     return new_ast(c, AST_CONTINUE, data);
 }
 
 AstId ast_push_return(Ast *c, AstReturn a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.value, sizeof(a.value));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.value + 0, sizeof(int32_t));
     return new_ast(c, AST_RETURN, data);
 }
 
 AstId ast_push_array_type(Ast *c, AstArrayType a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.index, sizeof(a.index));
-    memcpy(&data.c, &a.elem, sizeof(a.elem));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.index + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.elem + 0, sizeof(int32_t));
     return new_ast(c, AST_ARRAY_TYPE, data);
 }
 
 AstId ast_push_array_type_sugar(Ast *c, AstArrayTypeSugar a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.length, sizeof(a.length));
-    memcpy(&data.c, &a.elem, sizeof(a.elem));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.length + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.elem + 0, sizeof(int32_t));
     return new_ast(c, AST_ARRAY_TYPE_SUGAR, data);
 }
 
@@ -253,8 +247,8 @@ AstId ast_push_unary(Ast *c, AstTag tag, AstUnary a) {
             abort();
     }
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.a, sizeof(a.a));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.a + 0, sizeof(int32_t));
     return new_ast(c, tag, data);
 }
 
@@ -292,21 +286,21 @@ AstId ast_push_binary(Ast *c, AstTag tag, AstBinary a) {
             abort();
     }
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.a, sizeof(a.a));
-    memcpy(&data.c, &a.b, sizeof(a.b));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.a + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.b + 0, sizeof(int32_t));
     return new_ast(c, tag, data);
 }
 
 AstId ast_push_function_type(Ast *c, AstFunctionType a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.ret, sizeof(a.ret));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.params.len + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.params.len;
+    memcpy(extra++, (int32_t *) &a.ret + 0, sizeof(int32_t));
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_FUNCTION_TYPE, data);
@@ -314,9 +308,9 @@ AstId ast_push_function_type(Ast *c, AstFunctionType a) {
 
 AstId ast_push_type_hint(Ast *c, AstTypeHint a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.type, sizeof(a.type));
-    memcpy(&data.c, &a.value, sizeof(a.value));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.value + 0, sizeof(int32_t));
     return new_ast(c, AST_TYPE_HINT, data);
 }
 
@@ -330,13 +324,13 @@ AstId ast_push_call(Ast *c, AstTag tag, AstCall a) {
             abort();
     }
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.a, sizeof(a.a));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.a + 0, sizeof(int32_t));
     int32_t n = 1;
     n += a.args.len * (sizeof(a.args.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.args.len;
+    memcpy(extra++, (int32_t *) &a.args.len + 0, sizeof(int32_t));
     memcpy(extra, a.args.ptr, a.args.len * sizeof(a.args.ptr[0]));
     extra += a.args.len * (sizeof(a.args.ptr[0]) / sizeof(int32_t));
     return new_ast(c, tag, data);
@@ -344,25 +338,25 @@ AstId ast_push_call(Ast *c, AstTag tag, AstCall a) {
 
 AstId ast_push_access(Ast *c, AstAccess a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.s, sizeof(a.s));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.s + 0, sizeof(int32_t));
     return new_ast(c, AST_ACCESS, data);
 }
 
 AstId ast_push_inferred_access(Ast *c, AstInferredAccess a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     return new_ast(c, AST_INFERRED_ACCESS, data);
 }
 
 AstId ast_push_list(Ast *c, AstList a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    int32_t n = 1;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.elems.len + 0, sizeof(int32_t));
+    int32_t n = 0;
     n += a.elems.len * (sizeof(a.elems.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.elems.len;
     memcpy(extra, a.elems.ptr, a.elems.len * sizeof(a.elems.ptr[0]));
     extra += a.elems.len * (sizeof(a.elems.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_LIST, data);
@@ -370,19 +364,19 @@ AstId ast_push_list(Ast *c, AstList a) {
 
 AstId ast_push_map_entry(Ast *c, AstMapEntry a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    memcpy(&data.b, &a.value, sizeof(a.value));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.value + 0, sizeof(int32_t));
     return new_ast(c, AST_MAP_ENTRY, data);
 }
 
 AstId ast_push_map(Ast *c, AstMap a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    int32_t n = 1;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.entries.len + 0, sizeof(int32_t));
+    int32_t n = 0;
     n += a.entries.len * (sizeof(a.entries.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.entries.len;
     memcpy(extra, a.entries.ptr, a.entries.len * sizeof(a.entries.ptr[0]));
     extra += a.entries.len * (sizeof(a.entries.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_MAP, data);
@@ -390,12 +384,12 @@ AstId ast_push_map(Ast *c, AstMap a) {
 
 AstId ast_push_block(Ast *c, AstBlock a) {
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
-    int32_t n = 1;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.stmts.len + 0, sizeof(int32_t));
+    int32_t n = 0;
     n += a.stmts.len * (sizeof(a.stmts.ptr[0]) / sizeof(int32_t));
     data.c = c->extra.len;
     int32_t *extra = vec_grow(&c->extra, n);
-    *extra++ = a.stmts.len;
     memcpy(extra, a.stmts.ptr, a.stmts.len * sizeof(a.stmts.ptr[0]));
     extra += a.stmts.len * (sizeof(a.stmts.ptr[0]) / sizeof(int32_t));
     return new_ast(c, AST_BLOCK, data);
@@ -416,7 +410,7 @@ AstId ast_push_leaf(Ast *c, AstTag tag, AstLeaf a) {
             abort();
     }
     AstData data;
-    memcpy(&data.a, &a.token, sizeof(a.token));
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     return new_ast(c, tag, data);
 }
 
@@ -428,9 +422,9 @@ AstRoot ast_get_root(Ast *c, AstId a) {
             abort();
     }
     AstRoot result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.defs.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.defs.len = *extra++;
     result.defs.ptr = (void *) extra;
     extra += result.defs.len * (sizeof(result.defs.ptr[0]) / sizeof(int32_t));
     return result;
@@ -444,7 +438,7 @@ AstImport ast_get_import(Ast *c, AstId a) {
             abort();
     }
     AstImport result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     return result;
 }
 
@@ -456,8 +450,8 @@ AstPublic ast_get_public(Ast *c, AstId a) {
             abort();
     }
     AstPublic result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.def, &nth(c->nodes.data_table, a).b, sizeof(result.def));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.def + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -469,17 +463,16 @@ AstFunction ast_get_function(Ast *c, AstId a) {
             abort();
     }
     AstFunction result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.ret, &nth(c->nodes.data_table, a).b, sizeof(result.ret));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type_params.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.type_params.len = *extra++;
+    memcpy((int32_t *) &result.params.len + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.ret + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.body + 0, extra++, sizeof(int32_t));
     result.type_params.ptr = (void *) extra;
     extra += result.type_params.len * (sizeof(result.type_params.ptr[0]) / sizeof(int32_t));
-    result.params.len = *extra++;
     result.params.ptr = (void *) extra;
     extra += result.params.len * (sizeof(result.params.ptr[0]) / sizeof(int32_t));
-    memcpy(&result.body, extra, sizeof(result.body));
-    extra += sizeof(result.body) / sizeof(int32_t);
     return result;
 }
 
@@ -491,10 +484,10 @@ AstEnum ast_get_enum(Ast *c, AstId a) {
             abort();
     }
     AstEnum result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.repr, &nth(c->nodes.data_table, a).b, sizeof(result.repr));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.repr + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.members.len = *extra++;
+    memcpy((int32_t *) &result.members.len + 0, extra++, sizeof(int32_t));
     result.members.ptr = (void *) extra;
     extra += result.members.len * (sizeof(result.members.ptr[0]) / sizeof(int32_t));
     return result;
@@ -508,12 +501,12 @@ AstStruct ast_get_struct(Ast *c, AstId a) {
             abort();
     }
     AstStruct result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type_params.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.type_params.len = *extra++;
+    memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
     result.type_params.ptr = (void *) extra;
     extra += result.type_params.len * (sizeof(result.type_params.ptr[0]) / sizeof(int32_t));
-    result.fields.len = *extra++;
     result.fields.ptr = (void *) extra;
     extra += result.fields.len * (sizeof(result.fields.ptr[0]) / sizeof(int32_t));
     return result;
@@ -527,10 +520,10 @@ AstNewtype ast_get_newtype(Ast *c, AstId a) {
             abort();
     }
     AstNewtype result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.type, &nth(c->nodes.data_table, a).b, sizeof(result.type));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type_params.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.type_params.len = *extra++;
+    memcpy((int32_t *) &result.type + 0, extra++, sizeof(int32_t));
     result.type_params.ptr = (void *) extra;
     extra += result.type_params.len * (sizeof(result.type_params.ptr[0]) / sizeof(int32_t));
     return result;
@@ -544,8 +537,8 @@ AstConst ast_get_const(Ast *c, AstId a) {
             abort();
     }
     AstConst result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.init, &nth(c->nodes.data_table, a).b, sizeof(result.init));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.init + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -557,10 +550,10 @@ AstExternFunction ast_get_extern_function(Ast *c, AstId a) {
             abort();
     }
     AstExternFunction result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.ret, &nth(c->nodes.data_table, a).b, sizeof(result.ret));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.params.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.params.len = *extra++;
+    memcpy((int32_t *) &result.ret + 0, extra++, sizeof(int32_t));
     result.params.ptr = (void *) extra;
     extra += result.params.len * (sizeof(result.params.ptr[0]) / sizeof(int32_t));
     return result;
@@ -574,8 +567,8 @@ AstExternVar ast_get_extern_var(Ast *c, AstId a) {
             abort();
     }
     AstExternVar result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.type, &nth(c->nodes.data_table, a).b, sizeof(result.type));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -587,8 +580,8 @@ AstParam ast_get_param(Ast *c, AstId a) {
             abort();
     }
     AstParam result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.type, &nth(c->nodes.data_table, a).b, sizeof(result.type));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -601,8 +594,8 @@ AstLet ast_get_let(Ast *c, AstId a) {
             abort();
     }
     AstLet result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.init, &nth(c->nodes.data_table, a).b, sizeof(result.init));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.init + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -614,13 +607,11 @@ AstIf ast_get_if(Ast *c, AstId a) {
             abort();
     }
     AstIf result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.condition, &nth(c->nodes.data_table, a).b, sizeof(result.condition));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.condition + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    memcpy(&result.true_block, extra, sizeof(result.true_block));
-    extra += sizeof(result.true_block) / sizeof(int32_t);
-    memcpy(&result.false_block, extra, sizeof(result.false_block));
-    extra += sizeof(result.false_block) / sizeof(int32_t);
+    memcpy((int32_t *) &result.true_block + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.false_block + 0, extra++, sizeof(int32_t));
     return result;
 }
 
@@ -632,9 +623,9 @@ AstWhile ast_get_while(Ast *c, AstId a) {
             abort();
     }
     AstWhile result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.condition, &nth(c->nodes.data_table, a).b, sizeof(result.condition));
-    memcpy(&result.block, &nth(c->nodes.data_table, a).c, sizeof(result.block));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.condition + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.block + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -646,15 +637,12 @@ AstFor ast_get_for(Ast *c, AstId a) {
             abort();
     }
     AstFor result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.init, &nth(c->nodes.data_table, a).b, sizeof(result.init));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.init + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    memcpy(&result.condition, extra, sizeof(result.condition));
-    extra += sizeof(result.condition) / sizeof(int32_t);
-    memcpy(&result.next, extra, sizeof(result.next));
-    extra += sizeof(result.next) / sizeof(int32_t);
-    memcpy(&result.block, extra, sizeof(result.block));
-    extra += sizeof(result.block) / sizeof(int32_t);
+    memcpy((int32_t *) &result.condition + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.next + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.block + 0, extra++, sizeof(int32_t));
     return result;
 }
 
@@ -666,10 +654,10 @@ AstSwitch ast_get_switch(Ast *c, AstId a) {
             abort();
     }
     AstSwitch result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.condition, &nth(c->nodes.data_table, a).b, sizeof(result.condition));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.condition + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.branches.len = *extra++;
+    memcpy((int32_t *) &result.branches.len + 0, extra++, sizeof(int32_t));
     result.branches.ptr = (void *) extra;
     extra += result.branches.len * (sizeof(result.branches.ptr[0]) / sizeof(int32_t));
     return result;
@@ -683,9 +671,9 @@ AstSwitchCase ast_get_switch_case(Ast *c, AstId a) {
             abort();
     }
     AstSwitchCase result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.pattern, &nth(c->nodes.data_table, a).b, sizeof(result.pattern));
-    memcpy(&result.value, &nth(c->nodes.data_table, a).c, sizeof(result.value));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.pattern + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.value + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -697,7 +685,7 @@ AstBreak ast_get_break(Ast *c, AstId a) {
             abort();
     }
     AstBreak result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     return result;
 }
 
@@ -709,7 +697,7 @@ AstContinue ast_get_continue(Ast *c, AstId a) {
             abort();
     }
     AstContinue result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     return result;
 }
 
@@ -721,8 +709,8 @@ AstReturn ast_get_return(Ast *c, AstId a) {
             abort();
     }
     AstReturn result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.value, &nth(c->nodes.data_table, a).b, sizeof(result.value));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.value + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -734,9 +722,9 @@ AstArrayType ast_get_array_type(Ast *c, AstId a) {
             abort();
     }
     AstArrayType result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.index, &nth(c->nodes.data_table, a).b, sizeof(result.index));
-    memcpy(&result.elem, &nth(c->nodes.data_table, a).c, sizeof(result.elem));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.index + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.elem + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -748,9 +736,9 @@ AstArrayTypeSugar ast_get_array_type_sugar(Ast *c, AstId a) {
             abort();
     }
     AstArrayTypeSugar result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.length, &nth(c->nodes.data_table, a).b, sizeof(result.length));
-    memcpy(&result.elem, &nth(c->nodes.data_table, a).c, sizeof(result.elem));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.length + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.elem + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -770,8 +758,8 @@ AstUnary ast_get_unary(Ast *c, AstId a) {
             abort();
     }
     AstUnary result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.a, &nth(c->nodes.data_table, a).b, sizeof(result.a));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.a + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -809,9 +797,9 @@ AstBinary ast_get_binary(Ast *c, AstId a) {
             abort();
     }
     AstBinary result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.a, &nth(c->nodes.data_table, a).b, sizeof(result.a));
-    memcpy(&result.b, &nth(c->nodes.data_table, a).c, sizeof(result.b));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.a + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.b + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -823,10 +811,10 @@ AstFunctionType ast_get_function_type(Ast *c, AstId a) {
             abort();
     }
     AstFunctionType result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.ret, &nth(c->nodes.data_table, a).b, sizeof(result.ret));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.params.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.params.len = *extra++;
+    memcpy((int32_t *) &result.ret + 0, extra++, sizeof(int32_t));
     result.params.ptr = (void *) extra;
     extra += result.params.len * (sizeof(result.params.ptr[0]) / sizeof(int32_t));
     return result;
@@ -840,9 +828,9 @@ AstTypeHint ast_get_type_hint(Ast *c, AstId a) {
             abort();
     }
     AstTypeHint result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.type, &nth(c->nodes.data_table, a).b, sizeof(result.type));
-    memcpy(&result.value, &nth(c->nodes.data_table, a).c, sizeof(result.value));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    memcpy((int32_t *) &result.value + 0, &nth(c->nodes.data_table, a).c, sizeof(int32_t));
     return result;
 }
 
@@ -856,10 +844,10 @@ AstCall ast_get_call(Ast *c, AstId a) {
             abort();
     }
     AstCall result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.a, &nth(c->nodes.data_table, a).b, sizeof(result.a));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.a + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.args.len = *extra++;
+    memcpy((int32_t *) &result.args.len + 0, extra++, sizeof(int32_t));
     result.args.ptr = (void *) extra;
     extra += result.args.len * (sizeof(result.args.ptr[0]) / sizeof(int32_t));
     return result;
@@ -873,8 +861,8 @@ AstAccess ast_get_access(Ast *c, AstId a) {
             abort();
     }
     AstAccess result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.s, &nth(c->nodes.data_table, a).b, sizeof(result.s));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.s + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -886,7 +874,7 @@ AstInferredAccess ast_get_inferred_access(Ast *c, AstId a) {
             abort();
     }
     AstInferredAccess result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     return result;
 }
 
@@ -898,9 +886,9 @@ AstList ast_get_list(Ast *c, AstId a) {
             abort();
     }
     AstList result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.elems.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.elems.len = *extra++;
     result.elems.ptr = (void *) extra;
     extra += result.elems.len * (sizeof(result.elems.ptr[0]) / sizeof(int32_t));
     return result;
@@ -914,8 +902,8 @@ AstMapEntry ast_get_map_entry(Ast *c, AstId a) {
             abort();
     }
     AstMapEntry result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
-    memcpy(&result.value, &nth(c->nodes.data_table, a).b, sizeof(result.value));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.value + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     return result;
 }
 
@@ -927,9 +915,9 @@ AstMap ast_get_map(Ast *c, AstId a) {
             abort();
     }
     AstMap result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.entries.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.entries.len = *extra++;
     result.entries.ptr = (void *) extra;
     extra += result.entries.len * (sizeof(result.entries.ptr[0]) / sizeof(int32_t));
     return result;
@@ -943,9 +931,9 @@ AstBlock ast_get_block(Ast *c, AstId a) {
             abort();
     }
     AstBlock result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.stmts.len + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
-    result.stmts.len = *extra++;
     result.stmts.ptr = (void *) extra;
     extra += result.stmts.len * (sizeof(result.stmts.ptr[0]) / sizeof(int32_t));
     return result;
@@ -966,6 +954,6 @@ AstLeaf ast_get_leaf(Ast *c, AstId a) {
             abort();
     }
     AstLeaf result;
-    memcpy(&result.token, &nth(c->nodes.data_table, a).a, sizeof(result.token));
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     return result;
 }

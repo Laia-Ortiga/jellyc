@@ -4,28 +4,29 @@
 
 
 class Type:
-    def __init__(self, c_type, count, c_print = None):
+    def __init__(self, c_type, count = None, is_list = None, c_print = None):
         self.c_type = c_type
-        self.count = count
+        self.count = count or 1
+        self.is_list = is_list or False
         self.c_print = c_print
 
 
-node = Type("AstId {}", 1)
-ty = Type("TirId {}", 1)
-val = Type("TirId {}", 1)
-token = Type("SourceIndex {}", 1)
-strtab = Type("int32_t {}", 1)
-scope = Type("int32_t {}", 1, c_print="%d")
-i32 = Type("int32_t {}", 1, c_print="%d")
-i64 = Type("int64_t {}", 2, c_print="%ld")
-f64 = Type("double {}", 2, c_print="%f")
-boolean = Type("int32_t {}", 1, c_print="%d")
+node = Type("AstId {}")
+ty = Type("TirId {}")
+val = Type("TirId {}")
+token = Type("SourceIndex {}")
+strtab = Type("int32_t {}")
+scope = Type("int32_t {}", c_print="%d")
+i32 = Type("int32_t {}", c_print="%d")
+i64 = Type("int64_t {}", count=2, c_print="%ld")
+f64 = Type("double {}", count=2, c_print="%f")
+boolean = Type("int32_t {}", c_print="%d")
 
 
 def list_of(T):
     return Type(
         "struct {{ int32_t len; " + T.c_type.format("*ptr") + "; }} {}",
-        None
+        is_list=True,
     )
 
 
@@ -914,13 +915,29 @@ def gen_source(path, variants, config):
 
         needs_extra = False
         min_count = 0
+        expanded = []
+        lists = []
 
         for field in v["fields"]:
-            if field["ty"].count is None:
+            if field["ty"].is_list:
                 needs_extra = True
-                min_count += 1
+                expanded.append({
+                    "name": field["name"] + ".len",
+                    "ty": i32,
+                    "step": 0,
+                })
+                lists.append({
+                    "name": field["name"],
+                    "ty": field["ty"],
+                })
             else:
-                min_count += field["ty"].count
+                for step in range(field["ty"].count):
+                    expanded.append({
+                        "name": field["name"],
+                        "ty": field["ty"],
+                        "step": step,
+                    })
+            min_count += field["ty"].count
 
         if min_count > data_size:
             needs_extra = True
@@ -931,39 +948,27 @@ def gen_source(path, variants, config):
             max_data_size -= 1
 
         remaining_fields = []
-        for field in v["fields"]:
-            if field["ty"].count is None:
+        for field in expanded:
+            if index >= max_data_size:
                 remaining_fields.append(field)
                 continue
-            if index + field["ty"].count > max_data_size:
-                remaining_fields.append(field)
-                continue
-            add_line("memcpy(&data.{}, &a.{}, sizeof(a.{}));".format(chr(index + ord('a')), field["name"], field["name"]))
-            index += field["ty"].count
+            add_line("memcpy(&data.{}, (int32_t *) &a.{} + {}, sizeof(int32_t));".format(chr(index + ord('a')), field["name"], field["step"]))
+            index += 1
 
         if needs_extra:
-            n = 0
-            for field in remaining_fields:
-                if field["ty"].count is not None:
-                    n += field["ty"].count
-                else:
-                    n += 1
-            add_line("int32_t n = {};".format(n))
-            for field in remaining_fields:
-                if field["ty"].count is None:
-                    add_line("n += a.{}.len * (sizeof(a.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
+            add_line("int32_t n = {};".format(len(remaining_fields)))
+            for field in lists:
+                add_line("n += a.{}.len * (sizeof(a.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
 
             add_line("data.{} = {}extra.len;".format(chr(max_data_size + ord('a')), config["writer"]))
             add_line("int32_t *extra = vec_grow(&" + config["writer"] + "extra, n);")
 
             for field in remaining_fields:
-                if field["ty"].count is None:
-                    add_line("*extra++ = a.{}.len;".format(field["name"]))
-                    add_line("memcpy(extra, a.{}.ptr, a.{}.len * sizeof(a.{}.ptr[0]));".format(field["name"], field["name"], field["name"]))
-                    add_line("extra += a.{}.len * (sizeof(a.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
-                else:
-                    add_line("memcpy(extra, &a.{}, sizeof(a.{}));".format(field["name"], field["name"]))
-                    add_line("extra += sizeof(a.{}) / sizeof(int32_t);".format(field["name"]))
+                add_line("memcpy(extra++, (int32_t *) &a.{} + {}, sizeof(int32_t));".format(field["name"], field["step"]))
+
+            for field in lists:
+                add_line("memcpy(extra, a.{}.ptr, a.{}.len * sizeof(a.{}.ptr[0]));".format(field["name"], field["name"], field["name"]))
+                add_line("extra += a.{}.len * (sizeof(a.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
 
         if "names" in v:
             add_line("return new_" + module + "(c, tag, data);")
@@ -995,13 +1000,29 @@ def gen_source(path, variants, config):
 
         needs_extra = False
         min_count = 0
+        expanded = []
+        lists = []
 
         for field in v["fields"]:
-            if field["ty"].count is None:
+            if field["ty"].is_list:
                 needs_extra = True
-                min_count += 1
+                expanded.append({
+                    "name": field["name"] + ".len",
+                    "ty": i32,
+                    "step": 0,
+                })
+                lists.append({
+                    "name": field["name"],
+                    "ty": field["ty"],
+                })
             else:
-                min_count += field["ty"].count
+                for step in range(field["ty"].count):
+                    expanded.append({
+                        "name": field["name"],
+                        "ty": field["ty"],
+                        "step": step,
+                    })
+            min_count += field["ty"].count
 
         if min_count > data_size:
             needs_extra = True
@@ -1012,27 +1033,22 @@ def gen_source(path, variants, config):
             max_data_size -= 1
 
         remaining_fields = []
-        for field in v["fields"]:
-            if field["ty"].count is None:
+        for field in expanded:
+            if index >= max_data_size:
                 remaining_fields.append(field)
                 continue
-            if index + field["ty"].count > max_data_size:
-                remaining_fields.append(field)
-                continue
-            add_line("memcpy(&result.{}, &{}{}, sizeof(result.{}));".format(field["name"], config["main_access"], chr(index + ord('a')), field["name"]))
-            index += field["ty"].count
+            add_line("memcpy((int32_t *) &result.{} + {}, &{}{}, sizeof(int32_t));".format(field["name"], field["step"], config["main_access"], chr(index + ord('a'))))
+            index += 1
 
         if needs_extra:
             add_line("int32_t *extra = {}extra.ptr + {}{};".format(config["extra_access"], config["main_access"], chr(max_data_size + ord('a'))))
 
             for field in remaining_fields:
-                if field["ty"].count is None:
-                    add_line("result.{}.len = *extra++;".format(field["name"]))
-                    add_line("result.{}.ptr = (void *) extra;".format(field["name"]))
-                    add_line("extra += result.{}.len * (sizeof(result.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
-                else:
-                    add_line("memcpy(&result.{}, extra, sizeof(result.{}));".format(field["name"], field["name"]))
-                    add_line("extra += sizeof(result.{}) / sizeof(int32_t);".format(field["name"]))
+                add_line("memcpy((int32_t *) &result.{} + {}, extra++, sizeof(int32_t));".format(field["name"], field["step"]))
+
+            for field in lists:
+                add_line("result.{}.ptr = (void *) extra;".format(field["name"]))
+                add_line("extra += result.{}.len * (sizeof(result.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
 
         add_line("return result;")
         add_line("}")
@@ -1052,17 +1068,23 @@ def gen_ast_print():
         type_name = "Ast" + to_pascal(v["name"])
         for subname in (v.get("names") or [name]):
             add_line("case AST_" + subname.upper() + ": {")
+            lexer_idx = 0
 
-            if len(v["fields"]) > 0:
+            if name == "root":
+                add_line("printf(\"Root\");")
+            elif len(v["fields"]) > 0:
                 add_line(type_name + " t = ast_get_" + name + "(p->ast, a);")
-                add_line("print_indent(p->depth++);")
+                add_line("p->depth++;")
                 add_line("printf(\"" + to_pascal(subname) + "(\\n\");")
 
                 for field in v["fields"]:
                     if field["ty"] == token:
                         add_line("print_indent(p->depth);")
                         add_line("printf(\"" + field["name"] + ": \");")
-                        add_line("String s = id_token_to_string(p->source, t." + field["name"] + ");")
+                        add_line("Lexer lexer{} = new_lexer(substring(p->source, t.".format(lexer_idx) + field["name"] + ".index, p->source.len));")
+                        add_line("Token token = next_token(&lexer{});".format(lexer_idx))
+                        add_line("String s = substring(lexer{}.source, token.start.index, token.end.index);".format(lexer_idx))
+                        lexer_idx += 1
                         add_line("fwrite(s.ptr, 1, s.len, stdout);")
                         add_line("printf(\",\\n\");")
                     elif field["ty"] == node:
@@ -1070,12 +1092,21 @@ def gen_ast_print():
                         add_line("printf(\"" + field["name"] + ": \");")
                         add_line("print_ast_node(p, t." + field["name"] + ");")
                         add_line("printf(\",\\n\");")
+                    elif field["ty"].is_list:
+                        add_line("print_indent(p->depth++);")
+                        add_line("printf(\"" + field["name"] + ": [\\n\");")
+                        add_line("for (int32_t i = 0; i < t." + field["name"] + ".len; i++) {")
+                        add_line("print_indent(p->depth);")
+                        add_line("print_ast_node(p, t." + field["name"] + ".ptr[i]);")
+                        add_line("printf(\",\\n\");")
+                        add_line("}")
+                        add_line("print_indent(--p->depth);")
+                        add_line("printf(\"],\\n\");")
 
                 add_line("print_indent(--p->depth);")
-                add_line("printf(\")\\n\");")
+                add_line("printf(\")\");")
             else:
-                add_line("print_indent(p->depth);")
-                add_line("printf(\"" + to_pascal(subname) + "\\n\");")
+                add_line("printf(\"" + to_pascal(subname) + "\");")
             add_line("break;")
             add_line("}")
     add_line("}")
@@ -1097,7 +1128,7 @@ def gen_tir_print():
 
             if len(v["fields"]) > 0:
                 add_line(type_name + " t = tir_get_" + name + "(p->tir, a);")
-                add_line("print_indent(p->depth++);")
+                add_line("p->depth++;")
                 add_line("printf(\"" + to_pascal(subname) + "(\\n\");")
 
                 for field in v["fields"]:
@@ -1117,20 +1148,20 @@ def gen_tir_print():
                     elif field["ty"].c_print is not None:
                         add_line("print_indent(p->depth);")
                         add_line("printf(\"" + field["name"] + ": " + field["ty"].c_print + ",\\n\", t." + field["name"] + ");")
-                    elif field["ty"].count is None:
-                        add_line("print_indent(p->depth);")
-                        add_line("printf(\"" + field["name"] + ": [\");")
-                        add_line("p->depth++;")
+                    elif field["ty"].is_list:
+                        add_line("print_indent(p->depth++);")
+                        add_line("printf(\"" + field["name"] + ": [\\n\");")
                         add_line("for (int32_t i = 0; i < t." + field["name"] + ".len; i++) {")
+                        add_line("print_indent(p->depth);")
                         add_line("print_tir_node(p, t." + field["name"] + ".ptr[i]);")
+                        add_line("printf(\",\\n\");")
                         add_line("}")
-                        add_line("p->depth--;")
+                        add_line("print_indent(--p->depth);")
                         add_line("printf(\"],\\n\");")
 
                 add_line("print_indent(--p->depth);")
-                add_line("printf(\")\\n\");")
+                add_line("printf(\")\");")
             else:
-                add_line("print_indent(p->depth);")
                 add_line("printf(\"" + to_pascal(subname) + "\\n\");")
             add_line("break;")
             add_line("}")
