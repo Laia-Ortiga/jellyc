@@ -11,7 +11,7 @@ class Type:
 node = Type("AstId {}", 1)
 ty = Type("TirId {}", 1)
 val = Type("TirId {}", 1)
-strtab = Type("int32_t {}", 1, c_print="%d")
+strtab = Type("int32_t {}", 1)
 scope = Type("int32_t {}", 1, c_print="%d")
 i32 = Type("int32_t {}", 1, c_print="%d")
 i64 = Type("int64_t {}", 2, c_print="%ld")

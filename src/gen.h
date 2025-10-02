@@ -1,7 +1,6 @@
 #pragma once
 
 #include "tir2mir.h"
-#include "type-analysis.h"
 
 typedef struct {
     Tir global_deps;

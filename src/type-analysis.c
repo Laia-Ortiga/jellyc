@@ -656,7 +656,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
     }
 
     TirId ret_type = analyze_return_type(c, f.ret);
-    TirId type = new_function_type(c->tir, &(TirFunctionType) {
+    TirId type = new_function_type(c->tir, (TirFunctionType) {
         .params = {f.param_count, param_types},
         .ret = ret_type,
     });
@@ -776,7 +776,7 @@ static TirId analyze_block_expr(Context *c, AstId node, TirId hint) {
 
 static void analyze_function(Context *c, AstId node, TirId value) {
     AstFunction f = get_ast_function(node, c->ast);
-    TirGeneric g = get_generic_term(c->tir, value);
+    TirGeneric g = as_generic_term(c->tir, value);
     TirId type = get_value_type(c->tir, g.inner);
     TirFunctionType func_type = tir_get_function_type(c->tir, type);
     push_scope(c);
@@ -926,13 +926,13 @@ static TirId analyze_struct(Context *c, AstId node) {
     }
 
     int32_t name_i = tir_push_cstr(c->tir, name);
-    TirId inner_type = new_struct_type(c->tir, c->options->target, &(TirStructType) {
+    TirId inner_type = new_struct_type(c->tir, c->options->target, (TirStructType) {
         .scope = scope,
         .name = name_i,
         .fields = {s.field_count, field_types},
     });
 
-    inner_type = new_tagged_type(c->tir, &(TirTaggedType) {
+    inner_type = new_tagged_type(c->tir, (TirTaggedType) {
         .name = name_i,
         .inner = inner_type,
         .args = {s.type_param_count, type_param_types},
@@ -979,7 +979,7 @@ static TirId analyze_newtype(Context *c, AstId node) {
 
     SourceIndex token = get_ast_token(node, c->ast);
     String name = id_token_to_string(ctx_source(c), token);
-    TirId type = new_tagged_type(c->tir, &(TirTaggedType) {
+    TirId type = new_tagged_type(c->tir, (TirTaggedType) {
         .name = tir_push_cstr(c->tir, name),
         .inner = inner,
         .args = {n.type_param_count, type_param_types},
@@ -1010,7 +1010,7 @@ static TirId analyze_extern_function(Context *c, AstId node) {
         ret_type = expect_type(c, f.ret);
     }
 
-    TirId type = new_function_type(c->tir, &(TirFunctionType) {
+    TirId type = new_function_type(c->tir, (TirFunctionType) {
         .params = {f.param_count, param_types},
         .ret = ret_type,
     });
@@ -1108,7 +1108,7 @@ static TirId analyze_function_type(Context *c, AstId node) {
     }
 
     TirId ret = analyze_return_type(c, signature.operand);
-    return new_function_type(c->tir, &(TirFunctionType) {
+    return new_function_type(c->tir, (TirFunctionType) {
         .params = {signature.arg_count, params},
         .ret = ret,
     });
@@ -1127,7 +1127,7 @@ static TirId analyze_array_type(Context *c, AstId node) {
         index = error_term;
     }
 
-    return new_array_type(c->tir, &(TirArrayType) {
+    return new_array_type(c->tir, (TirArrayType) {
         .index = index,
         .elem = element,
     });
@@ -1139,7 +1139,7 @@ static TirId analyze_array_type_sugar(Context *c, AstId node) {
     int64_t len = 0;
     TirId index = try_get_int_const(c, length_result, &len) ? new_array_length_type(c->tir, len) : error_term;
     TirId element = expect_type(c, array.right);
-    return new_array_type(c->tir, &(TirArrayType) {
+    return new_array_type(c->tir, (TirArrayType) {
         .index = index,
         .elem = element,
     });
@@ -1313,7 +1313,7 @@ static TirId analyze_string(Context *c, AstId node) {
     buffer[2] = (unsigned char) ((len >> 16) & 0xFF);
     buffer[3] = (unsigned char) ((len >> 24) & 0xFF);
 
-    TirId type = new_array_type(c->tir, &(TirArrayType) {
+    TirId type = new_array_type(c->tir, (TirArrayType) {
         .index = new_array_length_type(c->tir, len),
         .elem = ptype(i8),
     });
@@ -1484,7 +1484,7 @@ static TirId analyze_alignof(Context *c, AstId node) {
     expect_arg_count(c, node, 1);
     if (i >= 1) {
         TirId type_alignment_tag = get_internal_term(c, BUILTIN_ALIGNMENT);
-        type_alignment_tag = get_generic_term(c->tir, type_alignment_tag).inner;
+        type_alignment_tag = as_generic_term(c->tir, type_alignment_tag).inner;
         TirId type = replace_type_parameters(type_alignment_tag, &(ReplaceTypeInfo) {
             .c = c->tir,
             .args = &operand_type,
@@ -1511,7 +1511,7 @@ static TirId analyze_sizeof(Context *c, AstId node) {
     expect_arg_count(c, node, 1);
     if (i >= 1) {
         TirId type_size_tag = get_internal_term(c, BUILTIN_SIZE);
-        type_size_tag = get_generic_term(c->tir, type_size_tag).inner;
+        type_size_tag = as_generic_term(c->tir, type_size_tag).inner;
         TirId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
             .c = c->tir,
             .args = &operand_type,
@@ -2154,7 +2154,7 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
         return error_term;
     }
 
-    TirGeneric g = get_generic_term(c->tir, hint);
+    TirGeneric g = as_generic_term(c->tir, hint);
     TirId inner = remove_tags(c->tir, g.inner);
     switch (get_term_tag(c->tir, inner)) {
         case TIR_STRUCT_TYPE: {
@@ -2293,7 +2293,7 @@ static TirId analyze_function_call(Context *c, AstId node, TirGeneric *term) {
 static TirId analyze_call(Context *c, AstId node) {
     AstCall call = get_ast_call(node, c->ast);
     TirId operand_value = analyze_term(c, call.operand, error_term);
-    TirGeneric g = get_generic_term(c->tir, operand_value);
+    TirGeneric g = as_generic_term(c->tir, operand_value);
 
     if (get_term_category(c->tir, g.inner) == TIRCAT_TYPE) {
         return analyze_constructor(c, node, &g);
@@ -2323,7 +2323,7 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
     if (!term.id) {
         return error_term;
     }
-    TirGeneric g = get_generic_term(c->tir, term);
+    TirGeneric g = as_generic_term(c->tir, term);
     if (g.params.len != call.arg_count) {
         node_diagnostic(c, call.operand, Diagnostic(ErrorArgumentCount, {
             .ctx = c->tir,
@@ -2479,7 +2479,7 @@ static TirId analyze_list(Context *c, AstId node, TirId hint) {
         return error_term;
     }
 
-    TirId type = new_array_type(c->tir, &(TirArrayType) {
+    TirId type = new_array_type(c->tir, (TirArrayType) {
         .index = new_array_length_type(c->tir, list.count),
         .elem = elem_type,
     });

@@ -710,7 +710,7 @@ static void gen_slice_index(GenContext *c) {
 static void gen_access(GenContext *c) {
     Operand s = pop_operand(c);
     int32_t field = pop_data(c);
-    TirId field_type = get_any_struct_type_field(c->tir, s.type, field);
+    TirId field_type = get_struct_type_field(c->tir, s.type, field);
     int32_t tmp = new_tmp(c, true, field_type).index;
     fprintf(c->stream, "  %%%d = getelementptr inbounds ", tmp);
     gen_type(c, s.type);

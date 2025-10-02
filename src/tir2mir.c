@@ -175,7 +175,7 @@ static void transform_slice(Context *c, TirId tir_id) {
     }
     vec_push(&c->mir.insts, tag);
     vec_push(&c->mir.insts, MIR_ADDRESS);
-    vec_push(&c->mir.data, get_any_struct_type_field(c->tir, t.type, 1).id);
+    vec_push(&c->mir.data, get_struct_type_field(c->tir, t.type, 1).id);
     vec_push(&c->mir.insts, MIR_ASSIGN);
 
     vec_push(&c->mir.insts, MIR_STACK_POP);

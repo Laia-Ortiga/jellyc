@@ -190,7 +190,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
         }
         case TIR_ARRAY_TYPE: {
             TirArrayType array = tir_get_array_type(info->c, generic);
-            return new_array_type(info->c, &(TirArrayType) {
+            return new_array_type(info->c, (TirArrayType) {
                 .index = replace_type_parameters(array.index, info),
                 .elem = replace_type_parameters(array.elem, info),
             });
@@ -221,7 +221,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             for (int32_t i = 0; i < f.params.len; i++) {
                 params[i] = replace_type_parameters(get_function_type_param(info->c, generic, i), info);
             }
-            return new_function_type(info->c, &(TirFunctionType) {
+            return new_function_type(info->c, (TirFunctionType) {
                 .params = {f.params.len, params},
                 .ret = replace_type_parameters(f.ret, info),
             });
@@ -233,7 +233,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
                 tags[i] = replace_type_parameters(get_tagged_type_arg(info->c, generic, i), info);
             }
             TirId inner = replace_type_parameters(t.inner, info);
-            return new_tagged_type(info->c, &(TirTaggedType) {
+            return new_tagged_type(info->c, (TirTaggedType) {
                 .name = t.name,
                 .inner = inner,
                 .args = {t.args.len, tags},
@@ -245,7 +245,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             for (int32_t i = 0; i < t.fields.len; i++) {
                 fields[i] = replace_type_parameters(get_struct_type_field(info->c, generic, i), info);
             }
-            return new_struct_type(info->c, info->target, &(TirStructType) {
+            return new_struct_type(info->c, info->target, (TirStructType) {
                 .name = t.name,
                 .scope = t.scope,
                 .fields = {t.fields.len, fields},

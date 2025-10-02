@@ -296,7 +296,7 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             break;
         })
         CASE(ErrorTaggedTypeWrongCount, d, {
-            int32_t param_count = get_generic_term(d.ctx, d.type).params.len;
+            int32_t param_count = as_generic_term(d.ctx, d.type).params.len;
             fprintf(
                 stderr,
                 "expected %"PRIi32" %s, but provided %"PRIi32,

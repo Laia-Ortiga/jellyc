@@ -88,16 +88,16 @@ typedef struct {
 
 TirId new_tir(TirContext c, TirTag tag, TermData data);
 
-TirId new_array_type(TirContext c, TirArrayType *t);
+TirId new_array_type(TirContext c, TirArrayType t);
 TirId new_array_length_type(TirContext c, int64_t length);
 TirId new_ptr_type(TirContext c, TirId elem);
 TirId new_mut_ptr_type(TirContext c, TirId elem);
 TirId new_slice_type(TirContext c, TirId elem);
 TirId new_mut_slice_type(TirContext c, TirId elem);
-TirId new_function_type(TirContext c, TirFunctionType *t);
-TirId new_struct_type(TirContext c, Target target, TirStructType *t);
+TirId new_function_type(TirContext c, TirFunctionType t);
+TirId new_struct_type(TirContext c, Target target, TirStructType t);
 TirId new_affine_type(TirContext c, TirId elem);
-TirId new_tagged_type(TirContext c, TirTaggedType *t);
+TirId new_tagged_type(TirContext c, TirTaggedType t);
 
 // Other
 
@@ -112,9 +112,8 @@ bool is_value_mutable(TirContext c, TirId value);
 
 TirId get_function_type_param(TirContext c, TirId type, int32_t index);
 TirId get_struct_type_field(TirContext c, TirId type, int32_t index);
-TirId get_any_struct_type_field(TirContext c, TirId type, int32_t index);
 TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index);
-TirGeneric get_generic_term(TirContext c, TirId term);
+TirGeneric as_generic_term(TirContext c, TirId term);
 
 char const *tir_get_str(TirContext c, int32_t s);
 int32_t tir_push_str(TirContext c, String s);

@@ -791,7 +791,7 @@ static void gen_slice_index(GenContext *c) {
 static void gen_access(GenContext *c) {
     Operand s = pop_operand(c);
     int32_t field = pop_data(c);
-    TirId field_type = get_any_struct_type_field(c->tir, s.type, field);
+    TirId field_type = get_struct_type_field(c->tir, s.type, field);
     introduce_temporary(c, true, field_type);
     fprintf(c->stream, "&((");
     gen_ptr_type_before(c, s.type);
