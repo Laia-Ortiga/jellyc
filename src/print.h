@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 void print_ast(char const *path, String source, Ast *ast);
+void print_node(String source, Ast *ast, AstId node);
 void print_tir(
     TirContext c,
     char const *name,

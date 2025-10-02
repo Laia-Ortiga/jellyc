@@ -49,6 +49,14 @@ void print_ast(char const *path, String source, Ast *ast) {
     printf(")\n");
 }
 
+void print_node(String source, Ast *ast, AstId node) {
+    AstPrinter printer = {0};
+    printer.source = source;
+    printer.ast = ast;
+    print_ast_node(&printer, node);
+    printf("\n");
+}
+
 
 
 typedef struct {
@@ -81,6 +89,7 @@ void print_tir_term(TirContext c, TirId term) {
     TirPrinter printer = {0};
     printer.tir = c;
     print_tir_node(&printer, term);
+    printf("\n");
 }
 
 void print_type(FILE *file, TirContext c, TirId type) {
