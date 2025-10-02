@@ -525,6 +525,9 @@ double parse_float(String s, Arena scratch) {
         if (s.ptr[i] == '_') {
             continue;
         }
+        if (!((s.ptr[i] >= '0' && s.ptr[i] <= '9') || s.ptr[i] == '+' || s.ptr[i] == '-' || s.ptr[i] == 'e')) {
+            break;
+        }
         raw_string[length++] = s.ptr[i];
     }
     return parse_long_mantissa((String) {length, raw_string});

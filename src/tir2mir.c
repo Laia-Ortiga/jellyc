@@ -315,7 +315,7 @@ static void transform_switch(Context *c, TirId tir_id) {
 
     int32_t copy_inst = -1;
     bool condition_is_true = get_value_type(c->tir, t.condition).id == TYPE_bool
-        && get_term_tag(c->tir, t.condition) == TIR_INT
+        && get_tir_tag(c->tir, t.condition) == TIR_INT
         && tir_get_int(c->tir, t.condition).value;
 
     if (!condition_is_true) {
@@ -463,7 +463,7 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
 }
 
 static void transform_node(Context *c, TirId tir_id) {
-    switch (get_term_tag(c->tir, tir_id)) {
+    switch (get_tir_tag(c->tir, tir_id)) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
         case TIR_EXTERN_VAR:

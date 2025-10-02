@@ -109,7 +109,7 @@ typedef struct {
 } GlobalScopeBuilder;
 
 static SourceLoc get_ast_location(GlobalScopeBuilder *b, AstRef def) {
-    SourceIndex token = get_ast_token(def.node, &nth(b->asts, def.file));
+    SourceIndex token = get_ast_token(&nth(b->asts, def.file), def.node);
     String name = id_token_to_string(nth(b->sources, def.file), token);
     return (SourceLoc) {
         .path = nth(b->paths, def.file),
@@ -153,13 +153,13 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     Ast *ast = &nth(b->asts, def.file);
     HashTable *scope = &nth(b->modules, module).scope;
     int32_t is_public = 0;
-    if (get_ast_tag(def.node, ast) == AST_PUBLIC) {
+    if (get_ast_tag(ast, def.node) == AST_PUBLIC) {
         is_public = -1;
-        def.node = get_ast_unary(def.node, ast);
+        def.node = ast_get_public(ast, def.node).def;
     }
 
     bool is_extern = false;
-    switch (get_ast_tag(def.node, ast)) {
+    switch (get_ast_tag(ast, def.node)) {
         case AST_IMPORT: {
             scope = &nth(b->files, def.file).scope;
             break;
@@ -175,7 +175,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
             break;
         }
         case AST_EXTERN_FUNCTION:
-        case AST_EXTERN_MUT: {
+        case AST_EXTERN_VAR: {
             is_extern = true;
             break;
         }
@@ -393,7 +393,7 @@ int main(int argc, char **argv) {
     HashTable module_table = htable_init();
     for (int32_t i = 0; i < file_count; i++) {
         FileId file = {i};
-        SourceIndex module_token = get_ast_token(null_ast, &nth(asts, file));
+        SourceIndex module_token = get_ast_token(&nth(asts, file), null_ast);
         String module_name = id_token_to_string(nth(sources, file), module_token);
         int32_t new_module = module_table.count;
         int64_t module = htable_try_insert(&module_table, module_name, new_module);
@@ -439,9 +439,9 @@ int main(int argc, char **argv) {
         b.function_body_count = &function_body_count;
         for (int32_t i = 0; i < file_count; i++) {
             FileId file = {i};
-            AstList list = get_ast_list(null_ast, &nth(asts, file));
-            for (int32_t j = 0; j < list.count; j++) {
-                add_global(&b, (AstRef) {list.nodes[j], file});
+            AstRoot root = ast_get_root(&nth(asts, file), null_ast);
+            for (int32_t j = 0; j < root.defs.len; j++) {
+                add_global(&b, (AstRef) {root.defs.ptr[j], file});
             }
         }
         htable_free(&extern_symbols);

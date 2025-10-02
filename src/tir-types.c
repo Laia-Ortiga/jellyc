@@ -1,7 +1,9 @@
 #include "tir.h"
 
+#include <stdlib.h>
+
 TirId tir_push_generic(TirContext c, TirGeneric a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.inner, sizeof(a.inner));
     int32_t n = 1;
@@ -15,7 +17,7 @@ TirId tir_push_generic(TirContext c, TirGeneric a) {
 }
 
 TirId tir_push_block(TirContext c, TirBlock a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     int32_t n = 1;
     n += a.stmts.len * (sizeof(a.stmts.ptr[0]) / sizeof(int32_t));
@@ -28,14 +30,14 @@ TirId tir_push_block(TirContext c, TirBlock a) {
 }
 
 TirId tir_push_array_type(TirContext c, TirArrayType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.elem, sizeof(a.elem));
     memcpy(&data.b, &a.index, sizeof(a.index));
     return new_tir(c, TIR_ARRAY_TYPE, data);
 }
 
 TirId tir_push_array_length_type(TirContext c, TirArrayLengthType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.length, sizeof(a.length));
     return new_tir(c, TIR_ARRAY_LENGTH_TYPE, data);
 }
@@ -48,7 +50,7 @@ TirId tir_push_ptr_type(TirContext c, TirTag tag, TirPtrType a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.elem, sizeof(a.elem));
     return new_tir(c, tag, data);
 }
@@ -61,14 +63,14 @@ TirId tir_push_slice_type(TirContext c, TirTag tag, TirSliceType a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.elem, sizeof(a.elem));
     memcpy(&data.b, &a.cached_ptr, sizeof(a.cached_ptr));
     return new_tir(c, tag, data);
 }
 
 TirId tir_push_function_type(TirContext c, TirFunctionType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.ret, sizeof(a.ret));
     int32_t n = 1;
     n += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
@@ -81,7 +83,7 @@ TirId tir_push_function_type(TirContext c, TirFunctionType a) {
 }
 
 TirId tir_push_tagged_type(TirContext c, TirTaggedType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.name, sizeof(a.name));
     memcpy(&data.b, &a.inner, sizeof(a.inner));
     int32_t n = 1;
@@ -95,7 +97,7 @@ TirId tir_push_tagged_type(TirContext c, TirTaggedType a) {
 }
 
 TirId tir_push_struct_type(TirContext c, TirStructType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.scope, sizeof(a.scope));
     memcpy(&data.b, &a.name, sizeof(a.name));
     memcpy(&data.c, &a.alignment, sizeof(a.alignment));
@@ -114,7 +116,7 @@ TirId tir_push_struct_type(TirContext c, TirStructType a) {
 }
 
 TirId tir_push_enum_type(TirContext c, TirEnumType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.scope, sizeof(a.scope));
     memcpy(&data.b, &a.name, sizeof(a.name));
     memcpy(&data.c, &a.repr, sizeof(a.repr));
@@ -122,20 +124,20 @@ TirId tir_push_enum_type(TirContext c, TirEnumType a) {
 }
 
 TirId tir_push_affine_type(TirContext c, TirAffineType a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.elem, sizeof(a.elem));
     return new_tir(c, TIR_AFFINE_TYPE, data);
 }
 
 TirId tir_push_type_parameter(TirContext c, TirTypeParameter a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.index, sizeof(a.index));
     memcpy(&data.b, &a.name, sizeof(a.name));
     return new_tir(c, TIR_TYPE_PARAMETER, data);
 }
 
 TirId tir_push_function(TirContext c, TirFunction a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.name, sizeof(a.name));
@@ -143,7 +145,7 @@ TirId tir_push_function(TirContext c, TirFunction a) {
 }
 
 TirId tir_push_extern_function(TirContext c, TirExternFunction a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.name, sizeof(a.name));
@@ -151,7 +153,7 @@ TirId tir_push_extern_function(TirContext c, TirExternFunction a) {
 }
 
 TirId tir_push_extern_var(TirContext c, TirExternVar a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.name, sizeof(a.name));
@@ -159,7 +161,7 @@ TirId tir_push_extern_var(TirContext c, TirExternVar a) {
 }
 
 TirId tir_push_int(TirContext c, TirInt a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.value, sizeof(a.value));
@@ -167,7 +169,7 @@ TirId tir_push_int(TirContext c, TirInt a) {
 }
 
 TirId tir_push_float(TirContext c, TirFloat a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.value, sizeof(a.value));
@@ -175,14 +177,14 @@ TirId tir_push_float(TirContext c, TirFloat a) {
 }
 
 TirId tir_push_null(TirContext c, TirNull a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     return new_tir(c, TIR_NULL, data);
 }
 
 TirId tir_push_string(TirContext c, TirString a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.value, sizeof(a.value));
@@ -198,7 +200,7 @@ TirId tir_push_variable(TirContext c, TirTag tag, TirVariable a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.index, sizeof(a.index));
@@ -206,7 +208,7 @@ TirId tir_push_variable(TirContext c, TirTag tag, TirVariable a) {
 }
 
 TirId tir_push_let(TirContext c, TirLet a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.var, sizeof(a.var));
@@ -226,7 +228,7 @@ TirId tir_push_unary(TirContext c, TirTag tag, TirUnary a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.a, sizeof(a.a));
@@ -264,7 +266,7 @@ TirId tir_push_binary(TirContext c, TirTag tag, TirBinary a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.a, sizeof(a.a));
@@ -288,7 +290,7 @@ TirId tir_push_cast(TirContext c, TirTag tag, TirCast a) {
         default:
             abort();
     }
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.a, sizeof(a.a));
@@ -296,7 +298,7 @@ TirId tir_push_cast(TirContext c, TirTag tag, TirCast a) {
 }
 
 TirId tir_push_call(TirContext c, TirCall a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.f, sizeof(a.f));
@@ -311,7 +313,7 @@ TirId tir_push_call(TirContext c, TirCall a) {
 }
 
 TirId tir_push_index(TirContext c, TirIndex a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.a, sizeof(a.a));
@@ -320,7 +322,7 @@ TirId tir_push_index(TirContext c, TirIndex a) {
 }
 
 TirId tir_push_slice(TirContext c, TirSlice a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.a, sizeof(a.a));
@@ -335,7 +337,7 @@ TirId tir_push_slice(TirContext c, TirSlice a) {
 }
 
 TirId tir_push_access(TirContext c, TirAccess a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.s, sizeof(a.s));
@@ -344,7 +346,7 @@ TirId tir_push_access(TirContext c, TirAccess a) {
 }
 
 TirId tir_push_new_struct(TirContext c, TirNewStruct a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     int32_t n = 1;
@@ -358,7 +360,7 @@ TirId tir_push_new_struct(TirContext c, TirNewStruct a) {
 }
 
 TirId tir_push_new_array(TirContext c, TirNewArray a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     int32_t n = 1;
@@ -372,7 +374,7 @@ TirId tir_push_new_array(TirContext c, TirNewArray a) {
 }
 
 TirId tir_push_if(TirContext c, TirIf a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.condition, sizeof(a.condition));
@@ -391,7 +393,7 @@ TirId tir_push_if(TirContext c, TirIf a) {
 }
 
 TirId tir_push_switch(TirContext c, TirSwitch a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.condition, sizeof(a.condition));
@@ -406,7 +408,7 @@ TirId tir_push_switch(TirContext c, TirSwitch a) {
 }
 
 TirId tir_push_loop(TirContext c, TirLoop a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.init, sizeof(a.init));
@@ -425,21 +427,21 @@ TirId tir_push_loop(TirContext c, TirLoop a) {
 }
 
 TirId tir_push_break(TirContext c, TirBreak a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     return new_tir(c, TIR_BREAK, data);
 }
 
 TirId tir_push_continue(TirContext c, TirContinue a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     return new_tir(c, TIR_CONTINUE, data);
 }
 
 TirId tir_push_return(TirContext c, TirReturn a) {
-    TermData data;
+    TirData data;
     memcpy(&data.a, &a.node, sizeof(a.node));
     memcpy(&data.b, &a.type, sizeof(a.type));
     memcpy(&data.c, &a.value, sizeof(a.value));
@@ -447,7 +449,7 @@ TirId tir_push_return(TirContext c, TirReturn a) {
 }
 
 TirGeneric tir_get_generic(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_GENERIC:
             break;
         default:
@@ -464,7 +466,7 @@ TirGeneric tir_get_generic(TirContext c, TirId a) {
 }
 
 TirBlock tir_get_block(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_BLOCK:
             break;
         default:
@@ -480,7 +482,7 @@ TirBlock tir_get_block(TirContext c, TirId a) {
 }
 
 TirArrayType tir_get_array_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ARRAY_TYPE:
             break;
         default:
@@ -493,7 +495,7 @@ TirArrayType tir_get_array_type(TirContext c, TirId a) {
 }
 
 TirArrayLengthType tir_get_array_length_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ARRAY_LENGTH_TYPE:
             break;
         default:
@@ -505,7 +507,7 @@ TirArrayLengthType tir_get_array_length_type(TirContext c, TirId a) {
 }
 
 TirPtrType tir_get_ptr_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
             break;
@@ -518,7 +520,7 @@ TirPtrType tir_get_ptr_type(TirContext c, TirId a) {
 }
 
 TirSliceType tir_get_slice_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
             break;
@@ -532,7 +534,7 @@ TirSliceType tir_get_slice_type(TirContext c, TirId a) {
 }
 
 TirFunctionType tir_get_function_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_FUNCTION_TYPE:
             break;
         default:
@@ -548,7 +550,7 @@ TirFunctionType tir_get_function_type(TirContext c, TirId a) {
 }
 
 TirTaggedType tir_get_tagged_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_TAGGED_TYPE:
             break;
         default:
@@ -565,7 +567,7 @@ TirTaggedType tir_get_tagged_type(TirContext c, TirId a) {
 }
 
 TirStructType tir_get_struct_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_STRUCT_TYPE:
             break;
         default:
@@ -587,7 +589,7 @@ TirStructType tir_get_struct_type(TirContext c, TirId a) {
 }
 
 TirEnumType tir_get_enum_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ENUM_TYPE:
             break;
         default:
@@ -601,7 +603,7 @@ TirEnumType tir_get_enum_type(TirContext c, TirId a) {
 }
 
 TirAffineType tir_get_affine_type(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_AFFINE_TYPE:
             break;
         default:
@@ -613,7 +615,7 @@ TirAffineType tir_get_affine_type(TirContext c, TirId a) {
 }
 
 TirTypeParameter tir_get_type_parameter(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_TYPE_PARAMETER:
             break;
         default:
@@ -626,7 +628,7 @@ TirTypeParameter tir_get_type_parameter(TirContext c, TirId a) {
 }
 
 TirFunction tir_get_function(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_FUNCTION:
             break;
         default:
@@ -640,7 +642,7 @@ TirFunction tir_get_function(TirContext c, TirId a) {
 }
 
 TirExternFunction tir_get_extern_function(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_EXTERN_FUNCTION:
             break;
         default:
@@ -654,7 +656,7 @@ TirExternFunction tir_get_extern_function(TirContext c, TirId a) {
 }
 
 TirExternVar tir_get_extern_var(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_EXTERN_VAR:
             break;
         default:
@@ -668,7 +670,7 @@ TirExternVar tir_get_extern_var(TirContext c, TirId a) {
 }
 
 TirInt tir_get_int(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_INT:
             break;
         default:
@@ -682,7 +684,7 @@ TirInt tir_get_int(TirContext c, TirId a) {
 }
 
 TirFloat tir_get_float(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_FLOAT:
             break;
         default:
@@ -696,7 +698,7 @@ TirFloat tir_get_float(TirContext c, TirId a) {
 }
 
 TirNull tir_get_null(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_NULL:
             break;
         default:
@@ -709,7 +711,7 @@ TirNull tir_get_null(TirContext c, TirId a) {
 }
 
 TirString tir_get_string(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_STRING:
             break;
         default:
@@ -723,7 +725,7 @@ TirString tir_get_string(TirContext c, TirId a) {
 }
 
 TirVariable tir_get_variable(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_PARAMETER:
         case TIR_VARIABLE:
         case TIR_MUTABLE_VARIABLE:
@@ -739,7 +741,7 @@ TirVariable tir_get_variable(TirContext c, TirId a) {
 }
 
 TirLet tir_get_let(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_LET:
             break;
         default:
@@ -754,7 +756,7 @@ TirLet tir_get_let(TirContext c, TirId a) {
 }
 
 TirUnary tir_get_unary(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_PLUS:
         case TIR_MINUS:
         case TIR_NOT:
@@ -773,7 +775,7 @@ TirUnary tir_get_unary(TirContext c, TirId a) {
 }
 
 TirBinary tir_get_binary(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ADD:
         case TIR_SUB:
         case TIR_MUL:
@@ -812,7 +814,7 @@ TirBinary tir_get_binary(TirContext c, TirId a) {
 }
 
 TirCast tir_get_cast(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ITOF:
         case TIR_ITRUNC:
         case TIR_SEXT:
@@ -835,7 +837,7 @@ TirCast tir_get_cast(TirContext c, TirId a) {
 }
 
 TirCall tir_get_call(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_CALL:
             break;
         default:
@@ -853,7 +855,7 @@ TirCall tir_get_call(TirContext c, TirId a) {
 }
 
 TirIndex tir_get_index(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_INDEX:
             break;
         default:
@@ -868,7 +870,7 @@ TirIndex tir_get_index(TirContext c, TirId a) {
 }
 
 TirSlice tir_get_slice(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_SLICE:
             break;
         default:
@@ -887,7 +889,7 @@ TirSlice tir_get_slice(TirContext c, TirId a) {
 }
 
 TirAccess tir_get_access(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_ACCESS:
             break;
         default:
@@ -902,7 +904,7 @@ TirAccess tir_get_access(TirContext c, TirId a) {
 }
 
 TirNewStruct tir_get_new_struct(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_NEW_STRUCT:
             break;
         default:
@@ -919,7 +921,7 @@ TirNewStruct tir_get_new_struct(TirContext c, TirId a) {
 }
 
 TirNewArray tir_get_new_array(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_NEW_ARRAY:
             break;
         default:
@@ -936,7 +938,7 @@ TirNewArray tir_get_new_array(TirContext c, TirId a) {
 }
 
 TirIf tir_get_if(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_IF:
             break;
         default:
@@ -957,7 +959,7 @@ TirIf tir_get_if(TirContext c, TirId a) {
 }
 
 TirSwitch tir_get_switch(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_SWITCH:
             break;
         default:
@@ -975,7 +977,7 @@ TirSwitch tir_get_switch(TirContext c, TirId a) {
 }
 
 TirLoop tir_get_loop(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_LOOP:
             break;
         default:
@@ -997,7 +999,7 @@ TirLoop tir_get_loop(TirContext c, TirId a) {
 }
 
 TirBreak tir_get_break(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_BREAK:
             break;
         default:
@@ -1010,7 +1012,7 @@ TirBreak tir_get_break(TirContext c, TirId a) {
 }
 
 TirContinue tir_get_continue(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_CONTINUE:
             break;
         default:
@@ -1023,7 +1025,7 @@ TirContinue tir_get_continue(TirContext c, TirId a) {
 }
 
 TirReturn tir_get_return(TirContext c, TirId a) {
-    switch (get_term_tag(c, a)) {
+    switch (get_tir_tag(c, a)) {
         case TIR_RETURN:
             break;
         default:
@@ -1035,4 +1037,3 @@ TirReturn tir_get_return(TirContext c, TirId a) {
     memcpy(&result.value, &get_term_data(c, a)->c, sizeof(result.value));
     return result;
 }
-

@@ -372,6 +372,7 @@ TirLoop tir_get_loop(TirContext c, TirId a);
 TirBreak tir_get_break(TirContext c, TirId a);
 TirContinue tir_get_continue(TirContext c, TirId a);
 TirReturn tir_get_return(TirContext c, TirId a);
+
 #define tir_push(c, ...) \
     (_Generic((__VA_ARGS__), \
         TirGeneric: tir_push_generic, \

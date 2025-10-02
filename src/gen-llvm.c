@@ -5,8 +5,10 @@
 #include "tir.h"
 #include "type.h"
 #include "fwd.h"
+#include "util.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 typedef enum {
@@ -51,7 +53,7 @@ static void gen_struct_name(GenContext *c, TirId type) {
 }
 
 static void gen_type(GenContext *c, TirId type) {
-    switch (get_term_tag(c->tir, type)) {
+    switch (get_tir_tag(c->tir, type)) {
         case TIR_RESERVED: {
             switch ((ReservedTerm) type.id) {
                 case TYPE_VOID: fprintf(c->stream, "void"); return;
@@ -194,7 +196,7 @@ static void gen_string(GenContext *c, int32_t index, char const *str) {
 }
 
 static void gen_value(GenContext *c, TirId value) {
-    TirTag tag = get_term_tag(c->tir, value);
+    TirTag tag = get_tir_tag(c->tir, value);
     switch (tag) {
         default: {
             abort();
@@ -505,7 +507,7 @@ static void gen_tir_value(GenContext *c) {
         .type = get_value_type(c->tir, a),
         .value = a,
     };
-    switch (get_term_tag(c->tir, a)) {
+    switch (get_tir_tag(c->tir, a)) {
         case TIR_EXTERN_VAR:
         case TIR_VARIABLE:
         case TIR_MUTABLE_VARIABLE:

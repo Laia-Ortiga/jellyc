@@ -43,7 +43,7 @@ static void gen_type_before(GenContext *c, TirId type);
 static void gen_type_after(GenContext *c, TirId type);
 
 static bool ptr_type_needs_parens(GenContext *c, TirId type) {
-    return get_term_tag(c->tir, type) == TIR_ARRAY_TYPE || get_term_tag(c->tir, type) == TIR_FUNCTION_TYPE;
+    return get_tir_tag(c->tir, type) == TIR_ARRAY_TYPE || get_tir_tag(c->tir, type) == TIR_FUNCTION_TYPE;
 }
 
 static void gen_ptr_type_before(GenContext *c, TirId type) {
@@ -123,7 +123,7 @@ static void gen_struct_name(GenContext *c, TirId type) {
 }
 
 static void gen_type_before(GenContext *c, TirId type) {
-    switch (get_term_tag(c->tir, type)) {
+    switch (get_tir_tag(c->tir, type)) {
         case TIR_RESERVED: {
             switch ((ReservedTerm) type.id) {
                 case TYPE_VOID: fprintf(c->stream, "void "); return;
@@ -210,7 +210,7 @@ static void gen_type_before(GenContext *c, TirId type) {
 }
 
 static void gen_type_after(GenContext *c, TirId type) {
-    switch (get_term_tag(c->tir, type)) {
+    switch (get_tir_tag(c->tir, type)) {
         case TIR_RESERVED:
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_TYPE_PARAMETER:
@@ -365,7 +365,7 @@ static void print_string(GenContext *c, char const *str) {
 }
 
 static void gen_value(GenContext *c, TirId value) {
-    switch (get_term_tag(c->tir, value)) {
+    switch (get_tir_tag(c->tir, value)) {
         case TIR_FUNCTION: {
             TirFunction t = tir_get_function(c->tir, value);
             fprintf(c->stream, "%s", tir_get_str(c->tir, t.name));
@@ -561,7 +561,7 @@ static void gen_tir_value(GenContext *c) {
         .type = get_value_type(c->tir, a),
         .value = a,
     };
-    switch (get_term_tag(c->tir, a)) {
+    switch (get_tir_tag(c->tir, a)) {
         case TIR_PARAMETER: {
             operand.is_lvalue = is_type_passed_by_ptr(c, get_value_type(c->tir, a));
             break;
@@ -649,7 +649,7 @@ static void gen_mod(GenContext *c) {
 }
 
 static void copy_c_value(GenContext *c, Operand *dst, Operand *src) {
-    if (get_term_tag(c->tir, src->type) == TIR_ARRAY_TYPE) {
+    if (get_tir_tag(c->tir, src->type) == TIR_ARRAY_TYPE) {
         fprintf(c->stream, "    __builtin_memcpy(");
         if (dst) {
             fprintf(c->stream, "&");

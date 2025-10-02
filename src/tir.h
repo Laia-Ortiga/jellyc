@@ -42,10 +42,10 @@ typedef struct {
     int32_t b;
     int32_t c;
     int32_t d;
-} TermData;
+} TirData;
 
 typedef struct {
-    SumVec(TermData) terms;
+    SumVec(TirData) terms;
     Vec(int32_t) extra;
     TermSet set;
 } TermList;
@@ -86,7 +86,7 @@ typedef struct {
 
 // Constructors
 
-TirId new_tir(TirContext c, TirTag tag, TermData data);
+TirId new_tir(TirContext c, TirTag tag, TirData data);
 
 TirId new_array_type(TirContext c, TirArrayType t);
 TirId new_array_length_type(TirContext c, int64_t length);
@@ -101,8 +101,8 @@ TirId new_tagged_type(TirContext c, TirTaggedType t);
 
 // Other
 
-TirTag get_term_tag(TirContext c, TirId type);
-TermData const *get_term_data(TirContext c, TirId term);
+TirTag get_tir_tag(TirContext c, TirId type);
+TirData const *get_term_data(TirContext c, TirId term);
 int32_t get_term_extra(Tir *c, int32_t index);
 TirCategory get_term_category(TirContext c, TirId term);
 

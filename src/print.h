@@ -3,7 +3,9 @@
 #include "ast.h"
 #include "tir.h"
 
-void print_ast(char const *path, String source, Ast const *ast);
+#include <stdio.h>
+
+void print_ast(char const *path, String source, Ast *ast);
 void print_tir(
     TirContext c,
     char const *name,

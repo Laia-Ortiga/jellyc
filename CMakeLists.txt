@@ -7,6 +7,7 @@ find_package(OpenMP)
 
 set(SOURCE
     src/arena.c
+    src/ast-types.c
     src/diagnostic.c
     src/float.c
     src/gen.c

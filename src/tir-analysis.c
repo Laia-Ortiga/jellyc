@@ -44,7 +44,7 @@ typedef struct {
 } LinearChecker;
 
 static void error(LinearChecker *c, AstId node, Diagnostic d) {
-    SourceIndex token = get_ast_token(node, &nth(c->asts, c->file));
+    SourceIndex token = get_ast_token(&nth(c->asts, c->file), node);
     SourceLoc loc = {0};
     loc.path = nth(c->paths, c->file);
     loc.source = nth(c->sources, c->file);
@@ -266,7 +266,7 @@ static void check_function(
 }
 
 static void check_node(LinearChecker *c, TirId node, ExpectedValue expected_category) {
-    switch (get_term_tag(c->tir, node)) {
+    switch (get_tir_tag(c->tir, node)) {
         default: {
             abort();
         }

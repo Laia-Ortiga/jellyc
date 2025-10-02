@@ -3,6 +3,8 @@
 #include "tir.h"
 #include "type.h"
 
+#include <stdlib.h>
+
 static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatcher *matcher) {
     if (!type.id) {
         return 0;
@@ -25,7 +27,7 @@ static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatc
             return type.id == TYPE_byte;
         }
         case TYPE_MATCH_ARRAY: {
-            if (get_term_tag(c, type) == TIR_ARRAY_TYPE) {
+            if (get_tir_tag(c, type) == TIR_ARRAY_TYPE) {
                 TirArrayType array_type = tir_get_array_type(c, type);
                 return match_types_single(c, results, array_type.index, &matcher->inner[0])
                     && match_types_single(c, results, array_type.elem, &matcher->inner[1]);
@@ -41,35 +43,35 @@ static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatc
             return match_types_single(c, results, inner, matcher->inner);
         }
         case TYPE_MATCH_POINTER: {
-            if (get_term_tag(c, type) == TIR_PTR_TYPE) {
+            if (get_tir_tag(c, type) == TIR_PTR_TYPE) {
                 TirId inner = remove_pointer(c, type);
                 return match_types_single(c, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_SLICE: {
-            if (get_term_tag(c, type) == TIR_SLICE_TYPE) {
+            if (get_tir_tag(c, type) == TIR_SLICE_TYPE) {
                 TirId inner = remove_slice(c, type);
                 return match_types_single(c, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_MUT_POINTER: {
-            if (get_term_tag(c, type) == TIR_MUT_PTR_TYPE) {
+            if (get_tir_tag(c, type) == TIR_MUT_PTR_TYPE) {
                 TirId inner = remove_pointer(c, type);
                 return match_types_single(c, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_MUT_SLICE: {
-            if (get_term_tag(c, type) == TIR_MUT_SLICE_TYPE) {
+            if (get_tir_tag(c, type) == TIR_MUT_SLICE_TYPE) {
                 TirId inner = remove_slice(c, type);
                 return match_types_single(c, results, inner, matcher->inner);
             }
             return 0;
         }
         case TYPE_MATCH_TAGGED: {
-            if (get_term_tag(c, type) == TIR_TAGGED_TYPE) {
+            if (get_tir_tag(c, type) == TIR_TAGGED_TYPE) {
                 TirId inner = remove_tags(c, type);
                 return match_types_single(c, results, inner, matcher->inner);
             }
@@ -93,7 +95,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
         return 1;
     }
 
-    TirTag tag = get_term_tag(c, param);
+    TirTag tag = get_tir_tag(c, param);
     if (tag == TIR_TYPE_PARAMETER) {
         int32_t index = tir_get_type_parameter(c, param).index;
         if (!results[index].id) {
@@ -103,7 +105,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
         }
         return 1;
     }
-    if (tag != get_term_tag(c, arg)) {
+    if (tag != get_tir_tag(c, arg)) {
         return 0;
     }
     switch (tag) {
@@ -178,7 +180,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
 }
 
 TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
-    switch (get_term_tag(info->c, generic)) {
+    switch (get_tir_tag(info->c, generic)) {
         case TIR_RESERVED:
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_ENUM_TYPE: {
