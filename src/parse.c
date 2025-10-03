@@ -682,8 +682,8 @@ static AstId parse_prefix(Parser *parser) {
         }
         case TOK_LT: {
             Token token = consume(parser);
-            AstId type = parse_expr(parser, PREC_NONE);
-            expect(parser, TOK_ANGLER);
+            AstId type = parse_expr(parser, PREC_AS);
+            expect(parser, TOK_GT);
             AstId expr = parse_expr(parser, PREC_AS);
             return ast_push(&parser->ast, (AstTypeHint) {
                 .token = token.start,

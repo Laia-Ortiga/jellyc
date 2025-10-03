@@ -184,7 +184,6 @@ Lexer new_lexer(String source) {
 }
 
 Token next_token(Lexer *lexer) {
-    SourceIndex origin = lexer->cursor;
     bool found_newline = false;
     for (;;) {
         SourceIndex start = lexer->cursor;
@@ -221,7 +220,6 @@ Token next_token(Lexer *lexer) {
                 .comes_after_newline = found_newline,
                 .tag = accept(lexer, '=') ? TOK_GE
                     : accept(lexer, '>') ? TOK_SHR
-                    : origin.index == start.index ? TOK_ANGLER
                     : TOK_GT,
                 .start = start,
                 .end = lexer->cursor
