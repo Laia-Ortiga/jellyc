@@ -79,6 +79,55 @@ TirId remove_tags(TirContext c, TirId type) {
     return tir_get_tagged_type(c, type).inner;
 }
 
+bool is_recursive_error_type(TirContext c, TirId a) {
+    switch (get_tir_tag(c, a)) {
+        case TIR_RESERVED:
+        case TIR_ARRAY_LENGTH_TYPE:
+        case TIR_STRUCT_TYPE:
+        case TIR_ENUM_TYPE:
+        case TIR_TYPE_PARAMETER: {
+            return false;
+        }
+        case TIR_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE: {
+            return is_recursive_error_type(c, tir_get_ptr_type(c, a).elem);
+        }
+        case TIR_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE: {
+            return is_recursive_error_type(c, tir_get_slice_type(c, a).elem);
+        }
+        case TIR_FUNCTION_TYPE: {
+            TirFunctionType t = tir_get_function_type(c, a);
+            for (int32_t i = 0; i < t.params.len; i++) {
+                if (is_recursive_error_type(c, t.params.ptr[i])) {
+                    return true;
+                }
+            }
+            return is_recursive_error_type(c, t.ret);
+        }
+        case TIR_ARRAY_TYPE: {
+            return is_recursive_error_type(c, tir_get_array_type(c, a).index)
+                || is_recursive_error_type(c, tir_get_array_type(c, a).elem);
+        }
+        case TIR_TAGGED_TYPE: {
+            TirTaggedType t = tir_get_tagged_type(c, a);
+            for (int32_t i = 0; i < t.args.len; i++) {
+                if (is_recursive_error_type(c, t.args.ptr[i])) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case TIR_AFFINE_TYPE: {
+            return is_recursive_error_type(c, tir_get_affine_type(c, a).elem);
+        }
+        case TIR_ERROR:
+        default: {
+            return true;
+        }
+    }
+}
+
 bool is_aggregate_type(TirContext c, TirId type) {
     switch (get_tir_tag(c, type)) {
         case TIR_RESERVED: {

@@ -21,9 +21,14 @@ typedef struct {
 } TirInput;
 
 typedef struct {
+    AstRef ast_ref;
+    TirId value;
+} FunctionRef;
+
+typedef struct {
     Tir global_deps;
     LocalTir *insts;
-    GlobalId *functions;
+    FunctionRef *functions;
     int error;
 } TirOutput;
 

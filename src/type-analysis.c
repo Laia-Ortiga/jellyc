@@ -90,7 +90,7 @@ typedef struct {
 
     TirContext tir;
     LocalTir *local_tir;
-    GlobalId *functions;
+    FunctionRef *functions;
     TirId current_function_type;
     int32_t loop_depth;
 } Context;
@@ -132,7 +132,7 @@ static void diagnostic(Context *c, SemaError e) {
         }
         #define X(name, type) \
             if (_Generic(v.name, \
-                TirId: !*(int32_t *) &v.name, \
+                TirId: is_recursive_error_type(c->tir, *(TirId *) &v.name), \
                 default: false \
             )) { \
                 return; \
@@ -271,10 +271,6 @@ static void register_id(Context *c, AstRef ref, TirId term) {
         nth(c->tir_refs, prev_symbol.global) = term;
 
         if (get_ast_tag(&nth(c->asts, ref.file), ref.node) == AST_FUNCTION) {
-            int32_t f_index = c->tir.global->functions.len;
-            c->functions[f_index] = prev_symbol.global;
-            c->function_locals[f_index] = c->locals;
-
             if (equals(name, Str("main")) && !c->tir.thread) {
                 nth(c->globals, prev_symbol.global).used = true;
             }
@@ -696,6 +692,12 @@ static TirId analyze_function_decl(Context *c, AstId node) {
         c->tir.global->main = inner_value;
     }
 
+    int32_t f_index = c->tir.global->functions.len;
+    c->functions[f_index] = (FunctionRef) {
+        .ast_ref = {node, c->file},
+        .value = value,
+    };
+    c->function_locals[f_index] = c->locals;
     vec_push(&tir_writer(c->tir)->functions, inner_value);
     return value;
 }
@@ -2983,7 +2985,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .tir = {
             .global = &global_tir,
         },
-        .functions = arena_alloc(permanent, GlobalId, input->function_body_count),
+        .functions = arena_alloc(permanent, FunctionRef, input->function_body_count),
         .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
     };
     LocalTir *tirs = arena_alloc(permanent, LocalTir, input->function_body_count);
@@ -3034,9 +3036,8 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
 
         #pragma omp for reduction (||:err)
         for (int32_t i = 0; i < input->function_body_count; i++) {
-            GlobalId def = global_tc.functions[i];
-            TirId value = nth(global_tc.tir_refs, def);
-            AstRef ref = nth(input->ast_refs, def).ref;
+            TirId value = global_tc.functions[i].value;
+            AstRef ref = global_tc.functions[i].ast_ref;
 
             local_tc.file = ref.file;
             local_tc.ast = &nth(input->asts, ref.file);

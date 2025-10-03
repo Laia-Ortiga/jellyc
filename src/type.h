@@ -11,6 +11,7 @@ TirId remove_c_pointer_like(TirContext c, TirId a);
 TirId remove_array_like(TirContext c, TirId a);
 TirId remove_tags(TirContext c, TirId a);
 
+bool is_recursive_error_type(TirContext c, TirId a);
 bool is_aggregate_type(TirContext c, TirId a);
 bool type_is_affine(TirContext c, TirId a);
 bool type_is_unknown_size(TirContext c, TirId a);
