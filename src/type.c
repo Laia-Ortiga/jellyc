@@ -228,6 +228,9 @@ bool type_is_affine(TirContext c, TirId type) {
 bool type_is_unknown_size(TirContext c, TirId type) {
     TirTag tag = get_tir_tag(c, type);
     switch (tag) {
+        case TIR_ERROR: {
+            return false;
+        }
         case TIR_RESERVED: {
             switch ((ReservedTerm) type.id) {
                 case TYPE_i8:
