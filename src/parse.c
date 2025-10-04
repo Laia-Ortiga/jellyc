@@ -783,6 +783,10 @@ static AstId parse_index(Parser *parser, SourceIndex token, AstId left) {
     bool is_range = false;
     if (accept(parser, TOK_COLON)) {
         is_range = true;
+        push_list(parser, &args, null_ast);
+        if (parser->lookahead.tag != TOK_SQUARER) {
+            push_list(parser, &args, parse_expr(parser, PREC_NONE));
+        }
     } else {
         do {
             if (parser->lookahead.tag == TOK_SQUARER) {
