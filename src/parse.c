@@ -470,7 +470,7 @@ static AstId parse_block(Parser *parser) {
         switch (parser->lookahead.tag) {
             case TOK_SENTINEL: {
                 expect(parser, TOK_CURLYR);
-                return null_ast;
+                goto end;
             }
             case TOK_KW_let: {
                 push_list(parser, &stmts, parse_let(parser, AST_LET));
@@ -546,6 +546,7 @@ static AstId parse_block(Parser *parser) {
             }
         }
     }
+end:
     return ast_push(&parser->ast, (AstBlock) {
         .token = block_token,
         .stmts = {stmts.len, pop_list(parser, stmts)},
