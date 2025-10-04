@@ -284,20 +284,15 @@ static TirId pop_term(GenContext *c) {
     return (TirId) {pop_data(c)};
 }
 
-static Operand new_tmp2(GenContext *c, bool is_lvalue, TirId type) {
+static Operand new_tmp(GenContext *c, bool is_lvalue, TirId type) {
     Operand operand = {
         .is_lvalue = is_lvalue,
         .tag = OPERAND_TMP,
         .type = type,
         .index = c->tmp_count++,
     };
+    vec_push(&c->stack, operand);
     return operand;
-}
-
-static Operand new_tmp(GenContext *c, bool is_lvalue, TirId type) {
-    Operand o = new_tmp2(c, is_lvalue, type);
-    vec_push(&c->stack, o);
-    return o;
 }
 
 static void gen_operand(GenContext *c, Operand *a) {
@@ -393,20 +388,49 @@ static void gen_alloc_var2(GenContext *c) {
     vec_push(&c->stack, operand);
 }
 
+static void gen_overflow_check(GenContext *c, int32_t condition) {
+    int32_t next_block = c->tmp_count++;
+    fprintf(
+        c->stream,
+        "  br i1 %%%d, label %%L.overflow, label %%%d\n",
+        condition,
+        next_block
+    );
+    c->has_overflow_block = true;
+}
+
 static void gen_neg(GenContext *c) {
     Operand a = pop_operand(c);
     a = load_operand(c, &a);
-    char const *op = "sub";
-    char const *zero = "0";
     if (type_is_float(a.type)) {
-        op = "fsub";
-        zero = "0.0";
+        fprintf(c->stream, "  %%%d = fsub ", new_tmp(c, false, a.type).index);
+        gen_type(c, a.type);
+        fprintf(c->stream, " 0.0, ");
+        gen_operand(c, &a);
+        fprintf(c->stream, "\n");
+        return;
     }
-    fprintf(c->stream, "  %%%d = %s ", new_tmp(c, false, a.type).index, op);
+    int32_t s = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = call {", s);
     gen_type(c, a.type);
-    fprintf(c->stream, " %s, ", zero);
+    fprintf(c->stream, ", i1} @llvm.ssub.with.overflow.i32(");
+    gen_type(c, a.type);
+    fprintf(c->stream, " 0, ");
+    gen_type(c, a.type);
+    fprintf(c->stream, " ");
     gen_operand(c, &a);
-    fprintf(c->stream, "\n");
+    fprintf(c->stream, ")\n");
+
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = extractvalue {", overflowed);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", i1} %%%d, 1\n", s);
+
+    gen_overflow_check(c, overflowed);
+
+    fprintf(c->stream, "  %%%d = extractvalue {", new_tmp(c, false, a.type).index);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", i1} %%%d, 0\n", s);
 }
 
 static void gen_not(GenContext *c) {
@@ -596,29 +620,23 @@ static void gen_narrow(GenContext *c) {
     gen_type(c, type);
     fprintf(c->stream, "\n");
 
-    Operand b = new_tmp2(c, false, a.type);
-    fprintf(c->stream, "  %%%d = sext ", b.index);
+    int32_t b = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = sext ", b);
     gen_type(c, result.type);
     fprintf(c->stream, " ");
     gen_operand(c, &result);
     fprintf(c->stream, " to ");
-    gen_type(c, b.type);
+    gen_type(c, a.type);
     fprintf(c->stream, "\n");
 
-    Operand overflowed = new_tmp2(c, false, ptype(bool));
-    fprintf(c->stream, "  %%%d = icmp ne ", overflowed.index);
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp ne ", overflowed);
     gen_type(c, a.type);
     fprintf(c->stream, " ");
     gen_operand(c, &a);
-    fprintf(c->stream, ", ");
-    gen_operand(c, &b);
-    fprintf(c->stream, "\n");
+    fprintf(c->stream, ", %%%d\n", b);
 
-    fprintf(c->stream, "  br i1 ");
-    gen_operand(c, &overflowed);
-    int32_t next_block = c->tmp_count++;
-    fprintf(c->stream, ", label %%L.overflow, label %%%d\n", next_block);
-    c->has_overflow_block = true;
+    gen_overflow_check(c, overflowed);
 }
 
 static void gen_nop(GenContext *c) {
