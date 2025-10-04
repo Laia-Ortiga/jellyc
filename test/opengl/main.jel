@@ -176,8 +176,8 @@ function main() {
         return
     }
 
-    let width = <i32> 1280
-    let height = <i32> 720
+    let width = 1280
+    let height = 720
 
     let window = glfw.createWindow(width, height, &"Test"[0], null, null)
     if window == null {

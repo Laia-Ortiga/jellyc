@@ -358,10 +358,6 @@ bool int_fits_in_type(int64_t i, TirId type, Target target) {
     }
 }
 
-TirId bigger_primitive_type(TirId a, TirId b, Target target) {
-    return sizeof_primitive(a, target) > sizeof_primitive(b, target) ? a : b;
-}
-
 int32_t sizeof_pointer(Target target) {
     switch (target) {
         case TARGET_ISIZE_64: return 8;

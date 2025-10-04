@@ -1,27 +1,18 @@
 module main
 
 import std
-import libc
-
-function alloc[T](count isize, size `Size[T]) -> @mut T {
-    let p = <*mut T> `cast[libc.malloc(count * size)]
-    if p == null {
-        libc.exit(-1)
-    }
-    `slice[count, p]
-}
 
 function main() {
-    mut array = alloc(100, `size_of[[:4]i64])
+    mut array = std.alloc(100, `size_of[[:4]i64])
 
-    for i = <isize> 0; i < array.length; i + 1 {
-        for j = <isize> 0; j < 4; j + 1 {
-            array[i][j] = `cast[i + j]
+    for i = 0; i < array.length; i + 1 {
+        for j = 0; j < 4; j + 1 {
+            array[i][j] = i + j
         }
     }
 
-    for i = <isize> 0; i < array.length; i + 1 {
-        for j = <isize> 0; j < 4; j + 1 {
+    for i = 0; i < array.length; i + 1 {
+        for j = 0; j < 4; j + 1 {
             std.print_int(array[i][j])
             std.print_str(&"\n")
         }

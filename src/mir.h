@@ -63,12 +63,16 @@ typedef enum {
 
     MIR_ITOF,
     MIR_ITRUNC,
+
+    // It acts like MIR_ITRUNC, but it crashes if it overflows.
+    MIR_INARROW,
+
     MIR_SEXT,
     MIR_ZEXT,
     MIR_FTOI,
     MIR_FTRUNC,
     MIR_FEXT,
-    MIR_PTR_CAST,
+    MIR_NOP,
 
     /*
         Access

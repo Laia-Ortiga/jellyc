@@ -280,12 +280,12 @@ TirId tir_push_cast(TirContext c, TirTag tag, TirCast a) {
     switch (tag) {
         case TIR_ITOF:
         case TIR_ITRUNC:
+        case TIR_INARROW:
         case TIR_SEXT:
         case TIR_ZEXT:
         case TIR_FTOI:
         case TIR_FTRUNC:
         case TIR_FEXT:
-        case TIR_PTR_CAST:
         case TIR_NOP:
         case TIR_ARRAY_TO_SLICE:
             break;
@@ -817,12 +817,12 @@ TirCast tir_get_cast(TirContext c, TirId a) {
     switch (get_tir_tag(c, a)) {
         case TIR_ITOF:
         case TIR_ITRUNC:
+        case TIR_INARROW:
         case TIR_SEXT:
         case TIR_ZEXT:
         case TIR_FTOI:
         case TIR_FTRUNC:
         case TIR_FEXT:
-        case TIR_PTR_CAST:
         case TIR_NOP:
         case TIR_ARRAY_TO_SLICE:
             break;

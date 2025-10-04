@@ -19,7 +19,6 @@ bool is_equality_type(TirContext c, TirId a);
 bool is_relative_type(TirContext c, TirId a);
 
 bool int_fits_in_type(int64_t i, TirId type, Target target);
-TirId bigger_primitive_type(TirId a, TirId b, Target target);
 int32_t sizeof_pointer(Target target);
 int32_t alignof_type(TirContext c, TirId type, Target target);
 int64_t sizeof_type(TirContext c, TirId type, Target target);

@@ -66,11 +66,6 @@ static void transform_cast(Context *c, TirId tir_id, MirTag tag) {
     vec_push(&c->mir.data, t.type.id);
 }
 
-static void transform_nop(Context *c, TirId tir_id) {
-    TirCast t = tir_get_cast(c->tir, tir_id);
-    transform_node(c, t.a);
-}
-
 static void transform_tmp_address(Context *c, TirId tir_id) {
     TirUnary t = tir_get_unary(c->tir, tir_id);
     TirId type = get_value_type(c->tir, t.a);
@@ -513,13 +508,13 @@ static void transform_node(Context *c, TirId tir_id) {
         case TIR_ACCESS: transform_access(c, tir_id); break;
         case TIR_ITOF: transform_cast(c, tir_id, MIR_ITOF); break;
         case TIR_ITRUNC: transform_cast(c, tir_id, MIR_ITRUNC); break;
+        case TIR_INARROW: transform_cast(c, tir_id, MIR_INARROW); break;
         case TIR_SEXT: transform_cast(c, tir_id, MIR_SEXT); break;
         case TIR_ZEXT: transform_cast(c, tir_id, MIR_ZEXT); break;
         case TIR_FTOI: transform_cast(c, tir_id, MIR_FTOI); break;
         case TIR_FTRUNC: transform_cast(c, tir_id, MIR_FTRUNC); break;
         case TIR_FEXT: transform_cast(c, tir_id, MIR_FEXT); break;
-        case TIR_PTR_CAST: transform_cast(c, tir_id, MIR_PTR_CAST); break;
-        case TIR_NOP: transform_nop(c, tir_id); break;
+        case TIR_NOP: transform_cast(c, tir_id, MIR_NOP); break;
         case TIR_ARRAY_TO_SLICE: transform_array_to_slice(c, tir_id); break;
         case TIR_CALL: transform_call(c, tir_id); break;
         case TIR_INDEX: transform_index(c, tir_id); break;

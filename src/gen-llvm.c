@@ -36,6 +36,7 @@ typedef struct {
     int32_t alloc_count;
     Vec(char const *) strings;
     int32_t blocks;
+    bool has_overflow_block;
     bool is_main;
     Target target;
     TirContext tir;
@@ -283,15 +284,20 @@ static TirId pop_term(GenContext *c) {
     return (TirId) {pop_data(c)};
 }
 
-static Operand new_tmp(GenContext *c, bool is_lvalue, TirId type) {
+static Operand new_tmp2(GenContext *c, bool is_lvalue, TirId type) {
     Operand operand = {
         .is_lvalue = is_lvalue,
         .tag = OPERAND_TMP,
         .type = type,
         .index = c->tmp_count++,
     };
-    vec_push(&c->stack, operand);
     return operand;
+}
+
+static Operand new_tmp(GenContext *c, bool is_lvalue, TirId type) {
+    Operand o = new_tmp2(c, is_lvalue, type);
+    vec_push(&c->stack, o);
+    return o;
 }
 
 static void gen_operand(GenContext *c, Operand *a) {
@@ -577,22 +583,49 @@ static void gen_cast(GenContext *c, char const *op) {
     fprintf(c->stream, "\n");
 }
 
-static void gen_cast_resize(GenContext *c, char const *op) {
+static void gen_narrow(GenContext *c) {
     Operand a = pop_operand(c);
     TirId type = pop_term(c);
     a = load_operand(c, &a);
-    if (sizeof_type(c->tir, a.type, c->target) == sizeof_type(c->tir, type, c->target)) {
-        a.type = type;
-        vec_push(&c->stack, a);
-        return;
-    }
-    fprintf(c->stream, "  %%%d = %s ", new_tmp(c, false, type).index, op);
+    Operand result = new_tmp(c, false, type);
+    fprintf(c->stream, "  %%%d = trunc ", result.index);
     gen_type(c, a.type);
     fprintf(c->stream, " ");
     gen_operand(c, &a);
     fprintf(c->stream, " to ");
     gen_type(c, type);
     fprintf(c->stream, "\n");
+
+    Operand b = new_tmp2(c, false, a.type);
+    fprintf(c->stream, "  %%%d = sext ", b.index);
+    gen_type(c, result.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &result);
+    fprintf(c->stream, " to ");
+    gen_type(c, b.type);
+    fprintf(c->stream, "\n");
+
+    Operand overflowed = new_tmp2(c, false, ptype(bool));
+    fprintf(c->stream, "  %%%d = icmp ne ", overflowed.index);
+    gen_type(c, a.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &a);
+    fprintf(c->stream, ", ");
+    gen_operand(c, &b);
+    fprintf(c->stream, "\n");
+
+    fprintf(c->stream, "  br i1 ");
+    gen_operand(c, &overflowed);
+    int32_t next_block = c->tmp_count++;
+    fprintf(c->stream, ", label %%L.overflow, label %%%d\n", next_block);
+    c->has_overflow_block = true;
+}
+
+static void gen_nop(GenContext *c) {
+    Operand a = pop_operand(c);
+    TirId type = pop_term(c);
+    a.type = type;
+    vec_push(&c->stack, a);
 }
 
 static void gen_call(GenContext *c) {
@@ -806,13 +839,14 @@ static void gen_instruction(GenContext *c, MirTag tag) {
         case MIR_GE: gen_overloaded_cmp(c, "icmp sge", "fcmp ge"); break;
 
         case MIR_ITOF: gen_cast(c, "sitofp"); break;
-        case MIR_ITRUNC: gen_cast_resize(c, "trunc"); break;
-        case MIR_SEXT: gen_cast_resize(c, "sext"); break;
-        case MIR_ZEXT: gen_cast_resize(c, "zext"); break;
+        case MIR_ITRUNC: gen_cast(c, "trunc"); break;
+        case MIR_INARROW: gen_narrow(c); break;
+        case MIR_SEXT: gen_cast(c, "sext"); break;
+        case MIR_ZEXT: gen_cast(c, "zext"); break;
         case MIR_FTOI: gen_cast(c, "fptosi"); break;
-        case MIR_FTRUNC: gen_cast_resize(c, "fptrunc"); break;
-        case MIR_FEXT: gen_cast_resize(c, "fpext"); break;
-        case MIR_PTR_CAST: gen_cast_resize(c, "bitcast"); break;
+        case MIR_FTRUNC: gen_cast(c, "fptrunc"); break;
+        case MIR_FEXT: gen_cast(c, "fpext"); break;
+        case MIR_NOP: gen_nop(c); break;
 
         case MIR_CALL: gen_call(c); break;
         case MIR_INDEX: gen_index(c); break;
@@ -892,12 +926,13 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
             case MIR_TIR_VALUE:
             case MIR_ITOF:
             case MIR_ITRUNC:
+            case MIR_INARROW:
             case MIR_SEXT:
             case MIR_ZEXT:
             case MIR_FTOI:
             case MIR_FTRUNC:
             case MIR_FEXT:
-            case MIR_PTR_CAST:
+            case MIR_NOP:
             case MIR_ACCESS:
             case MIR_ADDRESS:
             case MIR_BR:
@@ -913,11 +948,18 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
         }
     }
     c->data_top = data_start;
+    c->has_overflow_block = false;
     for (int32_t i = mir_start; i < mir_end; i++) {
         if (i != mir_start && is_mir_terminator(c->mir->insts.ptr[i - 1])) {
             fprintf(c->stream, "L.%d:\n", c->blocks++);
         }
         gen_instruction(c, c->mir->insts.ptr[i]);
+    }
+
+    if (c->has_overflow_block) {
+        fprintf(c->stream, "L.overflow:\n");
+        fprintf(c->stream, "  call void @llvm.trap()\n");
+        fprintf(c->stream, "  unreachable\n");
     }
 
     fprintf(c->stream, "}\n");

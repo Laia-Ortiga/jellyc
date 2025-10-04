@@ -42,14 +42,14 @@ enum TokenKind i8 {
 
 struct Token {
     tag TokenKind,
-    start isize,
-    length isize,
+    start i64,
+    length i64,
 }
 
 struct Lexer {
     path @i8,
     source @i8,
-    cursor isize,
+    cursor i64,
 }
 
 function init_lexer(path @i8, source @i8) -> Lexer {
@@ -221,7 +221,7 @@ function mem_eq(a @i8, b @i8) -> bool {
     if a.length != b.length {
         return false
     }
-    for i = <isize> 0; i < a.length; i + 1 {
+    for i = 0; i < a.length; i + 1 {
         if a[i] != b[i] {
             return false
         }
@@ -306,17 +306,11 @@ function read_file(path *i8) -> @mut i8 {
     libc.fseek(file, 0, 2)
     let length = libc.ftell(file)
     libc.fseek(file, 0, 0)
-    let buffer = <*mut i8> `cast[libc.malloc(length + 1)]
-
-    if buffer == null {
-        return `slice[0, null]
-    }
-
-    let n = libc.fread(buffer, 1, length, file)
+    mut buffer = std.alloc(length + 1, `size_of[i8])
+    let n = libc.fread(buffer.data, 1, length, file)
     libc.fclose(file)
-    mut slice = `slice[n + 1, buffer]
-    slice[n] = 0
-    slice
+    buffer[n] = 0
+    buffer[:n + 1]
 }
 
 function main() {

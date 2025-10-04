@@ -416,6 +416,46 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
     return error_term;
 }
 
+static TirTag get_cast_type(Context *c, TirId operand_type, TirId cast_type) {
+    if (remove_pointer(c->tir, operand_type).id && remove_pointer(c->tir, cast_type).id) {
+        return TIR_NOP;
+    }
+
+    if (type_is_int(operand_type) && type_is_float(cast_type)) {
+        return TIR_ITOF;
+    }
+
+    if (type_is_float(operand_type) && type_is_int(cast_type)) {
+        return TIR_FTOI;
+    }
+
+    if (type_is_int(operand_type) && type_is_int(cast_type)) {
+        int64_t start_size = sizeof_type(c->tir, operand_type, c->options->target);
+        int64_t target_size = sizeof_type(c->tir, cast_type, c->options->target);
+        if (target_size < start_size) {
+            return TIR_ITRUNC;
+        } else if (target_size > start_size) {
+            return TIR_SEXT;
+        } else {
+            return TIR_NOP;
+        }
+    }
+
+    if (type_is_float(operand_type) && type_is_float(cast_type)) {
+        int64_t start_size = sizeof_type(c->tir, operand_type, c->options->target);
+        int64_t target_size = sizeof_type(c->tir, cast_type, c->options->target);
+        if (target_size < start_size) {
+            return TIR_FTRUNC;
+        } else if (target_size > start_size) {
+            return TIR_FEXT;
+        } else {
+            return TIR_NOP;
+        }
+    }
+
+    return -1;
+}
+
 static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirId wanted_type) {
     if (!wanted_type.id) {
         return value;
@@ -427,6 +467,20 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
     }
 
     // Types don't match. Attempt implicit conversion.
+
+    if (type_is_int(provided) && type_is_int(wanted_type)) {
+        TirTag tag = get_cast_type(c, provided, wanted_type);
+        assert((int) tag != -1);
+        if (tag == TIR_ITRUNC) {
+            tag = TIR_INARROW;
+        }
+        return tir_push_tag(c->tir, tag, (TirCast) {
+            .node = node,
+            .type = wanted_type,
+            .a = value,
+        });
+    }
+
     TirId types[] = {provided, wanted_type};
     TirId t[2] = {0};
 
@@ -523,7 +577,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return tir_push_tag(c->tir, TIR_PTR_CAST, (TirCast) {
+            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -543,7 +597,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && t[0].id) {
-            return tir_push_tag(c->tir, TIR_PTR_CAST, (TirCast) {
+            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -1633,30 +1687,6 @@ static TirId analyze_sizeof(Context *c, AstId node) {
     return error_term;
 }
 
-static TirTag get_cast_type(Context *c, TirId operand_type, TirId cast_type) {
-    if (remove_pointer(c->tir, operand_type).id && remove_pointer(c->tir, cast_type).id) {
-        return TIR_PTR_CAST;
-    }
-
-    if (type_is_int(operand_type) && type_is_float(cast_type)) {
-        return TIR_ITOF;
-    }
-
-    if (type_is_float(operand_type) && type_is_int(cast_type)) {
-        return TIR_FTOI;
-    }
-
-    if (type_is_int(operand_type) && type_is_int(cast_type)) {
-        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_ITRUNC : TIR_SEXT;
-    }
-
-    if (type_is_float(operand_type) && type_is_float(cast_type)) {
-        return bigger_primitive_type(cast_type, operand_type, c->options->target).id == operand_type.id ? TIR_FTRUNC : TIR_FEXT;
-    }
-
-    return -1;
-}
-
 static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
     AstCall call = ast_get_call(c->ast, node);
 
@@ -1710,7 +1740,8 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
         return error_term;
     }
 
-    if (bigger_primitive_type(hint, operand_type, c->options->target).id == operand_type.id) {
+    if (sizeof_type(c->tir, hint, c->options->target)
+        >= sizeof_type(c->tir, operand_type, c->options->target)) {
         return operand_value;
     }
 
@@ -1768,14 +1799,28 @@ static TirId analyze_array_length_type(Context *c, AstId node) {
     return error_term;
 }
 
+static TirId analyze_bin_operand(Context *c, AstId node, TirId hint) {
+    TirId value = expect_value(c, node, hint);
+    TirId type = remove_tags(c->tir, get_value_type(c->tir, value));
+
+    if (type_is_int(type) && type.id != TYPE_i64) {
+        TirTag tag = get_cast_type(c, type, ptype(i64));
+        return tir_push_tag(c->tir, tag, (TirCast) {
+            .node = node,
+            .type = ptype(i64),
+            .a = value,
+        });
+    }
+
+    return value;
+}
+
 static TirId analyze_bin_arithmetic(Context *c, AstId node, TirId hint, TirTag tag) {
     AstBinary bin = ast_get_binary(c->ast, node);
-    TirId left_value = expect_value(c, bin.a, hint);
+    TirId left_value = analyze_bin_operand(c, bin.a, hint);
     TirId left_type = get_value_type(c->tir, left_value);
-    left_type = remove_tags(c->tir, left_type);
-    TirId right_value = expect_value(c, bin.b, left_type);
+    TirId right_value = analyze_bin_operand(c, bin.b, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
-    right_type = remove_tags(c->tir, right_type);
 
     if (left_type.id != right_type.id || !type_is_arithmetic(left_type)) {
         node_diagnostic(c, node, Diagnostic(ErrorBinaryUnexpectedOperands, {
@@ -1796,12 +1841,10 @@ static TirId analyze_bin_arithmetic(Context *c, AstId node, TirId hint, TirTag t
 
 static TirId analyze_bin_bit(Context *c, AstId node, TirId hint, TirTag tag) {
     AstBinary bin = ast_get_binary(c->ast, node);
-    TirId left_value = expect_value(c, bin.a, hint);
+    TirId left_value = analyze_bin_operand(c, bin.a, hint);
     TirId left_type = get_value_type(c->tir, left_value);
-    left_type = remove_tags(c->tir, left_type);
-    TirId right_value = expect_value(c, bin.b, left_type);
+    TirId right_value = analyze_bin_operand(c, bin.b, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
-    right_type = remove_tags(c->tir, right_type);
 
     if (left_type.id != right_type.id || !type_is_int(left_type)) {
         node_diagnostic(c, node, Diagnostic(ErrorBinaryUnexpectedOperands, {
@@ -1822,9 +1865,9 @@ static TirId analyze_bin_bit(Context *c, AstId node, TirId hint, TirTag tag) {
 
 static TirId analyze_eq(Context *c, AstId node, TirTag tag) {
     AstBinary bin = ast_get_binary(c->ast, node);
-    TirId left_value = expect_value(c, bin.a, error_term);
+    TirId left_value = analyze_bin_operand(c, bin.a, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
-    TirId right_value = expect_value(c, bin.b, left_type);
+    TirId right_value = analyze_bin_operand(c, bin.b, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
 
     if (left_type.id != right_type.id || !is_equality_type(c->tir, left_type)) {
@@ -1846,9 +1889,9 @@ static TirId analyze_eq(Context *c, AstId node, TirTag tag) {
 
 static TirId analyze_rel(Context *c, AstId node, TirTag tag) {
     AstBinary bin = ast_get_binary(c->ast, node);
-    TirId left_value = expect_value(c, bin.a, error_term);
+    TirId left_value = analyze_bin_operand(c, bin.a, error_term);
     TirId left_type = get_value_type(c->tir, left_value);
-    TirId right_value = expect_value(c, bin.b, left_type);
+    TirId right_value = analyze_bin_operand(c, bin.b, left_type);
     TirId right_type = get_value_type(c->tir, right_value);
 
     if (left_type.id != right_type.id || !is_relative_type(c->tir, left_type)) {

@@ -598,12 +598,12 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_ASSIGN_XOR:
         case TIR_ITOF:
         case TIR_ITRUNC:
+        case TIR_INARROW:
         case TIR_SEXT:
         case TIR_ZEXT:
         case TIR_FTOI:
         case TIR_FTRUNC:
         case TIR_FEXT:
-        case TIR_PTR_CAST:
         case TIR_NOP:
         case TIR_ARRAY_TO_SLICE:
         case TIR_CALL:
@@ -679,12 +679,12 @@ bool is_value_mutable(TirContext c, TirId value) {
         case TIR_ASSIGN_XOR:
         case TIR_ITOF:
         case TIR_ITRUNC:
+        case TIR_INARROW:
         case TIR_SEXT:
         case TIR_ZEXT:
         case TIR_FTOI:
         case TIR_FTRUNC:
         case TIR_FEXT:
-        case TIR_PTR_CAST:
         case TIR_NOP:
         case TIR_ARRAY_TO_SLICE:
         case TIR_CALL:

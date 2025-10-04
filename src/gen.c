@@ -7,6 +7,7 @@
 #include "util.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdlib.h>
 
 typedef enum {
@@ -691,6 +692,53 @@ static void gen_cast(GenContext *c) {
     fprintf(c->stream, ";\n");
 }
 
+static void gen_narrow(GenContext *c) {
+    Operand a = pop_operand(c);
+    TirId type = pop_term(c);
+    int64_t min = 0;
+    int64_t max = 0;
+
+    switch (sizeof_type(c->tir, type, c->target)) {
+        case 1: {
+            min = INT8_MIN;
+            max = INT8_MAX;
+            break;
+        }
+        case 2: {
+            min = INT16_MIN;
+            max = INT16_MAX;
+            break;
+        }
+        case 4: {
+            min = INT32_MIN;
+            max = INT32_MAX;
+            break;
+        }
+        case 8: {
+            min = INT64_MIN;
+            max = INT64_MAX;
+            break;
+        }
+        default: {
+            abort();
+        }
+    }
+
+    fprintf(c->stream, "    if (");
+    gen_operand(c, &a);
+    fprintf(c->stream, " < %" PRId64 " || ", min);
+    gen_operand(c, &a);
+    fprintf(c->stream, " > %" PRId64 ") { __builtin_abort(); }\n", max);
+
+    introduce_temporary(c, false, type);
+    fprintf(c->stream, "(");
+    gen_type_before(c, type);
+    gen_type_after(c, type);
+    fprintf(c->stream, ") ");
+    gen_operand(c, &a);
+    fprintf(c->stream, ";\n");
+}
+
 static void gen_zext(GenContext *c) {
     Operand a = pop_operand(c);
     TirId type = pop_term(c);
@@ -704,6 +752,13 @@ static void gen_zext(GenContext *c) {
     int64_t int_size = sizeof_type(c->tir, a.type, c->target);
     uint64_t mask = ((uint64_t) 1 << (int_size * 8)) - 1;
     fprintf(c->stream, " & 0x%lX;\n", mask);
+}
+
+static void gen_nop(GenContext *c) {
+    Operand a = pop_operand(c);
+    TirId type = pop_term(c);
+    a.type = type;
+    vec_push(&c->stack, a);
 }
 
 static void gen_call(GenContext *c) {
@@ -880,12 +935,16 @@ static void gen_instruction(GenContext *c, int32_t i) {
         case MIR_SEXT:
         case MIR_FTOI:
         case MIR_FTRUNC:
-        case MIR_FEXT:
-        case MIR_PTR_CAST: {
+        case MIR_FEXT: {
             gen_cast(c);
             break;
         }
+        case MIR_INARROW: {
+            gen_narrow(c);
+            break;
+        }
         case MIR_ZEXT: gen_zext(c); break;
+        case MIR_NOP: gen_nop(c); break;
         case MIR_CALL: gen_call(c); break;
         case MIR_INDEX: gen_index(c); break;
         case MIR_SLICE_INDEX: gen_slice_index(c); break;

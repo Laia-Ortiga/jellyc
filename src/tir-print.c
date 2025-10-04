@@ -1025,6 +1025,22 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf(")");
             break;
         }
+        case TIR_INARROW: {
+            TirCast t = tir_get_cast(p->tir, a);
+            p->depth++;
+            printf("Inarrow(\n");
+            print_indent(p->depth);
+            printf("type: ");
+            print_type(stdout, p->tir, t.type);
+            printf(",\n");
+            print_indent(p->depth);
+            printf("a: ");
+            print_tir_node(p, t.a);
+            printf(",\n");
+            print_indent(--p->depth);
+            printf(")");
+            break;
+        }
         case TIR_SEXT: {
             TirCast t = tir_get_cast(p->tir, a);
             p->depth++;
@@ -1093,22 +1109,6 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             TirCast t = tir_get_cast(p->tir, a);
             p->depth++;
             printf("Fext(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_PTR_CAST: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("PtrCast(\n");
             print_indent(p->depth);
             printf("type: ");
             print_type(stdout, p->tir, t.type);

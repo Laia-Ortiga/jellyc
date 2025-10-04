@@ -15,5 +15,5 @@ function main() {
         libc.fabs(d) > 0.001
     } {}
 
-    std.print_int(<i64> `cast[x * 1000000.0])
+    std.print_int(`cast[x * 1000000.0])
 }

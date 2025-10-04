@@ -591,12 +591,12 @@ values = [
         "names": [
             "itof",
             "itrunc",
+            "inarrow",
             "sext",
             "zext",
             "ftoi",
             "ftrunc",
             "fext",
-            "ptr_cast",
             "nop",
             "array_to_slice",
         ],

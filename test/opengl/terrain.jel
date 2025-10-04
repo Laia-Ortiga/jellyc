@@ -11,19 +11,19 @@ struct Terrain {
     height_map @mut f32,
 }
 
-const terrain_grid_size = <i32> 1536
-const grid_factor = <i32> 16
+const terrain_grid_size = 1536
+const grid_factor = 16
 
-function small_grid_size() -> i16 {
-    <i16> `cast[terrain_grid_size] / <i16> `cast[grid_factor]
+function small_grid_size() -> i64 {
+    terrain_grid_size / grid_factor
 }
 
-function small_grid_rows() -> i16 {
+function small_grid_rows() -> i64 {
     small_grid_size() + 1
 }
 
-function index_count() -> i32 {
-    <i32> `cast[small_grid_size()] * <i32> `cast[small_grid_size()] * 4
+function index_count() -> i64 {
+    small_grid_size() * small_grid_size() * 4
 }
 
 function create_height_map_texture(seed i32) -> i32 {
@@ -53,10 +53,10 @@ function create_height_map_texture(seed i32) -> i32 {
 }
 
 function create_ebo() -> i32 {
-    mut indices = std.alloc(<isize> `cast[index_count()], `size_of[i16])
-    mut i = <isize> 0
-    for z = <i16> 0; z < small_grid_size(); z + 1 {
-        for x = <i16> 0; x < small_grid_size(); x + 1 {
+    mut indices = std.alloc(index_count(), `size_of[i16])
+    mut i = 0
+    for z = 0; z < small_grid_size(); z + 1 {
+        for x = 0; x < small_grid_size(); x + 1 {
             indices[i] = {z + 1} * small_grid_rows() + x
             indices[i + 1] = z * small_grid_rows() + x
             indices[i + 2] = z * small_grid_rows() + x + 1
@@ -67,7 +67,7 @@ function create_ebo() -> i32 {
     mut buffer = <i32> 0
     gl.glGenBuffers(1, &buffer)
     gl.glBindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
-    gl.glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * <isize> `cast[index_count()], indices.data, 0)
+    gl.glBufferStorage(gl.ELEMENT_ARRAY_BUFFER, `size_of[i16] * index_count(), indices.data, 0)
     std.free(indices)
     buffer
 }
@@ -91,7 +91,7 @@ public function init_terrain(seed i32) -> Terrain {
 	gl.glPatchParameteri(gl.PATCH_VERTICES, 4)
 
     gl.glBindTexture(gl.TEXTURE_2D, height_map_texture)
-    let height_map = std.alloc(<isize> `cast[{terrain_grid_size + 1} * {terrain_grid_size + 1}], `size_of[f32])
+    let height_map = std.alloc({terrain_grid_size + 1} * {terrain_grid_size + 1}, `size_of[f32])
     gl.glGetTexImage(gl.TEXTURE_2D, 0, gl.RED, gl.FLOAT, height_map.data)
     (
         height_map_texture = height_map_texture,
