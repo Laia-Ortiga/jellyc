@@ -629,6 +629,46 @@ static void gen_bool_binary(GenContext *c, char const *op) {
     fprintf(c->stream, ";\n");
 }
 
+static void gen_div(GenContext *c) {
+    Operand b = pop_operand(c);
+    Operand a = pop_operand(c);
+    if (type_is_int(a.type)) {
+        fprintf(c->stream, "    if (");
+        gen_operand(c, &b);
+        fprintf(c->stream, " == 0) { __builtin_abort(); }\n");
+        fprintf(c->stream, "    if (");
+        gen_operand(c, &a);
+        fprintf(c->stream, " < %" PRId64 " && ", -INT64_MAX);
+        gen_operand(c, &b);
+        fprintf(c->stream, " == -1) { __builtin_abort(); }\n");
+
+        introduce_temporary(c, false, a.type);
+        gen_operand(c, &a);
+        fprintf(c->stream, " >= 0 ? ");
+        gen_operand(c, &a);
+        fprintf(c->stream, " / ");
+        gen_operand(c, &b);
+        fprintf(c->stream, " : ");
+        gen_operand(c, &b);
+        fprintf(c->stream, " > 0");
+        fprintf(c->stream, " ? (");
+        gen_operand(c, &a);
+        fprintf(c->stream, " + 1) / ");
+        gen_operand(c, &b);
+        fprintf(c->stream, " - 1 : (");
+        gen_operand(c, &a);
+        fprintf(c->stream, " + 1) / ");
+        gen_operand(c, &b);
+        fprintf(c->stream, " + 1;\n");
+    } else {
+        introduce_temporary(c, false, a.type);
+        gen_operand(c, &a);
+        fprintf(c->stream, " / ");
+        gen_operand(c, &b);
+        fprintf(c->stream, ";\n");
+    }
+}
+
 static void gen_mod(GenContext *c) {
     Operand b = pop_operand(c);
     Operand a = pop_operand(c);
@@ -932,7 +972,7 @@ static void gen_instruction(GenContext *c, int32_t i) {
         case MIR_ADD: gen_binary(c, "+"); break;
         case MIR_SUB: gen_binary(c, "-"); break;
         case MIR_MUL: gen_binary(c, "*"); break;
-        case MIR_DIV: gen_binary(c, "/"); break;
+        case MIR_DIV: gen_div(c); break;
         case MIR_MOD: gen_mod(c); break;
         case MIR_AND: gen_binary(c, "&"); break;
         case MIR_OR: gen_binary(c, "|"); break;

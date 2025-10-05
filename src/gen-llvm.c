@@ -545,13 +545,41 @@ static void gen_div(GenContext *c) {
 
     gen_overflow_check(c, overflowed);
 
-    fprintf(c->stream, "  %%%d = sdiv ", new_tmp(c, false, a.type).index);
-    gen_type(c, a.type);
-    fprintf(c->stream, " ");
+    int32_t a_neg = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = ashr i64 ", a_neg);
     gen_operand(c, &a);
-    fprintf(c->stream, ", ");
+    fprintf(c->stream, ", 63\n");
+
+    int32_t a2 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = sub i64 ", a2);
+    gen_operand(c, &a);
+    fprintf(c->stream, ", %%%d\n", a_neg);
+
+    int32_t q = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = sdiv ", q);
+    gen_type(c, a.type);
+    fprintf(c->stream, " %%%d, ", a2);
     gen_operand(c, &b);
     fprintf(c->stream, "\n");
+
+    int32_t b_neg = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = ashr i64 ", b_neg);
+    gen_operand(c, &b);
+    fprintf(c->stream, ", 63\n");
+
+    int32_t b_neg2 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = or i64 %%%d, 1\n", b_neg2, b_neg);
+
+    int32_t b_neg3 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = and i64 %%%d, %%%d\n", b_neg3, b_neg2, a_neg);
+
+    fprintf(
+        c->stream,
+        "  %%%d = sub i64 %%%d, %%%d\n",
+        new_tmp(c, false, a.type).index,
+        q,
+        b_neg3
+    );
 }
 
 static void gen_rem(GenContext *c) {
