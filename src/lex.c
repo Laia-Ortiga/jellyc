@@ -189,7 +189,10 @@ Token next_token(Lexer *lexer) {
         SourceIndex start = lexer->cursor;
         int c = consume(lexer);
         switch (c) {
-            case 0: return (Token) {.tag = TOK_SENTINEL, .start = start, .end = start};
+            case 0: {
+                lexer->cursor.index--;
+                return (Token) {.tag = TOK_SENTINEL, .start = start, .end = start};
+            }
             case '\t': break;
             case '\n': found_newline = true; break;
             case ' ': break;
