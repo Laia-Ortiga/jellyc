@@ -8,6 +8,7 @@
 #include "util.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -140,7 +141,6 @@ static void gen_params(GenContext *c, TirId type) {
             fprintf(c->stream, ", ");
         }
 
-        c->tmp_count++;
         TirId param_type = get_function_type_param(c->tir, type, i);
         if (is_aggregate_type(c->tir, param_type)) {
             fprintf(c->stream, "ptr");
@@ -413,7 +413,9 @@ static void gen_neg(GenContext *c) {
     int32_t s = c->tmp_count++;
     fprintf(c->stream, "  %%%d = call {", s);
     gen_type(c, a.type);
-    fprintf(c->stream, ", i1} @llvm.ssub.with.overflow.i32(");
+    fprintf(c->stream, ", i1} @llvm.ssub.with.overflow.");
+    gen_type(c, a.type);
+    fprintf(c->stream, "(");
     gen_type(c, a.type);
     fprintf(c->stream, " 0, ");
     gen_type(c, a.type);
@@ -467,15 +469,158 @@ static void gen_overloaded_binary(
     a = load_operand(c, &a);
     b = load_operand(c, &b);
     if (type_is_float(a.type)) {
-        op = float_op;
+        fprintf(c->stream, "  %%%d = %s ", new_tmp(c, false, a.type).index, float_op);
+        gen_type(c, a.type);
+        fprintf(c->stream, " ");
+        gen_operand(c, &a);
+        fprintf(c->stream, ", ");
+        gen_operand(c, &b);
+        fprintf(c->stream, "\n");
+        return;
     }
-    fprintf(c->stream, "  %%%d = %s ", new_tmp(c, false, a.type).index, op);
+    int32_t s = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = call {", s);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", i1} @llvm.s%s.with.overflow.", op);
+    gen_type(c, a.type);
+    fprintf(c->stream, "(");
+    gen_type(c, a.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &a);
+    fprintf(c->stream, ", ");
+    gen_type(c, a.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &b);
+    fprintf(c->stream, ")\n");
+
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = extractvalue {", overflowed);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", i1} %%%d, 1\n", s);
+
+    gen_overflow_check(c, overflowed);
+
+    fprintf(c->stream, "  %%%d = extractvalue {", new_tmp(c, false, a.type).index);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", i1} %%%d, 0\n", s);
+}
+
+static void gen_div(GenContext *c) {
+    Operand b = pop_operand(c);
+    Operand a = pop_operand(c);
+    a = load_operand(c, &a);
+    b = load_operand(c, &b);
+    if (type_is_float(a.type)) {
+        fprintf(c->stream, "  %%%d = fdiv ", new_tmp(c, false, a.type).index);
+        gen_type(c, a.type);
+        fprintf(c->stream, " ");
+        gen_operand(c, &a);
+        fprintf(c->stream, ", ");
+        gen_operand(c, &b);
+        fprintf(c->stream, "\n");
+        return;
+    }
+
+    int32_t div_by_zero = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp eq i64 ", div_by_zero);
+    gen_operand(c, &b);
+    fprintf(c->stream, ", 0\n");
+
+    assert(sizeof_type(c->tir, a.type, c->target) == 8);
+    int64_t min = INT64_MIN;
+    int32_t o1 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp eq i64 ", o1);
+    gen_operand(c, &a);
+    fprintf(c->stream, ", %" PRId64 "\n", min);
+
+    int32_t o2 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp eq i64 ", o2);
+    gen_operand(c, &b);
+    fprintf(c->stream, ", -1\n");
+
+    int32_t o3 = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = and i1 %%%d, %%%d\n", o3, o1, o2);
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = or i1 %%%d, %%%d\n", overflowed, div_by_zero, o3);
+
+    gen_overflow_check(c, overflowed);
+
+    fprintf(c->stream, "  %%%d = sdiv ", new_tmp(c, false, a.type).index);
     gen_type(c, a.type);
     fprintf(c->stream, " ");
     gen_operand(c, &a);
     fprintf(c->stream, ", ");
     gen_operand(c, &b);
     fprintf(c->stream, "\n");
+}
+
+static void gen_rem(GenContext *c) {
+    Operand b = pop_operand(c);
+    Operand a = pop_operand(c);
+    a = load_operand(c, &a);
+    b = load_operand(c, &b);
+    if (type_is_float(a.type)) {
+        fprintf(c->stream, "  %%%d = frem ", new_tmp(c, false, a.type).index);
+        gen_type(c, a.type);
+        fprintf(c->stream, " ");
+        gen_operand(c, &a);
+        fprintf(c->stream, ", ");
+        gen_operand(c, &b);
+        fprintf(c->stream, "\n");
+        return;
+    }
+
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp eq i64 ", overflowed);
+    gen_operand(c, &b);
+    fprintf(c->stream, ", 0\n");
+
+    gen_overflow_check(c, overflowed);
+    int32_t prev_block = c->tmp_count - 1;
+
+    int32_t abs_b = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = call i64 @llvm.abs.i64(i64 ", abs_b);
+    gen_operand(c, &b);
+    fprintf(c->stream, ", i1 0)\n");
+
+    int32_t rem = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = srem ", rem);
+    gen_type(c, a.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &a);
+    fprintf(c->stream, ", %%%d\n", abs_b);
+
+    int32_t is_neg = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp slt i64 ", is_neg);
+    gen_operand(c, &a);
+    fprintf(c->stream, ", 0\n");
+
+    int32_t negative_block = c->tmp_count++;
+    int32_t neg_path = c->tmp_count++;
+    int32_t next_block = c->tmp_count++;
+    fprintf(
+        c->stream,
+        "  br i1 %%%d, label %%%d, label %%%d\n",
+        is_neg,
+        negative_block,
+        next_block
+    );
+
+    fprintf(c->stream, "  %%%d = add i64 ", neg_path);
+    gen_operand(c, &a);
+    fprintf(c->stream, ", %%%d\n", abs_b);
+    fprintf(c->stream, "  br label %%%d\n", next_block);
+
+    fprintf(c->stream, "%d:\n", next_block);
+    fprintf(
+        c->stream,
+        "  %%%d = phi i64 [ %%%d, %%%d ], [ %%%d, %%%d ]\n",
+        new_tmp(c, false, a.type).index,
+        rem,
+        prev_block,
+        neg_path,
+        negative_block
+    );
 }
 
 static void gen_overloaded_cmp(
@@ -842,8 +987,8 @@ static void gen_instruction(GenContext *c, MirTag tag) {
         case MIR_ADD: gen_overloaded_binary(c, "add", "fadd"); break;
         case MIR_SUB: gen_overloaded_binary(c, "sub", "fsub"); break;
         case MIR_MUL: gen_overloaded_binary(c, "mul", "fmul"); break;
-        case MIR_DIV: gen_overloaded_binary(c, "sdiv", "fdiv"); break;
-        case MIR_MOD: gen_overloaded_binary(c, "srem", "frem"); break;
+        case MIR_DIV: gen_div(c); break;
+        case MIR_MOD: gen_rem(c); break;
         case MIR_AND: gen_binary(c, "and"); break;
         case MIR_OR: gen_binary(c, "or"); break;
         case MIR_XOR: gen_binary(c, "xor"); break;

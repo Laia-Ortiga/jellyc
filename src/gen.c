@@ -634,11 +634,27 @@ static void gen_mod(GenContext *c) {
     Operand a = pop_operand(c);
 
     if (type_is_int(a.type)) {
-        introduce_temporary(c, false, a.type);
-        gen_operand(c, &a);
-        fprintf(c->stream, " %% ");
+        fprintf(c->stream, "    if (");
+        gen_operand(c, &b);
+        fprintf(c->stream, " == 0) { __builtin_abort(); }\n");
+
+        int32_t abs_b = c->tmp_count++;
+        fprintf(c->stream, "    int64_t t%d = ", abs_b);
+        gen_operand(c, &b);
+        fprintf(c->stream, " < 0 ? -");
+        gen_operand(c, &b);
+        fprintf(c->stream, " : ");
         gen_operand(c, &b);
         fprintf(c->stream, ";\n");
+
+        int32_t rem = c->tmp_count++;
+        fprintf(c->stream, "    int64_t t%d = ", rem);
+        gen_operand(c, &a);
+        fprintf(c->stream, " %% t%d;\n", abs_b);
+
+        introduce_temporary(c, false, a.type);
+        gen_operand(c, &a);
+        fprintf(c->stream, " < 0 ? t%d + t%d : t%d;\n", rem, abs_b, rem);
     } else {
         introduce_temporary(c, false, a.type);
         fprintf(c->stream, "%s(", a.type.id == TYPE_f32 ? "__builtin_fmodf" : "__builtin_fmod");
