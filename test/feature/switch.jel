@@ -6,14 +6,14 @@ function main() {
     let x = 5
 
     switch true {
-        x < 10 -> std.print_str(&"x is less than 10"),
-        x == 10 -> std.print_str(&"x is equal to 10"),
-        x > 10 -> std.print_str(&"x is greater than 10"),
+        x < 10 => std.print_str(&"x is less than 10"),
+        x == 10 => std.print_str(&"x is equal to 10"),
+        x > 10 => std.print_str(&"x is greater than 10"),
     }
 
     let y = switch x {
-        0 -> '0',
-        1 -> '1',
-        else -> '?',
+        0 => '0',
+        1 => '1',
+        else => '?',
     }
 }

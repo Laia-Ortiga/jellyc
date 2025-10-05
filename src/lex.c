@@ -188,59 +188,104 @@ Token next_token(Lexer *lexer) {
     for (;;) {
         SourceIndex start = lexer->cursor;
         int c = consume(lexer);
+        int tag = -1;
         switch (c) {
             case 0: {
                 lexer->cursor.index--;
-                return (Token) {.tag = TOK_SENTINEL, .start = start, .end = start};
+                tag = TOK_SENTINEL;
+                break;
             }
-            case '\t': break;
-            case '\n': found_newline = true; break;
-            case ' ': break;
-            case '#': comment(lexer); break;
-            case '(': return (Token) {.comes_after_newline = found_newline, .tag = TOK_ROUNDL, .start = start, .end = lexer->cursor};
-            case ')': return (Token) {.comes_after_newline = found_newline, .tag = TOK_ROUNDR, .start = start, .end = lexer->cursor};
-            case '[': return (Token) {.comes_after_newline = found_newline, .tag = TOK_SQUAREL, .start = start, .end = lexer->cursor};
-            case ']': return (Token) {.comes_after_newline = found_newline, .tag = TOK_SQUARER, .start = start, .end = lexer->cursor};
-            case '{': return (Token) {.comes_after_newline = found_newline, .tag = TOK_CURLYL, .start = start, .end = lexer->cursor};
-            case '}': return (Token) {.comes_after_newline = found_newline, .tag = TOK_CURLYR, .start = start, .end = lexer->cursor};
-            case ',': return (Token) {.comes_after_newline = found_newline, .tag = TOK_COMMA, .start = start, .end = lexer->cursor};
-            case '.': return (Token) {.comes_after_newline = found_newline, .tag = TOK_DOT, .start = start, .end = lexer->cursor};
-            case ':': return (Token) {.comes_after_newline = found_newline, .tag = TOK_COLON, .start = start, .end = lexer->cursor};
-            case ';': return (Token) {.comes_after_newline = found_newline, .tag = TOK_SEMICOLON, .start = start, .end = lexer->cursor};
-            case '@': return (Token) {.comes_after_newline = found_newline, .tag = TOK_ADDRESS, .start = start, .end = lexer->cursor};
-            case '+': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_ADD : TOK_ADD, .start = start, .end = lexer->cursor};
-            case '-': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_SUB : accept(lexer, '>') ? TOK_ARROW : TOK_SUB, .start = start, .end = lexer->cursor};
-            case '*': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_MUL : TOK_MUL, .start = start, .end = lexer->cursor};
-            case '/': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_DIV : TOK_DIV, .start = start, .end = lexer->cursor};
-            case '%': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_MOD : TOK_MOD, .start = start, .end = lexer->cursor};
-            case '&': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_AND : TOK_AND, .start = start, .end = lexer->cursor};
-            case '|': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_OR : TOK_OR, .start = start, .end = lexer->cursor};
-            case '^': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_ASSIGN_XOR : TOK_XOR, .start = start, .end = lexer->cursor};
-            case '=': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_EQ : TOK_ASSIGN, .start = start, .end = lexer->cursor};
-            case '!': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_NE : TOK_NOT, .start = start, .end = lexer->cursor};
-            case '<': return (Token) {.comes_after_newline = found_newline, .tag = accept(lexer, '=') ? TOK_LE : accept(lexer, '<') ? TOK_SHL : TOK_LT, .start = start, .end = lexer->cursor};
-            case '>': return (Token) {
-                .comes_after_newline = found_newline,
-                .tag = accept(lexer, '=') ? TOK_GE
+            case '\t':
+            case ' ': {
+                break;
+            }
+            case '\n': {
+                found_newline = true;
+                break;
+            }
+            case '#': {
+                comment(lexer);
+                break;
+            }
+            case '(': tag = TOK_ROUNDL; break;
+            case ')': tag = TOK_ROUNDR; break;
+            case '[': tag = TOK_SQUAREL; break;
+            case ']': tag = TOK_SQUARER; break;
+            case '{': tag = TOK_CURLYL; break;
+            case '}': tag = TOK_CURLYR; break;
+            case ',': tag = TOK_COMMA; break;
+            case '.': tag = TOK_DOT; break;
+            case ':': tag = TOK_COLON; break;
+            case ';': tag = TOK_SEMICOLON; break;
+            case '@': tag = TOK_ADDRESS; break;
+            case '+': tag = accept(lexer, '=') ? TOK_ASSIGN_ADD : TOK_ADD; break;
+            case '-': {
+                tag = accept(lexer, '=') ? TOK_ASSIGN_SUB
+                    : accept(lexer, '>') ? TOK_ARROW
+                    : TOK_SUB;
+                break;
+            }
+            case '*': tag = accept(lexer, '=') ? TOK_ASSIGN_MUL : TOK_MUL; break;
+            case '/': tag = accept(lexer, '=') ? TOK_ASSIGN_DIV : TOK_DIV; break;
+            case '%': tag = accept(lexer, '=') ? TOK_ASSIGN_MOD : TOK_MOD; break;
+            case '&': tag = accept(lexer, '=') ? TOK_ASSIGN_AND : TOK_AND; break;
+            case '|': tag = accept(lexer, '=') ? TOK_ASSIGN_OR : TOK_OR; break;
+            case '^': tag = accept(lexer, '=') ? TOK_ASSIGN_XOR : TOK_XOR; break;
+            case '=': {
+                tag = accept(lexer, '=') ? TOK_EQ
+                    : accept(lexer, '>') ? TOK_DOUBLE_ARROW
+                    : TOK_ASSIGN;
+                break;
+            }
+            case '!': tag = accept(lexer, '=') ? TOK_NE : TOK_NOT; break;
+            case '<': {
+                tag = accept(lexer, '=') ? TOK_LE
+                    : accept(lexer, '<') ? TOK_SHL
+                    : TOK_LT;
+                break;
+            }
+            case '>': {
+                tag = accept(lexer, '=') ? TOK_GE
                     : accept(lexer, '>') ? TOK_SHR
-                    : TOK_GT,
-                .start = start,
-                .end = lexer->cursor
-            };
-            case '\'': lit_string(lexer, '\''); return (Token) {.comes_after_newline = found_newline, .tag = TOK_CHAR, .start = start, .end = lexer->cursor};
-            case '"': lit_string(lexer, '"'); return (Token) {.comes_after_newline = found_newline, .tag = TOK_STRING, .start = start, .end = lexer->cursor};
-            case '`': return (Token) {.comes_after_newline = found_newline, .tag = builtin_id(lexer), .start = start, .end = lexer->cursor};
+                    : TOK_GT;
+                break;
+            }
+            case '\'': {
+                lit_string(lexer, '\'');
+                tag = TOK_CHAR;
+                break;
+            }
+            case '"': {
+                lit_string(lexer, '"');
+                tag = TOK_STRING;
+                break;
+            }
+            case '`': {
+                tag = builtin_id(lexer);
+                break;
+            }
             default: {
                 if (is_alpha(c)) {
-                    return (Token) {.comes_after_newline = found_newline, .tag = id(lexer, start), .start = start, .end = lexer->cursor};
+                    tag = id(lexer, start);
+                    break;
                 }
 
                 if (is_digit(c)) {
-                    return (Token) {.comes_after_newline = found_newline, .tag = number(lexer, c), .start = start, .end = lexer->cursor};
+                    tag = number(lexer, c);
+                    break;
                 }
 
-                return (Token) {.comes_after_newline = found_newline, .tag = TOK_INVALID, .start = start, .end = lexer->cursor};
+                tag = TOK_INVALID;
+                break;
             }
+        }
+        if (tag != -1) {
+            return (Token) {
+                .comes_after_newline = found_newline,
+                .tag = tag,
+                .start = start,
+                .end = lexer->cursor,
+            };
         }
     }
 }

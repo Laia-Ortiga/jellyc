@@ -113,19 +113,19 @@ function init_uniform_block(aspect f32, cam Camera) -> UniformBlock {
 function key_callback(window *mut byte, key i32, _scancode i32, action i32, _mods i32) {
     let magnitude = <f32> 0.15
     let speed = <f32> switch action {
-        glfw.RELEASE -> -magnitude,
-        glfw.PRESS -> magnitude,
-        else -> 0.0,
+        glfw.RELEASE => -magnitude,
+        glfw.PRESS => magnitude,
+        else => 0.0,
     }
     let scene = <*mut Scene> `cast[glfw.getWindowUserPointer(window)]
     let state = &scene!.cam_state
     switch key {
-        'A'                 -> state!.speed.x = state!.speed.x - speed,
-        'D'                 -> state!.speed.x = state!.speed.x + speed,
-        'W'                 -> state!.speed.z = state!.speed.z - speed,
-        'S'                 -> state!.speed.z = state!.speed.z + speed,
-        glfw.KEY_LEFT_SHIFT -> state!.speed.y = state!.speed.y - speed,
-        ' '                 -> state!.speed.y = state!.speed.y + speed,
+        'A'                 => state!.speed.x = state!.speed.x - speed,
+        'D'                 => state!.speed.x = state!.speed.x + speed,
+        'W'                 => state!.speed.z = state!.speed.z - speed,
+        'S'                 => state!.speed.z = state!.speed.z + speed,
+        glfw.KEY_LEFT_SHIFT => state!.speed.y = state!.speed.y - speed,
+        ' '                 => state!.speed.y = state!.speed.y + speed,
     }
 }
 

@@ -18,7 +18,7 @@ typedef enum {
     PREC_BIT,
     PREC_ADD,
     PREC_MUL,
-    PREC_AS,
+    PREC_UNARY,
     PREC_POSTFIX,
 } Precedence;
 
@@ -298,7 +298,7 @@ static ExtraList parse_switch_cases(Parser *parser) {
         if (parser->lookahead.tag == TOK_KW_else) {
             // default case
             consume(parser);
-            expect(parser, TOK_ARROW);
+            expect(parser, TOK_DOUBLE_ARROW);
             AstId value = parse_expr(parser, PREC_NONE);
             expect(parser, TOK_COMMA);
             AstId node = ast_push(&parser->ast, (AstSwitchCase) {
@@ -309,7 +309,7 @@ static ExtraList parse_switch_cases(Parser *parser) {
             push_list(parser, &cases, node);
         } else {
             AstId cond = parse_expr(parser, PREC_NONE);
-            expect(parser, TOK_ARROW);
+            expect(parser, TOK_DOUBLE_ARROW);
             AstId value = parse_expr(parser, PREC_NONE);
             expect(parser,TOK_COMMA);
             AstId node = ast_push(&parser->ast, (AstSwitchCase) {
@@ -333,16 +333,18 @@ static AstId parse_switch(Parser *parser, SourceIndex token) {
     });
 }
 
+static AstId parse_ret_type(Parser *parser) {
+    if (accept(parser, TOK_ARROW)) {
+        return parse_expr(parser, PREC_UNARY);
+    }
+    return null_ast;
+}
+
 static AstId parse_extern_function(Parser *parser) {
     expect(parser, TOK_KW_function);
     SourceIndex token = expect(parser, TOK_ID);
     ExtraList params = parse_parameters(parser);
-
-    AstId return_type = null_ast;
-    if (accept(parser, TOK_ARROW)) {
-        return_type = parse_expr(parser, PREC_NONE);
-    }
-
+    AstId return_type = parse_ret_type(parser);
     return ast_push(&parser->ast, (AstExternFunction) {
         .token = token,
         .params = {params.len, pop_list(parser, params)},
@@ -387,12 +389,7 @@ static AstId parse_function(Parser *parser) {
     SourceIndex token = expect_id(parser);
     ExtraList type_parameters = parse_type_parameters(parser);
     ExtraList parameters = parse_parameters(parser);
-
-    AstId return_type = null_ast;
-    if (accept(parser, TOK_ARROW)) {
-        return_type = parse_expr(parser, PREC_NONE);
-    }
-
+    AstId return_type = parse_ret_type(parser);
     AstId body = parse_block(parser);
     AstId *parameters_ptr = pop_list(parser, parameters);
     AstId *type_parameters_ptr = pop_list(parser, type_parameters);
@@ -447,12 +444,7 @@ static AstId parse_newtype(Parser *parser) {
 
 static AstId parse_function_type(Parser *parser, SourceIndex token) {
     ExtraList params = parse_parameters(parser);
-
-    AstId return_type = null_ast;
-    if (accept(parser, TOK_ARROW)) {
-        return_type = parse_expr(parser, PREC_NONE);
-    }
-
+    AstId return_type = parse_ret_type(parser);
     return ast_push(&parser->ast, (AstFunctionType) {
         .token = token,
         .params = {params.len, pop_list(parser, params)},
@@ -551,7 +543,7 @@ end:
 }
 
 static AstId parse_unary(Parser *parser, AstTag tag, SourceIndex token) {
-    AstId operand = parse_expr(parser, PREC_AS);
+    AstId operand = parse_expr(parser, PREC_UNARY);
     return ast_push_tag(&parser->ast, tag, (AstUnary) {
         .token = token,
         .a = operand,
@@ -561,7 +553,7 @@ static AstId parse_unary(Parser *parser, AstTag tag, SourceIndex token) {
 static AstId parse_array_type(Parser *parser, SourceIndex token) {
     AstId length = parse_expr(parser, PREC_NONE);
     expect(parser, TOK_SQUARER);
-    AstId type_node = parse_expr(parser, PREC_NONE);
+    AstId type_node = parse_expr(parser, PREC_UNARY);
     return ast_push(&parser->ast, (AstArrayTypeSugar) {
         .token = token,
         .length = length,
@@ -608,7 +600,7 @@ static AstId parse_list(Parser *parser, SourceIndex token) {
 
         AstId expr = parse_expr(parser, PREC_NONE);
 
-        if (count == 0 && accept(parser, TOK_ARROW)) {
+        if (count == 0 && accept(parser, TOK_DOUBLE_ARROW)) {
             AstId elem_type = parse_expr(parser, PREC_NONE);
             expect(parser, TOK_SQUARER);
             return ast_push(&parser->ast, (AstArrayType) {
@@ -680,9 +672,9 @@ static AstId parse_prefix(Parser *parser) {
         }
         case TOK_LT: {
             Token token = consume(parser);
-            AstId type = parse_expr(parser, PREC_AS);
+            AstId type = parse_expr(parser, PREC_UNARY);
             expect(parser, TOK_GT);
-            AstId expr = parse_expr(parser, PREC_AS);
+            AstId expr = parse_expr(parser, PREC_UNARY);
             return ast_push(&parser->ast, (AstTypeHint) {
                 .token = token.start,
                 .type = type,

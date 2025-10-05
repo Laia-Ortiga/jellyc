@@ -59,56 +59,56 @@ function next(lexer *mut Lexer) -> Token {
     let start = lexer!.cursor
     let c = consume(lexer)
     switch c {
-        '\x00' -> Token(.sentinel, start, 0),
-        ' ' -> next(lexer),
-        '\t' -> next(lexer),
-        '\n' -> next(lexer),
-        '#' -> comment(lexer),
-        '(' -> Token(.lround, start, 1),
-        ')' -> Token(.rround, start, 1),
-        '[' -> Token(.lsquare, start, 1),
-        ']' -> Token(.rsquare, start, 1),
-        '{' -> Token(.lcurly, start, 1),
-        '}' -> Token(.rcurly, start, 1),
-        ',' -> Token(.comma, start, 1),
-        '.' -> Token(.dot, start, 1),
-        ';' -> Token(.semicolon, start, 1),
-        '+' -> Token(.plus, start, 1),
-        '-' ->
+        '\x00' => Token(.sentinel, start, 0),
+        ' ' => next(lexer),
+        '\t' => next(lexer),
+        '\n' => next(lexer),
+        '#' => comment(lexer),
+        '(' => Token(.lround, start, 1),
+        ')' => Token(.rround, start, 1),
+        '[' => Token(.lsquare, start, 1),
+        ']' => Token(.rsquare, start, 1),
+        '{' => Token(.lcurly, start, 1),
+        '}' => Token(.rcurly, start, 1),
+        ',' => Token(.comma, start, 1),
+        '.' => Token(.dot, start, 1),
+        ';' => Token(.semicolon, start, 1),
+        '+' => Token(.plus, start, 1),
+        '-' =>
             switch true {
-                accept(lexer, '>') -> Token(.arrow, start, 2),
-                else -> Token(.minus, start, 1),
+                accept(lexer, '>') => Token(.arrow, start, 2),
+                else => Token(.minus, start, 1),
             },
-        '*' -> Token(.star, start, 1),
-        '/' -> Token(.div, start, 1),
-        '%' -> Token(.mod, start, 1),
-        '=' ->
+        '*' => Token(.star, start, 1),
+        '/' => Token(.div, start, 1),
+        '%' => Token(.mod, start, 1),
+        '=' =>
             switch true {
-                accept(lexer, '=') -> Token(.eq, start, 2),
-                else -> Token(.assign, start, 1),
+                accept(lexer, '=') => Token(.eq, start, 2),
+                else => Token(.assign, start, 1),
             },
-        '!' ->
+        '!' =>
             switch true {
-                accept(lexer, '=') -> Token(.ne, start, 2),
-                else -> Token(.not, start, 1),
+                accept(lexer, '=') => Token(.ne, start, 2),
+                else => Token(.not, start, 1),
             },
-        '<' ->
+        '<' =>
             switch true {
-                accept(lexer, '=') -> Token(.le, start, 2),
-                else -> Token(.lt, start, 1),
+                accept(lexer, '=') => Token(.le, start, 2),
+                else => Token(.lt, start, 1),
             },
-        '>' ->
+        '>' =>
             switch true {
-                accept(lexer, '=') -> Token(.ge, start, 2),
-                else -> Token(.gt, start, 1),
+                accept(lexer, '=') => Token(.ge, start, 2),
+                else => Token(.gt, start, 1),
             },
-        '\'' -> character(lexer),
-        '"' -> string(lexer),
-        else ->
+        '\'' => character(lexer),
+        '"' => string(lexer),
+        else =>
             switch true {
-                is_alpha(c) or c == '_' -> id(lexer),
-                is_digit(c) -> num(lexer),
-                else -> Token(.invalid, start, 1),
+                is_alpha(c) or c == '_' => id(lexer),
+                is_digit(c) => num(lexer),
+                else => Token(.invalid, start, 1),
             },
     }
 }
@@ -140,43 +140,43 @@ function print_token(token Token, lexer Lexer) {
 
 function tag_to_str(tag TokenKind) -> @i8 {
     switch tag {
-        .sentinel -> &"sentinel",
-        .invalid -> &"invalid",
-        .lround -> &"(",
-        .rround -> &")",
-        .lsquare -> &"[",
-        .rsquare -> &"]",
-        .lcurly -> &"{",
-        .rcurly -> &"}",
-        .comma -> &",",
-        .dot -> &".",
-        .semicolon -> &";",
-        .arrow -> &"->",
+        .sentinel => &"sentinel",
+        .invalid => &"invalid",
+        .lround => &"(",
+        .rround => &")",
+        .lsquare => &"[",
+        .rsquare => &"]",
+        .lcurly => &"{",
+        .rcurly => &"}",
+        .comma => &",",
+        .dot => &".",
+        .semicolon => &";",
+        .arrow => &"->",
 
-        .plus -> &"+",
-        .minus -> &"-",
-        .star -> &"*",
-        .div -> &"/",
-        .mod -> &"%",
+        .plus => &"+",
+        .minus => &"-",
+        .star => &"*",
+        .div => &"/",
+        .mod => &"%",
 
-        .eq -> &"==",
-        .ne -> &"!=",
-        .lt -> &"<",
-        .gt -> &">",
-        .le -> &"<=",
-        .ge -> &">=",
-        .not -> &"!",
+        .eq => &"==",
+        .ne => &"!=",
+        .lt => &"<",
+        .gt => &">",
+        .le => &"<=",
+        .ge => &">=",
+        .not => &"!",
 
-        .assign -> &"=",
+        .assign => &"=",
 
-        .kw_function -> &"function",
-        .kw_let -> &"let",
-        .kw_return -> &"return",
+        .kw_function => &"function",
+        .kw_let => &"let",
+        .kw_return => &"return",
 
-        .character -> &"i8",
-        .string -> &"string",
-        .int -> &"int",
-        .id -> &"id",
+        .character => &"i8",
+        .string => &"string",
+        .int => &"int",
+        .id => &"id",
     }
 }
 
@@ -279,10 +279,10 @@ function id(lexer *mut Lexer) -> Token {
     }
     let str = &lexer!.source[start:lexer!.cursor]
     let kind = <TokenKind> switch true {
-        mem_eq(str, &"function") -> .kw_function,
-        mem_eq(str, &"let") -> .kw_let,
-        mem_eq(str, &"return") -> .kw_return,
-        else -> .id,
+        mem_eq(str, &"function") => .kw_function,
+        mem_eq(str, &"let") => .kw_let,
+        mem_eq(str, &"return") => .kw_return,
+        else => .id,
     }
     Token(kind, start, lexer!.cursor - start)
 }
