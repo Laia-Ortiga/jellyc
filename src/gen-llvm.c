@@ -912,12 +912,33 @@ static void gen_slice_index(GenContext *c) {
     Operand index = pop_operand(c);
     Operand a = pop_operand(c);
     index = load_operand(c, &index);
+    assert(a.is_lvalue);
+
+    int32_t length_ptr = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = getelementptr inbounds ", length_ptr);
+    gen_type(c, a.type);
+    fprintf(c->stream, ", ptr ");
+    gen_operand(c, &a);
+    fprintf(c->stream, ", i64 0, i32 0\n");
+
+    int32_t length = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = load ", length);
+    gen_type(c, index.type);
+    fprintf(c->stream, ", ptr %%%d\n", length_ptr);
+
+    int32_t overflowed = c->tmp_count++;
+    fprintf(c->stream, "  %%%d = icmp uge ", overflowed);
+    gen_type(c, index.type);
+    fprintf(c->stream, " ");
+    gen_operand(c, &index);
+    fprintf(c->stream, ", %%%d\n", length);
+
+    gen_overflow_check(c, overflowed);
 
     int32_t tmp1 = c->tmp_count++;
     fprintf(c->stream, "  %%%d = getelementptr inbounds ", tmp1);
     gen_type(c, a.type);
     fprintf(c->stream, ", ptr ");
-    assert(a.is_lvalue);
     gen_operand(c, &a);
     fprintf(c->stream, ", i64 0, i32 1\n");
 

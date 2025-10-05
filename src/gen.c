@@ -915,13 +915,22 @@ static void gen_slice_index(GenContext *c) {
     Operand index = pop_operand(c);
     Operand a = pop_operand(c);
     TirId elem_type = remove_c_pointer_like(c->tir, a.type);
+
+    fprintf(c->stream, "    if (");
+    gen_operand(c, &index);
+    fprintf(c->stream, " < 0 || ");
+    gen_operand(c, &index);
+    fprintf(c->stream, " >= ");
+    gen_operand(c, &a);
+    fprintf(c->stream, "._0) { __builtin_abort(); }\n");
+
     introduce_temporary(c, true, elem_type);
     fprintf(c->stream, "&((");
     gen_ptr_type_before(c, elem_type);
     gen_ptr_type_after(c, elem_type);
-    fprintf(c->stream, ") (");
+    fprintf(c->stream, ") ");
     gen_operand(c, &a);
-    fprintf(c->stream, ")._1)[");
+    fprintf(c->stream, "._1)[");
     gen_operand(c, &index);
     fprintf(c->stream, "];\n");
 }
