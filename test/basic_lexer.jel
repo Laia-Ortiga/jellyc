@@ -1,7 +1,6 @@
 module main
 
 import std
-import libc
 
 enum TokenKind i8 {
     sentinel,
@@ -296,26 +295,9 @@ function num(lexer *mut Lexer) -> Token {
     Token(.int, start, lexer!.cursor - start)
 }
 
-function read_file(path *i8) -> @mut i8 {
-    let file = libc.fopen(path, &"r"[0])
-
-    if file == null {
-        return `slice[0, null]
-    }
-
-    libc.fseek(file, 0, 2)
-    let length = libc.ftell(file)
-    libc.fseek(file, 0, 0)
-    mut buffer = std.alloc(length + 1, `size_of[i8])
-    let n = libc.fread(buffer.data, 1, length, file)
-    libc.fclose(file)
-    buffer[n] = 0
-    buffer[:n + 1]
-}
-
 function main() {
     let path = &"test/fibonacci.jel"
-    let source = read_file(&path![0])
+    let source = std.read_file(path)
 
     if source.length == 0 {
         std.print_str(&"No such file\n")
