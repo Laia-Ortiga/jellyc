@@ -324,10 +324,7 @@ static ExtraList parse_switch_cases(Parser *parser) {
 }
 
 static AstId parse_switch(Parser *parser, SourceIndex token) {
-    AstId cond = null_ast;
-    if (parser->lookahead.tag != TOK_CURLYL) {
-        cond = parse_expr(parser, PREC_NONE);
-    }
+    AstId cond = parse_expr(parser, PREC_NONE);
     ExtraList branches = parse_switch_cases(parser);
     return ast_push(&parser->ast, (AstSwitch) {
         .token = token,

@@ -75,7 +75,7 @@ function next(lexer *mut Lexer) -> Token {
         ';' -> Token(.semicolon, start, 1),
         '+' -> Token(.plus, start, 1),
         '-' ->
-            switch {
+            switch true {
                 accept(lexer, '>') -> Token(.arrow, start, 2),
                 else -> Token(.minus, start, 1),
             },
@@ -83,29 +83,29 @@ function next(lexer *mut Lexer) -> Token {
         '/' -> Token(.div, start, 1),
         '%' -> Token(.mod, start, 1),
         '=' ->
-            switch {
+            switch true {
                 accept(lexer, '=') -> Token(.eq, start, 2),
                 else -> Token(.assign, start, 1),
             },
         '!' ->
-            switch {
+            switch true {
                 accept(lexer, '=') -> Token(.ne, start, 2),
                 else -> Token(.not, start, 1),
             },
         '<' ->
-            switch {
+            switch true {
                 accept(lexer, '=') -> Token(.le, start, 2),
                 else -> Token(.lt, start, 1),
             },
         '>' ->
-            switch {
+            switch true {
                 accept(lexer, '=') -> Token(.ge, start, 2),
                 else -> Token(.gt, start, 1),
             },
         '\'' -> character(lexer),
         '"' -> string(lexer),
         else ->
-            switch {
+            switch true {
                 is_alpha(c) or c == '_' -> id(lexer),
                 is_digit(c) -> num(lexer),
                 else -> Token(.invalid, start, 1),
@@ -278,7 +278,7 @@ function id(lexer *mut Lexer) -> Token {
         consume(lexer)
     }
     let str = &lexer!.source[start:lexer!.cursor]
-    let kind = <TokenKind> switch {
+    let kind = <TokenKind> switch true {
         mem_eq(str, &"function") -> .kw_function,
         mem_eq(str, &"let") -> .kw_let,
         mem_eq(str, &"return") -> .kw_return,
