@@ -498,6 +498,11 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "unused name, add a leading _ to remove this warning");
             break;
         })
+        CASE(WarningUnusedImport, d, {
+            (void) d;
+            fprintf(stderr, "unused import");
+            break;
+        })
     }
 
     fprintf(stderr, "\n");

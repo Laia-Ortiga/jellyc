@@ -88,6 +88,7 @@ EXTRA(NOTE_END)
 
 /* Warnings */
 VARIANT(WarningUnused, X(unused, int))
+VARIANT(WarningUnusedImport, X(unused, int))
 
 EXTRA(WARNING_END)
 

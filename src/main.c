@@ -139,8 +139,8 @@ static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
 
     int32_t *builtin_def = htable_lookup(b->global_scope, name);
     if (builtin_def) {
-        if (*builtin_def >= TERM_COUNT) {
-            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def - TERM_COUNT}};
+        if (*builtin_def >= 0) {
+            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def}};
         }
         return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
     }
@@ -199,7 +199,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
-        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < TERM_GLOBAL_COUNT - TERM_COUNT) {
+        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < TERM_GLOBAL_COUNT) {
             // Defined in "internal.jel".
             vec_push(b->ast_refs, (AstGlobal) {
                 .is_public = !!is_public,

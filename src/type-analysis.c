@@ -229,10 +229,10 @@ static Symbol lookup(Context *c, FileId file, String name) {
 
     int32_t *builtin_def = htable_lookup(c->global_scope, name);
     if (builtin_def) {
-        if (*builtin_def >= TERM_COUNT) {
+        if (*builtin_def >= 0) {
             return (Symbol) {
                 .kind = SYM_GLOBAL,
-                .global = {*builtin_def - TERM_COUNT},
+                .global = {*builtin_def},
             };
         }
         return (Symbol) {
@@ -1630,7 +1630,7 @@ static bool expect_arg_count(Context *c, AstId node, int32_t param_count) {
 }
 
 static TirId get_internal_term(Context *c, ReservedTerm p) {
-    return nth(c->tir_refs, (GlobalId) {p - TERM_COUNT});
+    return nth(c->tir_refs, (GlobalId) {p});
 }
 
 static TirId analyze_alignof(Context *c, AstId node) {
@@ -3109,11 +3109,19 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
     for (int32_t j = TERM_GLOBAL_COUNT; j < input->def_count; j++) {
         GlobalId g = {j};
         if (!nth(global_lists[0], g).used && nth(global_tc.tir_refs, g).id) {
-            name_diagnostic(
-                &global_tc,
-                nth(global_tc.ast_refs, g).ref,
-                Diagnostic(WarningUnused, {0})
-            );
+            if (get_term_category(global_tc.tir, nth(global_tc.tir_refs, g)) == TIRCAT_MODULE) {
+                name_diagnostic(
+                    &global_tc,
+                    nth(global_tc.ast_refs, g).ref,
+                    Diagnostic(WarningUnusedImport, {0})
+                );
+            } else {
+                name_diagnostic(
+                    &global_tc,
+                    nth(global_tc.ast_refs, g).ref,
+                    Diagnostic(WarningUnused, {0})
+                );
+            }
         }
     }
 
