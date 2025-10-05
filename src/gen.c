@@ -609,7 +609,34 @@ static void gen_unary(GenContext *c, char const *op) {
     fprintf(c->stream, ";\n");
 }
 
-static void gen_binary(GenContext *c, char const *op) {
+static void gen_binary(GenContext *c, char const *op, char const *float_op) {
+    Operand b = pop_operand(c);
+    Operand a = pop_operand(c);
+    if (type_is_int(a.type)) {
+        Operand result = new_tmp(c, false, a.type);
+        fprintf(c->stream, "    ");
+        gen_type_before(c, result.type);
+        fprintf(c->stream, "t%d", result.index);
+        gen_type_after(c, result.type);
+        fprintf(c->stream, ";\n");
+
+        fprintf(c->stream, "    if (%s(", op);
+        gen_operand(c, &a);
+        fprintf(c->stream, ", ");
+        gen_operand(c, &b);
+        fprintf(c->stream, ", &");
+        gen_operand(c, &result);
+        fprintf(c->stream, ")) { __builtin_abort(); }\n");
+    } else {
+        introduce_temporary(c, false, a.type);
+        gen_operand(c, &a);
+        fprintf(c->stream, " %s ", float_op);
+        gen_operand(c, &b);
+        fprintf(c->stream, ";\n");
+    }
+}
+
+static void gen_binary2(GenContext *c, char const *op) {
     Operand b = pop_operand(c);
     Operand a = pop_operand(c);
     introduce_temporary(c, false, a.type);
@@ -969,16 +996,16 @@ static void gen_instruction(GenContext *c, int32_t i) {
         case MIR_NOT: gen_unary(c, "!"); break;
         case MIR_ADDRESS: gen_address(c); break;
         case MIR_DEREF: gen_deref(c); break;
-        case MIR_ADD: gen_binary(c, "+"); break;
-        case MIR_SUB: gen_binary(c, "-"); break;
-        case MIR_MUL: gen_binary(c, "*"); break;
+        case MIR_ADD: gen_binary(c, "__builtin_add_overflow", "+"); break;
+        case MIR_SUB: gen_binary(c, "__builtin_sub_overflow", "-"); break;
+        case MIR_MUL: gen_binary(c, "__builtin_mul_overflow", "*"); break;
         case MIR_DIV: gen_div(c); break;
         case MIR_MOD: gen_mod(c); break;
-        case MIR_AND: gen_binary(c, "&"); break;
-        case MIR_OR: gen_binary(c, "|"); break;
-        case MIR_XOR: gen_binary(c, "^"); break;
-        case MIR_SHL: gen_binary(c, "<<"); break;
-        case MIR_SHR: gen_binary(c, ">>"); break;
+        case MIR_AND: gen_binary2(c, "&"); break;
+        case MIR_OR: gen_binary2(c, "|"); break;
+        case MIR_XOR: gen_binary2(c, "^"); break;
+        case MIR_SHL: gen_binary2(c, "<<"); break;
+        case MIR_SHR: gen_binary2(c, ">>"); break;
         case MIR_EQ: gen_bool_binary(c, "=="); break;
         case MIR_NE: gen_bool_binary(c, "!="); break;
         case MIR_LT: gen_bool_binary(c, "<"); break;
