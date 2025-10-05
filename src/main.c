@@ -23,7 +23,7 @@ static void print_help(void) {
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -help                    Display this information.\n");
     fprintf(stderr, "  -print-debug             Display debug information about the intermediate representations.\n");
-    fprintf(stderr, "  -backend=<backend>       Specify the backend that will be used.\n");
+    fprintf(stderr, "  -backend={c|llvm}        Specify the backend that will be used.\n");
 }
 
 static Backend parse_backend(String value) {
