@@ -503,6 +503,11 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "unused import");
             break;
         })
+        CASE(WarningUnusedExpression, d, {
+            (void) d;
+            fprintf(stderr, "unused expression");
+            break;
+        })
     }
 
     fprintf(stderr, "\n");

@@ -810,6 +810,96 @@ static TirBlock analyze_block(
             }
         } else {
             tir = analyze_term(c, block.stmts.ptr[i], error_term);
+        
+            switch (get_ast_tag(c->ast, block.stmts.ptr[i])) {
+                case AST_ROOT:
+                case AST_IMPORT:
+                case AST_PUBLIC:
+                case AST_FUNCTION:
+                case AST_ENUM:
+                case AST_STRUCT:
+                case AST_NEWTYPE:
+                case AST_CONST:
+                case AST_EXTERN_FUNCTION:
+                case AST_EXTERN_VAR:
+                case AST_LET:
+                case AST_MUT:
+                case AST_IF:
+                case AST_WHILE:
+                case AST_FOR:
+                case AST_SWITCH:
+                case AST_BREAK:
+                case AST_CONTINUE:
+                case AST_RETURN:
+                case AST_LOGIC_AND:
+                case AST_LOGIC_OR:
+                case AST_ASSIGN:
+                case AST_ASSIGN_ADD:
+                case AST_ASSIGN_SUB:
+                case AST_ASSIGN_MUL:
+                case AST_ASSIGN_DIV:
+                case AST_ASSIGN_MOD:
+                case AST_ASSIGN_AND:
+                case AST_ASSIGN_OR:
+                case AST_ASSIGN_XOR:
+                case AST_CALL:
+                case AST_BLOCK: {
+                    break;
+                }
+                case AST_PARAM:
+                case AST_SWITCH_CASE:
+                case AST_ARRAY_TYPE:
+                case AST_ARRAY_TYPE_SUGAR:
+                case AST_PTR_TYPE:
+                case AST_MUT_PTR_TYPE:
+                case AST_SLICE_TYPE:
+                case AST_MUT_SLICE_TYPE:
+                case AST_PLUS:
+                case AST_MINUS:
+                case AST_NOT:
+                case AST_ADDRESS:
+                case AST_DEREF:
+                case AST_ADD:
+                case AST_SUB:
+                case AST_MUL:
+                case AST_DIV:
+                case AST_MOD:
+                case AST_AND:
+                case AST_OR:
+                case AST_XOR:
+                case AST_SHL:
+                case AST_SHR:
+                case AST_EQ:
+                case AST_NE:
+                case AST_LT:
+                case AST_GT:
+                case AST_LE:
+                case AST_GE:
+                case AST_FUNCTION_TYPE:
+                case AST_TYPE_HINT:
+                case AST_INDEX:
+                case AST_SLICE:
+                case AST_ACCESS:
+                case AST_INFERRED_ACCESS:
+                case AST_LIST:
+                case AST_MAP_ENTRY:
+                case AST_MAP:
+                case AST_ID:
+                case AST_INT:
+                case AST_FLOAT:
+                case AST_CHAR:
+                case AST_STRING:
+                case AST_TRUE:
+                case AST_FALSE:
+                case AST_NULL: {
+                    node_diagnostic(
+                        c,
+                        block.stmts.ptr[i],
+                        Diagnostic(WarningUnusedExpression, {0})
+                    );
+                    break;
+                }
+            }
         }
         if (get_term_category(c->tir, tir) == TIRCAT_VALUE) {
             vec_push(&c->current_block, tir);
