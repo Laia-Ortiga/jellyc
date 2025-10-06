@@ -269,13 +269,6 @@ static void register_id(Context *c, AstRef ref, TirId term) {
     if (prev_symbol.kind == SYM_GLOBAL
         && nth(c->visited, prev_symbol.global) == VISITING) {
         nth(c->tir_refs, prev_symbol.global) = term;
-
-        if (get_ast_tag(&nth(c->asts, ref.file), ref.node) == AST_FUNCTION) {
-            if (equals(name, Str("main")) && !c->tir.thread) {
-                nth(c->globals, prev_symbol.global).used = true;
-            }
-        }
-
         return;
     }
 
@@ -351,6 +344,13 @@ static int analyze_def(Context *c, GlobalId def) {
     nth(c->visited, def) = VISITED;
     if (ref.is_public) {
         nth(c->globals, def).used = true;
+    }
+    if (get_ast_tag(new_c.ast, ref.ref.node) == AST_FUNCTION) {
+        SourceIndex token = get_ast_token(new_c.ast, ref.ref.node);
+        String name = id_token_to_string(ctx_source(&new_c), token);
+        if (equals(name, Str("main")) && !new_c.tir.thread) {
+            nth(new_c.globals, def).used = true;
+        }
     }
     return 0;
 }
