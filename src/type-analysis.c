@@ -889,25 +889,26 @@ static TirId analyze_enum(Context *c, AstId node) {
 
     SourceIndex token = get_ast_token(c->ast, node);
     String name = id_token_to_string(ctx_source(c), token);
-    HashTable table_init = htable_init();
-    int32_t scope = tir->type_scopes.len;
-    vec_push(&tir->type_scopes, table_init);
+    int32_t scope_index = tir->type_scopes.len;
+    vec_grow(&tir->type_scopes, 1);
     TirId type = tir_push(c->tir, (TirEnumType) {
-        .scope = scope,
+        .scope = scope_index,
         .name = tir_push_cstr(c->tir, name),
         .repr = repr_type,
     });
-    HashTable *table = &tir->type_scopes.ptr[scope];
+    TypeScope scope = {
+        .symbols = htable_init(),
+        .start = tir->type_scope_symbols.len,
+    };
 
     for (int32_t i = 0; i < e.members.len; i++) {
         SourceIndex member_token = get_ast_token(c->ast, e.members.ptr[i]);
         String member_name = id_token_to_string(ctx_source(c), member_token);
-        int32_t member_sym = tir->type_scope_symbols.len;
-        int64_t prev = htable_try_insert(table, member_name, member_sym);
+        int64_t prev = htable_try_insert(&scope.symbols, member_name, i);
 
         if (prev >= 0) {
             node_diagnostic(c, e.members.ptr[i], Diagnostic(ErrorMultipleDefinition, {0}));
-            AstId prev_ref = tir->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = e.members.ptr[prev];
             node_diagnostic(c, prev_ref, Diagnostic(NotePreviousDefinition, {0}));
         }
 
@@ -916,9 +917,10 @@ static TirId analyze_enum(Context *c, AstId node) {
             .type = type,
             .value = i,
         });
-        vec_push(&tir->type_scope_symbols, (TypeScopeSymbol) {.ast_id = e.members.ptr[i], .field_index = value.id});
+        vec_push(&tir->type_scope_symbols, value);
     }
 
+    tir->type_scopes.ptr[scope_index] = scope;
     register_id(c, (AstRef) {node, c->file}, type);
     return type;
 }
@@ -952,31 +954,32 @@ static TirId analyze_struct(Context *c, AstId node) {
     }
 
     pop_scope(c);
-    HashTable table = htable_init();
-    int32_t index = 0;
+    TypeScope scope = {
+        .symbols = htable_init(),
+        .start = tir->type_scope_symbols.len,
+    };
 
     for (int32_t i = 0; i < s.fields.len; i++) {
         SourceIndex field_token = get_ast_token(c->ast, s.fields.ptr[i]);
         String field_name = id_token_to_string(ctx_source(c), field_token);
 
-        int32_t field_sym = tir->type_scope_symbols.len;
-        vec_push(&tir->type_scope_symbols, (TypeScopeSymbol) {
-            .ast_id = s.fields.ptr[i],
-            .field_index = index,
+        TirId value = tir_push_tag(c->tir, TIR_PARAMETER, (TirVariable) {
+            .node = s.fields.ptr[i],
+            .type = field_types[i],
+            .index = i,
         });
-        int64_t prev = htable_try_insert(&table, field_name, field_sym);
+        vec_push(&tir->type_scope_symbols, value);
+        int64_t prev = htable_try_insert(&scope.symbols, field_name, i);
 
         if (prev >= 0) {
             node_diagnostic(c, s.fields.ptr[i], Diagnostic(ErrorMultipleDefinition, {0}));
-            AstId prev_ref = tir->type_scope_symbols.ptr[prev].ast_id;
+            AstId prev_ref = s.fields.ptr[prev];
             node_diagnostic(c, prev_ref, Diagnostic(NotePreviousDefinition, {0}));
         }
-
-        index++;
     }
 
-    int32_t scope = tir->type_scopes.len;
-    vec_push(&tir->type_scopes, table);
+    int32_t scope_index = tir->type_scopes.len;
+    vec_push(&tir->type_scopes, scope);
 
     SourceIndex token = get_ast_token(c->ast, node);
     String name = id_token_to_string(ctx_source(c), token);
@@ -987,7 +990,7 @@ static TirId analyze_struct(Context *c, AstId node) {
 
     int32_t name_i = tir_push_cstr(c->tir, name);
     TirId inner_type = new_struct_type(c->tir, c->options->target, (TirStructType) {
-        .scope = scope,
+        .scope = scope_index,
         .name = name_i,
         .fields = {s.fields.len, field_types},
     });
@@ -1998,22 +2001,36 @@ static TirId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
     });
 }
 
-static int32_t find_field(Context *c, TirId type, String name) {
-    int32_t scope = tir_get_struct_type(c->tir, type).scope;
-    int32_t *sym = htable_lookup(&tir_get_storage(c->tir, type)->type_scopes.ptr[scope], name);
+typedef struct {
+    int32_t index;
+    TirId value;
+} FieldResult;
+
+static FieldResult find_field(Context *c, TirId type, String name) {
+    int32_t scope_index = tir_get_struct_type(c->tir, type).scope;
+    Tir *tir = tir_get_storage(c->tir, type);
+    TypeScope *scope = &tir->type_scopes.ptr[scope_index];
+    int32_t *sym = htable_lookup(&scope->symbols, name);
 
     if (!sym) {
-        return -1;
+        return (FieldResult) {
+            .index = -1,
+            .value = error_term,
+        };
     }
 
-    return *sym;
+    return (FieldResult) {
+        .index = *sym,
+        .value = tir->type_scope_symbols.ptr[scope->start + *sym],
+    };
 }
 
 static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
     SourceIndex field_token = get_ast_token(c->ast, node);
     String field_name = id_token_to_string(ctx_source(c), field_token);
-    int32_t scope = tir_get_enum_type(c->tir, type).scope;
-    int32_t *sym_ptr = htable_lookup(&tir_get_storage(c->tir, type)->type_scopes.ptr[scope], field_name);
+    int32_t scope_index = tir_get_enum_type(c->tir, type).scope;
+    TypeScope *scope = &tir_get_storage(c->tir, type)->type_scopes.ptr[scope_index];
+    int32_t *sym_ptr = htable_lookup(&scope->symbols, field_name);
 
     if (!sym_ptr) {
         node_diagnostic(c, node, Diagnostic(ErrorUndefinedTypeScope, {
@@ -2023,8 +2040,7 @@ static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
         return error_term;
     }
 
-    TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[*sym_ptr];
-    return (TirId) {sym.field_index};
+    return tir_get_storage(c->tir, type)->type_scope_symbols.ptr[*sym_ptr];
 }
 
 static TirId analyze_enum_member(Context *c, AstId node) {
@@ -2176,9 +2192,9 @@ static TirId analyze_access(Context *c, AstId node) {
         return error_term;
     }
 
-    int32_t field_sym = find_field(c, type, field_name);
+    FieldResult field_sym = find_field(c, type, field_name);
 
-    if (field_sym == -1) {
+    if (field_sym.index == -1) {
         node_diagnostic(c, n.s, Diagnostic(ErrorUndefinedTypeField, {
             .ctx = c->tir,
             .type = operand_type,
@@ -2186,13 +2202,12 @@ static TirId analyze_access(Context *c, AstId node) {
         return error_term;
     }
 
-    TypeScopeSymbol sym = tir_get_storage(c->tir, type)->type_scope_symbols.ptr[field_sym];
-    TirId result_type = get_struct_type_field(c->tir, type, sym.field_index);
+    TirId result_type = get_value_type(c->tir, field_sym.value);
     return tir_push(c->tir, (TirAccess) {
         .node = node,
         .type = result_type,
         .s = operand_value,
-        .field = sym.field_index,
+        .field = field_sym.index,
     });
 }
 
@@ -2309,17 +2324,16 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
 
             for (int32_t i = 0; i < s.fields.len; i++) {
                 String name = get_id_source(c, (AstRef) {map.entries.ptr[i], c->file});
-                int32_t field = find_field(c, inner, name);
-                if (field == -1) {
+                FieldResult field = find_field(c, inner, name);
+                if (field.index == -1) {
                     node_diagnostic(c, map.entries.ptr[i], Diagnostic(ErrorUndefinedTypeField, {
                         .ctx = c->tir,
                         .type = hint,
                     }));
                     return error_term;
                 }
-                TypeScopeSymbol sym = tir_get_storage(c->tir, inner)->type_scope_symbols.ptr[field];
                 values[i] = ast_get_map_entry(c->ast, map.entries.ptr[i]).value;
-                field_indices[i] = sym.field_index;
+                field_indices[i] = field.index;
             }
 
             return analyze_struct_ctor(c, node, map.entries.len, values, &g, field_indices);
@@ -2828,7 +2842,7 @@ static TirId analyze_switch(Context *c, AstId node, TirId hint) {
     if (result_type.id && result_type.id != TYPE_VOID) {
         if (get_tir_tag(c->tir, pattern_type) == TIR_ENUM_TYPE) {
             TirEnumType enum_type = tir_get_enum_type(c->tir, pattern_type);
-            HashTable const *scope = &tir_get_storage(c->tir, pattern_type)->type_scopes.ptr[enum_type.scope];
+            HashTable const *scope = &tir_get_storage(c->tir, pattern_type)->type_scopes.ptr[enum_type.scope].symbols;
             validate_exhaustive_enum_switch(c, node, scope, branches_tir);
         } else if (is_ast_null(else_case)) {
             node_diagnostic(c, node, Diagnostic(ErrorSwitchNotExhaustive, {0}));
