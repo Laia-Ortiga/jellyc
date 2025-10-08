@@ -98,7 +98,7 @@ TirId new_tagged_type(TirContext c, TirTaggedType t);
 
 // Other
 
-TirTag get_tir_tag(TirContext c, TirId type);
+TirTag get_tir_tag(TirContext c, TirId term);
 TirData const *get_term_data(TirContext c, TirId term);
 int32_t get_term_extra(Tir *c, int32_t index);
 TirCategory get_term_category(TirContext c, TirId term);
