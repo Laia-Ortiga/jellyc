@@ -810,7 +810,7 @@ static TirBlock analyze_block(
             }
         } else {
             tir = analyze_term(c, block.stmts.ptr[i], error_term);
-        
+
             switch (get_ast_tag(c->ast, block.stmts.ptr[i])) {
                 case AST_ROOT:
                 case AST_IMPORT:
@@ -1082,6 +1082,8 @@ static TirId analyze_struct(Context *c, AstId node) {
     TirId inner_type = new_struct_type(c->tir, c->options->target, (TirStructType) {
         .scope = scope_index,
         .name = name_i,
+        .has_public_fields = s.has_public_fields,
+        .file = c->file,
         .fields = {s.fields.len, field_types},
     });
 
@@ -2094,24 +2096,29 @@ static TirId analyze_assign_bit(Context *c, AstId node, TirTag tag) {
 typedef struct {
     int32_t index;
     TirId value;
+    bool allowed;
 } FieldResult;
 
 static FieldResult find_field(Context *c, TirId type, String name) {
-    int32_t scope_index = tir_get_struct_type(c->tir, type).scope;
+    TirStructType s = tir_get_struct_type(c->tir, type);
+    int32_t scope_index = s.scope;
     Tir *tir = tir_get_storage(c->tir, type);
     TypeScope *scope = &tir->type_scopes.ptr[scope_index];
     int32_t *sym = htable_lookup(&scope->symbols, name);
+    bool allowed = s.has_public_fields || s.file.private_field_id == c->file.private_field_id;
 
     if (!sym) {
         return (FieldResult) {
             .index = -1,
             .value = error_term,
+            .allowed = allowed,
         };
     }
 
     return (FieldResult) {
         .index = *sym,
         .value = tir->type_scope_symbols.ptr[scope->start + *sym],
+        .allowed = allowed,
     };
 }
 
@@ -2285,11 +2292,18 @@ static TirId analyze_access(Context *c, AstId node) {
     FieldResult field_sym = find_field(c, type, field_name);
 
     if (field_sym.index == -1) {
-        node_diagnostic(c, n.s, Diagnostic(ErrorUndefinedTypeField, {
+        node_diagnostic(c, node, Diagnostic(ErrorUndefinedTypeField, {
             .ctx = c->tir,
             .type = operand_type,
         }));
         return error_term;
+    }
+
+    if (!field_sym.allowed) {
+        node_diagnostic(c, node, Diagnostic(ErrorPrivateStructField, {
+            .ctx = c->tir,
+            .type = operand_type,
+        }));
     }
 
     TirId result_type = get_value_type(c->tir, field_sym.value);
@@ -2371,6 +2385,14 @@ static TirId analyze_struct_ctor(
             .scratch = *c->scratch,
             .target = c->options->target,
         });
+    }
+    TirStructType s = tir_get_struct_type(c->tir, inner);
+    if (!s.has_public_fields && s.file.private_field_id != c->file.private_field_id) {
+        node_diagnostic(c, node, Diagnostic(ErrorPrivateStruct, {
+            .ctx = c->tir,
+            .type = term->inner,
+        }));
+        return error_term;
     }
     return tir_push(c->tir, (TirNewStruct) {
         .node = node,

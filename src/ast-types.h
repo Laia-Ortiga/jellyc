@@ -109,6 +109,7 @@ typedef struct {
 
 typedef struct {
     SourceIndex token;
+    int32_t has_public_fields;
     struct { int32_t len; AstId *ptr; } type_params;
     struct { int32_t len; AstId *ptr; } fields;
 } AstStruct;

@@ -101,11 +101,13 @@ TirId tir_push_struct_type(TirContext c, TirStructType a) {
     TirData data;
     memcpy(&data.a, (int32_t *) &a.scope + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.name + 0, sizeof(int32_t));
-    memcpy(&data.c, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
-    int32_t n = 4;
+    memcpy(&data.c, (int32_t *) &a.has_public_fields + 0, sizeof(int32_t));
+    int32_t n = 6;
     n += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
     data.d = tir_writer(c)->terms.extra.len;
     int32_t *extra = vec_grow(&tir_writer(c)->terms.extra, n);
+    memcpy(extra++, (int32_t *) &a.file + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.alignment + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.size + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.size + 1, sizeof(int32_t));
@@ -575,8 +577,10 @@ TirStructType tir_get_struct_type(TirContext c, TirId a) {
     TirStructType result;
     memcpy((int32_t *) &result.scope + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.name + 0, &get_term_data(c, a)->b, sizeof(int32_t));
-    memcpy((int32_t *) &result.fields.len + 0, &get_term_data(c, a)->c, sizeof(int32_t));
+    memcpy((int32_t *) &result.has_public_fields + 0, &get_term_data(c, a)->c, sizeof(int32_t));
     int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    memcpy((int32_t *) &result.file + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.alignment + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.size + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.size + 1, extra++, sizeof(int32_t));

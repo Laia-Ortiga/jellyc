@@ -12,6 +12,7 @@ class Type:
 
 
 node = Type("AstId {}")
+file = Type("FileId {}")
 ty = Type("TirId {}")
 val = Type("TirId {}")
 token = Type("SourceIndex {}")
@@ -73,6 +74,7 @@ ast_nodes = [
         "name": "struct",
         "fields": [
             { "name": "token", "ty": token },
+            { "name": "has_public_fields", "ty": boolean },
             { "name": "type_params", "ty": list_of(node) },
             { "name": "fields", "ty": list_of(node) },
         ],
@@ -427,6 +429,8 @@ types = [
         "fields": [
             { "name": "scope", "ty": scope },
             { "name": "name", "ty": strtab },
+            { "name": "has_public_fields", "ty": boolean },
+            { "name": "file", "ty": file },
             { "name": "fields", "ty": list_of(ty) },
 
             { "name": "alignment", "ty": i32 },

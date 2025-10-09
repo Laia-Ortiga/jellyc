@@ -124,6 +124,8 @@ typedef struct {
 typedef struct {
     int32_t scope;
     int32_t name;
+    int32_t has_public_fields;
+    FileId file;
     struct { int32_t len; TirId *ptr; } fields;
     int32_t alignment;
     int64_t size;

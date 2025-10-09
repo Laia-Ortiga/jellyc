@@ -184,25 +184,6 @@ static ExtraList parse_parameters(Parser *parser) {
     return params;
 }
 
-static ExtraList parse_fields(Parser *parser) {
-    expect(parser, TOK_CURLYL);
-    ExtraList params = new_list(parser);
-    while (parser->lookahead.tag != TOK_CURLYR) {
-        SourceIndex token = expect(parser, TOK_ID);
-        AstId type_node = parse_expr(parser, PREC_NONE);
-        AstId node = ast_push(&parser->ast, (AstParam) {
-            .token = token,
-            .type = type_node,
-        });
-        push_list(parser, &params, node);
-        if (!accept(parser, TOK_COMMA)) {
-            break;
-        }
-    }
-    expect(parser, TOK_CURLYR);
-    return params;
-}
-
 static ExtraList parse_enum_members(Parser *parser) {
     expect(parser, TOK_CURLYL);
     ExtraList params = new_list(parser);
@@ -403,15 +384,36 @@ static AstId parse_function(Parser *parser) {
     });
 }
 
+static ExtraList parse_fields(Parser *parser) {
+    ExtraList params = new_list(parser);
+    while (parser->lookahead.tag != TOK_CURLYR) {
+        SourceIndex token = expect(parser, TOK_ID);
+        AstId type_node = parse_expr(parser, PREC_NONE);
+        AstId node = ast_push(&parser->ast, (AstParam) {
+            .token = token,
+            .type = type_node,
+        });
+        push_list(parser, &params, node);
+        if (!accept(parser, TOK_COMMA)) {
+            break;
+        }
+    }
+    expect(parser, TOK_CURLYR);
+    return params;
+}
+
 static AstId parse_struct(Parser *parser) {
     expect(parser, TOK_KW_struct);
     SourceIndex token = expect_id(parser);
     ExtraList type_parameters = parse_type_parameters(parser);
+    expect(parser, TOK_CURLYL);
+    bool has_public_fields = accept(parser, TOK_KW_public);
     ExtraList fields = parse_fields(parser);
     AstId *fields_ptr = pop_list(parser, fields);
     AstId *type_parameters_ptr = pop_list(parser, type_parameters);
     return ast_push(&parser->ast, (AstStruct) {
         .token = token,
+        .has_public_fields = has_public_fields,
         .type_params = {type_parameters.len, type_parameters_ptr},
         .fields = {fields.len, fields_ptr},
     });

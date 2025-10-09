@@ -65,6 +65,8 @@ VARIANT(ErrorWrongCount, X(expected, int32_t) X(provided, int32_t))
 VARIANT(ErrorDuplicateSwitchCase, X(unused, int))
 VARIANT(ErrorElseCaseUnreachable, X(unused, int))
 VARIANT(ErrorSwitchNotExhaustive, X(unused, int))
+VARIANT(ErrorPrivateStruct, X(ctx, TirContext) X(type, TirId))
+VARIANT(ErrorPrivateStructField, X(ctx, TirContext) X(type, TirId))
 
 /* Affine Type Analysis */
 VARIANT(ErrorAffineAssignment, X(unused, int))

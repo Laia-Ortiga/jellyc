@@ -180,6 +180,8 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf("scope: %d,\n", t.scope);
             print_indent(p->depth);
             printf("name: %s,\n", tir_get_str(p->tir, t.name));
+            print_indent(p->depth);
+            printf("has_public_fields: %d,\n", t.has_public_fields);
             print_indent(p->depth++);
             printf("fields: [\n");
             for (int32_t i = 0; i < t.fields.len; i++) {

@@ -463,6 +463,16 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, "switch must cover all possible values");
             break;
         })
+        CASE(ErrorPrivateStruct, d, {
+            (void) d;
+            fprintf(stderr, "can't construct a struct with private fields");
+            break;
+        })
+        CASE(ErrorPrivateStructField, d, {
+            (void) d;
+            fprintf(stderr, "can't access private field");
+            break;
+        })
         CASE(NoteReplaceLetWithMut, d, {
             (void) d;
             fprintf(stderr, "consider replacing `let` with `mut`");
