@@ -1863,6 +1863,10 @@ static TirId analyze_slice_constructor(Context *c, AstId node, TirId hint) {
         return error_term;
     }
 
+    int32_t indices[] = {
+        0,
+        1,
+    };
     TirId args[] = {
         length_result,
         data_value,
@@ -1870,6 +1874,7 @@ static TirId analyze_slice_constructor(Context *c, AstId node, TirId hint) {
     return tir_push(c->tir, (TirNewStruct) {
         .node = node,
         .type = type,
+        .field_indices = {ArrayLength(indices), indices},
         .fields = {ArrayLength(args), args},
     });
 }
@@ -2343,9 +2348,9 @@ static TirId analyze_struct_ctor(
             if (!match_type_parameters(c->tir, type_args, field_type, arg_type)) {
                 type_args_inferred = false;
             }
-            args_tir[field_index] = arg_result;
+            args_tir[i] = arg_result;
         } else {
-            args_tir[field_index] = expect_value_type(c, entries[i], field_type);
+            args_tir[i] = expect_value_type(c, entries[i], field_type);
         }
     }
 
@@ -2359,7 +2364,7 @@ static TirId analyze_struct_ctor(
                 .scratch = *c->scratch,
                 .target = c->options->target,
             });
-            args_tir[field_index] = apply_implicit_conversion(c, entries[i], args_tir[field_index], field_type);
+            args_tir[i] = apply_implicit_conversion(c, entries[i], args_tir[i], field_type);
         }
     }
 
@@ -2397,6 +2402,7 @@ static TirId analyze_struct_ctor(
     return tir_push(c->tir, (TirNewStruct) {
         .node = node,
         .type = type,
+        .field_indices = {entry_count, field_indices},
         .fields = {entry_count, args_tir},
     });
 }

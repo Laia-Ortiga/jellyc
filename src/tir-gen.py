@@ -27,7 +27,7 @@ boolean = Type("int32_t {}", c_print="%d")
 def list_of(T):
     return Type(
         "struct {{ int32_t len; " + T.c_type.format("*ptr") + "; }} {}",
-        is_list=True,
+        is_list=T,
     )
 
 
@@ -652,6 +652,7 @@ values = [
         "fields": [
             { "name": "node", "ty": node },
             { "name": "type", "ty": ty },
+            { "name": "field_indices", "ty": list_of(i32) },
             { "name": "fields", "ty": list_of(val) },
         ],
     },
@@ -1152,7 +1153,7 @@ def gen_tir_print():
                     elif field["ty"].c_print is not None:
                         add_line("print_indent(p->depth);")
                         add_line("printf(\"" + field["name"] + ": " + field["ty"].c_print + ",\\n\", t." + field["name"] + ");")
-                    elif field["ty"].is_list:
+                    elif field["ty"].is_list == ty or field["ty"].is_list == val:
                         add_line("print_indent(p->depth++);")
                         add_line("printf(\"" + field["name"] + ": [\\n\");")
                         add_line("for (int32_t i = 0; i < t." + field["name"] + ".len; i++) {")

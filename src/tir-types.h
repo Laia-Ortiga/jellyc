@@ -252,6 +252,7 @@ typedef struct {
 typedef struct {
     AstId node;
     TirId type;
+    struct { int32_t len; int32_t *ptr; } field_indices;
     struct { int32_t len; TirId *ptr; } fields;
 } TirNewStruct;
 

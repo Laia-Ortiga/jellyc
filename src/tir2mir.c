@@ -213,7 +213,7 @@ static void transform_new_struct(Context *c, TirId tir_id) {
     for (int32_t i = 0; i < t.fields.len; i++) {
         vec_push(&c->mir.insts, MIR_STACK_COPY);
         vec_push(&c->mir.insts, MIR_ACCESS);
-        vec_push(&c->mir.data, i);
+        vec_push(&c->mir.data, t.field_indices.ptr[i]);
         transform_node(c, t.fields.ptr[i]);
         vec_push(&c->mir.insts, MIR_ASSIGN);
     }
