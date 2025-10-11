@@ -448,7 +448,7 @@ static MirOperand print_alloc(GenContext *c, TirId type) {
 
     fprintf(c->stream, "    ");
     gen_type_before(c, type);
-    MirOperand a = new_tmp(c, MIR_ALLOC, type);
+    MirOperand a = new_tmp(c, false, type);
     gen_operand(c, &a);
     gen_type_after(c, type);
     fprintf(c->stream, ";\n");
