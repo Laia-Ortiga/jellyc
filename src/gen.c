@@ -1,5 +1,6 @@
 #include "gen.h"
 
+#include "gen-common.h"
 #include "mir.h"
 #include "tir.h"
 #include "type.h"
@@ -10,26 +11,9 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-typedef enum {
-    OPERAND_INT,
-    OPERAND_TIR,
-    OPERAND_TMP,
-} OperandTag;
-
-typedef struct {
-    bool is_lvalue;
-    OperandTag tag;
-    TirId type;
-    union {
-        int64_t i;
-        TirId value;
-        int32_t index;
-    };
-} Operand;
-
 typedef struct {
     Mir *mir;
-    Vec(Operand) stack;
+    Vec(MirOperand) stack;
     int32_t data_top;
     int32_t tmp_count;
     Target target;
@@ -380,14 +364,14 @@ static void gen_value(GenContext *c, TirId value) {
     }
 }
 
-static Operand new_tmp(
+static MirOperand new_tmp(
     GenContext *c,
     bool is_lvalue,
     TirId type
 ) {
-    Operand operand = {
+    MirOperand operand = {
         .is_lvalue = is_lvalue,
-        .tag = OPERAND_TMP,
+        .tag = MIR_OPERAND_TMP,
         .type = type,
         .index = c->tmp_count++,
     };
@@ -395,7 +379,7 @@ static Operand new_tmp(
     return operand;
 }
 
-static Operand introduce_temporary(
+static MirOperand introduce_temporary(
     GenContext *c,
     bool is_lvalue,
     TirId type
@@ -408,7 +392,7 @@ static Operand introduce_temporary(
         gen_type_before(c, type);
     }
 
-    Operand a = new_tmp(c, is_lvalue, type);
+    MirOperand a = new_tmp(c, is_lvalue, type);
     fprintf(c->stream, "t%d", a.index);
 
     if (is_lvalue) {
@@ -421,7 +405,7 @@ static Operand introduce_temporary(
     return a;
 }
 
-static Operand pop_operand(GenContext *c) {
+static MirOperand pop_operand(GenContext *c) {
     assert(c->stack.len >= 1);
     return c->stack.ptr[--c->stack.len];
 }
@@ -434,20 +418,20 @@ static TirId pop_term(GenContext *c) {
     return (TirId) {pop_data(c)};
 }
 
-static void gen_operand(GenContext *c, Operand *a) {
+static void gen_operand(GenContext *c, MirOperand *a) {
     if (a->is_lvalue) {
         fprintf(c->stream, "(*");
     }
     switch (a->tag) {
-        case OPERAND_INT: {
+        case MIR_OPERAND_INT: {
             fprintf(c->stream, "%ld", a->i);
             break;
         }
-        case OPERAND_TIR: {
+        case MIR_OPERAND_TIR: {
             gen_value(c, a->value);
             break;
         }
-        case OPERAND_TMP: {
+        case MIR_OPERAND_TMP: {
             fprintf(c->stream, "t%d", a->index);
             break;
         }
@@ -457,14 +441,14 @@ static void gen_operand(GenContext *c, Operand *a) {
     }
 }
 
-static Operand print_alloc(GenContext *c, TirId type) {
+static MirOperand print_alloc(GenContext *c, TirId type) {
     if (type.id == TYPE_VOID) {
         abort();
     }
 
     fprintf(c->stream, "    ");
     gen_type_before(c, type);
-    Operand a = new_tmp(c, MIR_ALLOC, type);
+    MirOperand a = new_tmp(c, MIR_ALLOC, type);
     gen_operand(c, &a);
     gen_type_after(c, type);
     fprintf(c->stream, ";\n");
@@ -484,9 +468,9 @@ static void gen_alloc_var(GenContext *c) {
     fprintf(c->stream, "v%d", tir_get_variable(c->tir, v).index);
     gen_type_after(c, type);
     fprintf(c->stream, ";\n");
-    Operand operand = {
+    MirOperand operand = {
         .is_lvalue = false,
-        .tag = OPERAND_TIR,
+        .tag = MIR_OPERAND_TIR,
         .type = type,
         .value = v,
     };
@@ -495,14 +479,14 @@ static void gen_alloc_var(GenContext *c) {
 
 static void stack_copy(GenContext *c) {
     assert(c->stack.len >= 1);
-    Operand a = c->stack.ptr[c->stack.len - 1];
+    MirOperand a = c->stack.ptr[c->stack.len - 1];
     vec_push(&c->stack, a);
 }
 
 static void stack_copy_at(GenContext *c) {
     int32_t index = pop_data(c);
     assert(c->stack.len + index >= 0);
-    Operand a = c->stack.ptr[c->stack.len + index];
+    MirOperand a = c->stack.ptr[c->stack.len + index];
     vec_push(&c->stack, a);
 }
 
@@ -514,9 +498,9 @@ static void stack_pop(GenContext *c) {
 static void gen_int(GenContext *c) {
     int32_t a = pop_data(c);
     int32_t b = pop_data(c);
-    Operand operand = {
+    MirOperand operand = {
         .is_lvalue = false,
-        .tag = OPERAND_INT,
+        .tag = MIR_OPERAND_INT,
         .type = ptype(i64),
         .i = load_i64(a, b),
     };
@@ -525,9 +509,9 @@ static void gen_int(GenContext *c) {
 
 static void gen_tir_value(GenContext *c) {
     TirId a = pop_term(c);
-    Operand operand = {
+    MirOperand operand = {
         .is_lvalue = false,
-        .tag = OPERAND_TIR,
+        .tag = MIR_OPERAND_TIR,
         .type = get_value_type(c->tir, a),
         .value = a,
     };
@@ -555,7 +539,7 @@ static void gen_tir_value(GenContext *c) {
 }
 
 static void gen_address(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId type = pop_term(c);
     introduce_temporary(c, false, type);
     fputs("&", c->stream);
@@ -564,14 +548,14 @@ static void gen_address(GenContext *c) {
 }
 
 static void gen_deref(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     introduce_temporary(c, true, remove_any_pointer(c->tir, a.type));
     gen_operand(c, &a);
     fprintf(c->stream, ";\n");
 }
 
 static void gen_unary(GenContext *c, char const *op) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     introduce_temporary(c, false, a.type);
     fputs(op, c->stream);
     gen_operand(c, &a);
@@ -579,10 +563,10 @@ static void gen_unary(GenContext *c, char const *op) {
 }
 
 static void gen_binary(GenContext *c, char const *op, char const *float_op) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
     if (type_is_int(a.type)) {
-        Operand result = new_tmp(c, false, a.type);
+        MirOperand result = new_tmp(c, false, a.type);
         fprintf(c->stream, "    ");
         gen_type_before(c, result.type);
         fprintf(c->stream, "t%d", result.index);
@@ -606,8 +590,8 @@ static void gen_binary(GenContext *c, char const *op, char const *float_op) {
 }
 
 static void gen_binary2(GenContext *c, char const *op) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
     introduce_temporary(c, false, a.type);
     gen_operand(c, &a);
     fprintf(c->stream, " %s ", op);
@@ -616,8 +600,8 @@ static void gen_binary2(GenContext *c, char const *op) {
 }
 
 static void gen_bool_binary(GenContext *c, char const *op) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
     introduce_temporary(c, false, ptype(bool));
     gen_operand(c, &a);
     fprintf(c->stream, " %s ", op);
@@ -626,8 +610,8 @@ static void gen_bool_binary(GenContext *c, char const *op) {
 }
 
 static void gen_div(GenContext *c) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
     if (type_is_int(a.type)) {
         fprintf(c->stream, "    if (");
         gen_operand(c, &b);
@@ -666,8 +650,8 @@ static void gen_div(GenContext *c) {
 }
 
 static void gen_mod(GenContext *c) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
 
     if (type_is_int(a.type)) {
         fprintf(c->stream, "    if (");
@@ -701,7 +685,7 @@ static void gen_mod(GenContext *c) {
     }
 }
 
-static void copy_c_value(GenContext *c, Operand *dst, Operand *src) {
+static void copy_c_value(GenContext *c, MirOperand *dst, MirOperand *src) {
     if (get_tir_tag(c->tir, src->type) == TIR_ARRAY_TYPE) {
         fprintf(c->stream, "    __builtin_memcpy(");
         if (dst) {
@@ -727,13 +711,13 @@ static void copy_c_value(GenContext *c, Operand *dst, Operand *src) {
 }
 
 static void gen_assign(GenContext *c) {
-    Operand b = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand b = pop_operand(c);
+    MirOperand a = pop_operand(c);
     copy_c_value(c, &a, &b);
 }
 
 static void gen_cast(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId type = pop_term(c);
     introduce_temporary(c, false, type);
     fprintf(c->stream, "(");
@@ -745,7 +729,7 @@ static void gen_cast(GenContext *c) {
 }
 
 static void gen_narrow(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId type = pop_term(c);
     int64_t min = 0;
     int64_t max = 0;
@@ -792,7 +776,7 @@ static void gen_narrow(GenContext *c) {
 }
 
 static void gen_zext(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId type = pop_term(c);
     introduce_temporary(c, false, type);
     fprintf(c->stream, "(");
@@ -807,7 +791,7 @@ static void gen_zext(GenContext *c) {
 }
 
 static void gen_nop(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId type = pop_term(c);
     a.type = type;
     vec_push(&c->stack, a);
@@ -818,7 +802,7 @@ static void gen_call(GenContext *c) {
     TirFunctionType function_type = tir_get_function_type(c->tir, type);
     int32_t arg_count = function_type.params.len;
     bool implicit_return = function_type.ret.id != TYPE_VOID && is_type_passed_by_ptr(c, function_type.ret);
-    Operand a;
+    MirOperand a;
 
     if (implicit_return) {
         a = print_alloc(c, function_type.ret);
@@ -830,8 +814,8 @@ static void gen_call(GenContext *c) {
     }
 
     int32_t stack_elems = 1 + arg_count + (function_type.ret.id != TYPE_VOID);
-    Operand *f = c->stack.ptr + c->stack.len - stack_elems;
-    Operand *args = f + 1;
+    MirOperand *f = c->stack.ptr + c->stack.len - stack_elems;
+    MirOperand *args = f + 1;
 
     gen_operand(c, f);
     fprintf(c->stream, "(");
@@ -866,8 +850,8 @@ static void gen_call(GenContext *c) {
 }
 
 static void gen_index(GenContext *c) {
-    Operand index = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand index = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId elem_type = remove_c_pointer_like(c->tir, a.type);
     introduce_temporary(c, true, elem_type);
     fprintf(c->stream, "&((");
@@ -881,8 +865,8 @@ static void gen_index(GenContext *c) {
 }
 
 static void gen_slice_index(GenContext *c) {
-    Operand index = pop_operand(c);
-    Operand a = pop_operand(c);
+    MirOperand index = pop_operand(c);
+    MirOperand a = pop_operand(c);
     TirId elem_type = remove_c_pointer_like(c->tir, a.type);
 
     fprintf(c->stream, "    if (");
@@ -905,7 +889,7 @@ static void gen_slice_index(GenContext *c) {
 }
 
 static void gen_access(GenContext *c) {
-    Operand s = pop_operand(c);
+    MirOperand s = pop_operand(c);
     int32_t field = pop_data(c);
     TirId field_type = get_struct_type_field(c->tir, s.type, field);
     introduce_temporary(c, true, field_type);
@@ -923,7 +907,7 @@ static void gen_br(GenContext *c) {
 }
 
 static void gen_br_if(GenContext *c) {
-    Operand condition = pop_operand(c);
+    MirOperand condition = pop_operand(c);
     int32_t block = pop_data(c);
     fprintf(c->stream, "    if (");
     gen_operand(c, &condition);
@@ -931,7 +915,7 @@ static void gen_br_if(GenContext *c) {
 }
 
 static void gen_br_if_not(GenContext *c) {
-    Operand condition = pop_operand(c);
+    MirOperand condition = pop_operand(c);
     int32_t block = pop_data(c);
     fprintf(c->stream, "    if (!");
     gen_operand(c, &condition);
@@ -943,7 +927,7 @@ static void gen_ret_void(GenContext *c) {
 }
 
 static void gen_ret(GenContext *c) {
-    Operand a = pop_operand(c);
+    MirOperand a = pop_operand(c);
 
     if (!is_type_passed_by_ptr(c, a.type)) {
         fprintf(c->stream, "    return ");
