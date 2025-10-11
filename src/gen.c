@@ -96,7 +96,7 @@ static void gen_params(GenContext *c, TirId type) {
                 fprintf(c->stream, ", ");
             }
 
-            TirId param_type = get_function_type_param(c->tir, type, i);
+            TirId param_type = func_type.params.ptr[i];
             if (is_type_passed_by_ptr(c, param_type)) {
                 gen_ptr_type_before(c, param_type);
                 fprintf(c->stream, "v%d", i);
@@ -112,6 +112,29 @@ static void gen_params(GenContext *c, TirId type) {
     }
 
     fprintf(c->stream, ")");
+}
+
+static void gen_function_signature(
+    GenContext *c,
+    char const *name,
+    TirId type
+) {
+    TirFunctionType func_type = tir_get_function_type(c->tir, type);
+
+    if (is_type_passed_by_ptr(c, func_type.ret)) {
+        gen_ptr_type_before(c, func_type.ret);
+    } else {
+        gen_type_before(c, func_type.ret);
+    }
+
+    fprintf(c->stream, "%s", name);
+    gen_params(c, type);
+
+    if (is_type_passed_by_ptr(c, func_type.ret)) {
+        gen_ptr_type_after(c, func_type.ret);
+    } else {
+        gen_type_after(c, func_type.ret);
+    }
 }
 
 static void gen_struct_name(GenContext *c, TirId type) {
@@ -275,34 +298,8 @@ static void gen_extern_var(GenContext *c, TirId value) {
 
 static void gen_extern_function(GenContext *c, TirId value) {
     TirExternFunction t = tir_get_extern_function(c->tir, value);
-    TirId ret_type = tir_get_function_type(c->tir, t.type).ret;
-
-    if (ret_type.id != TYPE_VOID) {
-        gen_type_before(c, ret_type);
-        if (is_type_passed_by_ptr(c, ret_type)) {
-            if (ptr_type_needs_parens(c, ret_type)) {
-                fprintf(c->stream, "(*");
-            } else {
-                fprintf(c->stream, "*");
-            }
-        }
-    } else {
-        fprintf(c->stream, "void ");
-    }
-
     char const *name = tir_get_str(c->tir, t.name);
-    fprintf(c->stream, "%s", name);
-    gen_params(c, t.type);
-
-    if (ret_type.id != TYPE_VOID) {
-        if (is_type_passed_by_ptr(c, ret_type)) {
-            if (ptr_type_needs_parens(c, ret_type)) {
-                fprintf(c->stream, ")");
-            }
-        }
-        gen_type_after(c, ret_type);
-    }
-
+    gen_function_signature(c, name, t.type);
     fprintf(c->stream, ";\n");
 }
 
@@ -315,33 +312,8 @@ static void gen_function_decl(GenContext *c, TirId value, bool is_main) {
     TirFunction t = tir_get_function(c->tir, value);
     TirId ret_type = tir_get_function_type(c->tir, t.type).ret;
     fprintf(c->stream, "static ");
-
-    if (ret_type.id != TYPE_VOID) {
-        gen_type_before(c, ret_type);
-        if (is_type_passed_by_ptr(c, ret_type)) {
-            if (ptr_type_needs_parens(c, ret_type)) {
-                fprintf(c->stream, "(*");
-            } else {
-                fprintf(c->stream, "*");
-            }
-        }
-    } else {
-        fprintf(c->stream, "void ");
-    }
-
     char const *name = tir_get_str(c->tir, t.name);
-    fprintf(c->stream, "%s", name);
-    gen_params(c, t.type);
-
-    if (ret_type.id != TYPE_VOID) {
-        if (is_type_passed_by_ptr(c, ret_type)) {
-            if (ptr_type_needs_parens(c, ret_type)) {
-                fprintf(c->stream, ")");
-            }
-        }
-        gen_type_after(c, ret_type);
-    }
-
+    gen_function_signature(c, name, t.type);
     fprintf(c->stream, ";\n");
 }
 
@@ -1068,34 +1040,8 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
         fprintf(c->stream, "int main(void)");
     } else {
         fprintf(c->stream, "static ");
-
-        if (ret_type.id != TYPE_VOID) {
-            gen_type_before(c, ret_type);
-
-            if (is_type_passed_by_ptr(c, ret_type)) {
-                if (ptr_type_needs_parens(c, ret_type)) {
-                    fprintf(c->stream, "(*");
-                } else {
-                    fprintf(c->stream, "*");
-                }
-            }
-        } else {
-            fprintf(c->stream, "void ");
-        }
-
         char const *name = tir_get_str(c->tir, t.name);
-        fprintf(c->stream, "%s", name);
-        gen_params(c, t.type);
-
-        if (ret_type.id != TYPE_VOID) {
-            if (is_type_passed_by_ptr(c, ret_type)) {
-                if (ptr_type_needs_parens(c, ret_type)) {
-                    fprintf(c->stream, ")");
-                }
-            }
-
-            gen_type_after(c, ret_type);
-        }
+        gen_function_signature(c, name, t.type);
     }
 
     fprintf(c->stream, " {\n");
