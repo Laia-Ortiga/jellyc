@@ -32,8 +32,6 @@ typedef struct {
     Vec(Operand) stack;
     int32_t data_top;
     int32_t tmp_count;
-    TirId return_type;
-    bool is_main;
     Target target;
     TirContext tir;
     int32_t thread;
@@ -310,7 +308,6 @@ static void gen_function_decl(GenContext *c, TirId value, bool is_main) {
     }
 
     TirFunction t = tir_get_function(c->tir, value);
-    TirId ret_type = tir_get_function_type(c->tir, t.type).ret;
     fprintf(c->stream, "static ");
     char const *name = tir_get_str(c->tir, t.name);
     gen_function_signature(c, name, t.type);
@@ -942,17 +939,13 @@ static void gen_br_if_not(GenContext *c) {
 }
 
 static void gen_ret_void(GenContext *c) {
-    if (c->is_main) {
-        fprintf(c->stream, "    return 0;\n");
-    } else {
-        fprintf(c->stream, "    return;\n");
-    }
+    fprintf(c->stream, "    return;\n");
 }
 
 static void gen_ret(GenContext *c) {
     Operand a = pop_operand(c);
 
-    if (!is_type_passed_by_ptr(c, c->return_type)) {
+    if (!is_type_passed_by_ptr(c, a.type)) {
         fprintf(c->stream, "    return ");
         gen_operand(c, &a);
         fprintf(c->stream, ";\n");
@@ -1025,25 +1018,16 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
     TirId value = input->global_deps.functions.ptr[f_index];
     int32_t mir_start = input->mir_result->ends[f_index];
     int32_t mir_end = input->mir_result->ends[f_index + 1];
-    bool is_main = input->global_deps.main.id == value.id;
 
     c->tir.thread = &input->insts[f_index].deps;
     TirFunction t = tir_get_function(c->tir, value);
-    TirId ret_type = tir_get_function_type(c->tir, t.type).ret;
-    c->return_type = ret_type;
-    c->is_main = is_main;
     c->data_top = input->mir_result->data_starts[f_index];
     c->tmp_count = 0;
     c->stack.len = 0;
 
-    if (is_main) {
-        fprintf(c->stream, "int main(void)");
-    } else {
-        fprintf(c->stream, "static ");
-        char const *name = tir_get_str(c->tir, t.name);
-        gen_function_signature(c, name, t.type);
-    }
-
+    fprintf(c->stream, "static ");
+    char const *name = tir_get_str(c->tir, t.name);
+    gen_function_signature(c, name, t.type);
     fprintf(c->stream, " {\n");
     int blocks = 1;
 
@@ -1147,6 +1131,15 @@ void gen_c(GenInput *input, Target target) {
 
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
         gen_function(&c, input, i);
+    }
+
+    if (input->global_deps.main.id) {
+        TirFunction t = tir_get_function(c.tir, input->global_deps.main);
+        char const *name = tir_get_str(c.tir, t.name);
+        fprintf(c.stream, "int main(void) {\n");
+        fprintf(c.stream, "    %s();\n", name);
+        fprintf(c.stream, "    return 0;\n");
+        fprintf(c.stream, "}\n");
     }
 
     fclose(stream);

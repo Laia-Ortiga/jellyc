@@ -38,7 +38,6 @@ typedef struct {
     Vec(char const *) strings;
     int32_t blocks;
     bool has_overflow_block;
-    bool is_main;
     Target target;
     TirContext tir;
     int32_t thread;
@@ -991,11 +990,7 @@ static void gen_br_if_not(GenContext *c) {
 }
 
 static void gen_ret_void(GenContext *c) {
-    if (c->is_main) {
-        fprintf(c->stream, "  ret i32 0\n");
-    } else {
-        fprintf(c->stream, "  ret void\n");
-    }
+    fprintf(c->stream, "  ret void\n");
 }
 
 static void gen_ret(GenContext *c) {
@@ -1077,7 +1072,6 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
     int32_t mir_start = input->mir_result->ends[f_index];
     int32_t mir_end = input->mir_result->ends[f_index + 1];
     int32_t data_start = input->mir_result->data_starts[f_index];
-    bool is_main = input->global_deps.main.id == value.id;
 
     c->tir.thread = &input->insts[f_index].deps;
     c->tmp_count = 0;
@@ -1085,15 +1079,10 @@ static void gen_function(GenContext *c, GenInput *input, int32_t f_index) {
     c->stack.len = 0;
     TirFunction t = tir_get_function(c->tir, value);
     TirId ret_type = tir_get_function_type(c->tir, t.type).ret;
-    c->is_main = is_main;
-    if (is_main) {
-        fprintf(c->stream, "define i32 @main");
-    } else {
-        fprintf(c->stream, "define private ");
-        gen_ret_type(c, ret_type);
-        char const *name = tir_get_str(c->tir, t.name);
-        fprintf(c->stream, " @%s", name);
-    }
+    fprintf(c->stream, "define private ");
+    gen_ret_type(c, ret_type);
+    char const *name = tir_get_str(c->tir, t.name);
+    fprintf(c->stream, " @%s", name);
     gen_params(c, t.type);
     fprintf(c->stream, " {\n");
     c->blocks = 1;
@@ -1247,6 +1236,15 @@ void gen_llvm(GenInput *input, Target target) {
 
     for (int32_t i = 0; i < input->global_deps.functions.len; i++) {
         gen_function(&c, input, i);
+    }
+
+    if (input->global_deps.main.id) {
+        TirFunction t = tir_get_function(c.tir, input->global_deps.main);
+        char const *name = tir_get_str(c.tir, t.name);
+        fprintf(c.stream, "define i32 @main() {\n");
+        fprintf(c.stream, "  call void @%s()\n", name);
+        fprintf(c.stream, "  ret i32 0\n");
+        fprintf(c.stream, "}\n");
     }
 
     for (int32_t i = 0; i < c.strings.len; i++) {
