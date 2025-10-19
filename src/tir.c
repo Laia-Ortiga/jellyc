@@ -91,30 +91,30 @@ static bool type_eq(StructuralType a, StructuralType b) {
             return false;
         }
         case TIR_ARRAY_TYPE: {
-            return a.array.index.id == b.array.index.id
-                && a.array.elem.id == b.array.elem.id;
+            return tir_eq(a.array.index, b.array.index)
+                && tir_eq(a.array.elem, b.array.elem);
         }
         case TIR_ARRAY_LENGTH_TYPE: {
             return a.array_length.length == b.array_length.length;
         }
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: {
-            return a.ptr.elem.id == b.ptr.elem.id;
+            return tir_eq(a.ptr.elem, b.ptr.elem);
         }
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: {
-            return a.slice.elem.id == b.slice.elem.id;
+            return tir_eq(a.slice.elem, b.slice.elem);
         }
         case TIR_FUNCTION_TYPE: {
             if (a.function.params.len != b.function.params.len) {
                 return false;
             }
             for (int32_t i = 0; i < a.function.params.len; i++) {
-                if (a.function.params.ptr[i].id != b.function.params.ptr[i].id) {
+                if (!tir_eq(a.function.params.ptr[i], b.function.params.ptr[i])) {
                     return false;
                 }
             }
-            return a.function.ret.id == b.function.ret.id;
+            return tir_eq(a.function.ret, b.function.ret);
         }
         case TIR_TAGGED_TYPE: {
             if (a.tagged.name != b.tagged.name) {
@@ -124,14 +124,14 @@ static bool type_eq(StructuralType a, StructuralType b) {
                 return false;
             }
             for (int32_t i = 0; i < a.tagged.args.len; i++) {
-                if (a.tagged.args.ptr[i].id != b.tagged.args.ptr[i].id) {
+                if (!tir_eq(a.tagged.args.ptr[i], b.tagged.args.ptr[i])) {
                     return false;
                 }
             }
             return true;
         }
         case TIR_AFFINE_TYPE: {
-            return a.affine.elem.id == b.affine.elem.id;
+            return tir_eq(a.affine.elem, b.affine.elem);
         }
         default: {
             abort();
@@ -183,7 +183,7 @@ static int32_t hash_type(TirContext c, StructuralType type) {
             break;
         }
         default: {
-            result = 31 * result + type.nominal.id;
+            result = 31 * result + type.nominal.private_field_id;
             break;
         }
     }
@@ -204,7 +204,7 @@ static TermSet termset_init(int32_t capacity) {
 
 static void termset_insert_entry(TermSet *set, TirId key, TirContext c) {
     int32_t index = hash_type(c, get_type_from_id(c, key)) & (set->capacity - 1);
-    while (set->ptr[index].id) {
+    while (set->ptr[index].private_field_id) {
         index = (index + 1) & (set->capacity - 1);
     }
     set->ptr[index] = key;
@@ -214,7 +214,7 @@ static void termset_resize(TermSet *set, TirContext c) {
     TermSet new_set = termset_init(set->capacity * 2);
     new_set.count = set->count;
     for (int32_t i = 0; i < set->capacity; i++) {
-        if (set->ptr[i].id) {
+        if (set->ptr[i].private_field_id) {
             termset_insert_entry(&new_set, set->ptr[i], c);
         }
     }
@@ -236,7 +236,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
 
     int32_t hash = hash_type(c, descriptor);
     int32_t slot = hash & (set->capacity - 1);
-    while (set->ptr[slot].id) {
+    while (set->ptr[slot].private_field_id) {
         if (type_eq(get_type_from_id(c, set->ptr[slot]), descriptor)) {
             return set->ptr[slot];
         }
@@ -246,7 +246,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
     if (c.thread) {
         TermSet *global_set = &c.global->terms.set;
         int32_t global_slot = hash & (global_set->capacity - 1);
-        while (global_set->ptr[global_slot].id) {
+        while (global_set->ptr[global_slot].private_field_id) {
             if (type_eq(get_type_from_id(c, global_set->ptr[global_slot]), descriptor)) {
                 return global_set->ptr[global_slot];
             }
@@ -401,37 +401,16 @@ TirId new_affine_type(TirContext c, TirId elem) {
     });
 }
 
-typedef struct {
-    Tir *tir;
-    int32_t index;
-} TermIndex;
-
-static TermIndex get_term_index(TirContext c, TirId term) {
-    if (term.id - TERM_COUNT < c.global->terms.terms.len) {
-        return (TermIndex) {
-            c.global,
-            term.id - TERM_COUNT,
-        };
-    }
-    return (TermIndex) {
-        c.thread,
-        term.id - TERM_COUNT - c.global->terms.terms.len,
-    };
-}
-
 TirTag get_tir_tag(TirContext c, TirId term) {
-    if (term.id < TERM_COUNT) {
-        return term.id == RESERVED_ERROR ? TIR_ERROR : TIR_RESERVED;
+    if (term.private_field_id <= RESERVED_ERROR) {
+        return term.private_field_id == RESERVED_ERROR ? TIR_ERROR : TIR_RESERVED;
     }
-    TermIndex i = get_term_index(c, term);
+    TermIndex i = tir_get_storage(c, term);
     return i.tir->terms.terms.tags[i.index];
 }
 
 TirData const *get_term_data(TirContext c, TirId term) {
-    if (term.id < TERM_COUNT) {
-        return NULL;
-    }
-    TermIndex i = get_term_index(c, term);
+    TermIndex i = tir_get_storage(c, term);
     return &i.tir->terms.terms.datas[i.index];
 }
 
@@ -448,13 +427,17 @@ TirCategory get_term_category(TirContext c, TirId term) {
     TirTag tag = get_tir_tag(c, term);
     switch (tag) {
         case TIR_RESERVED: {
-            if (term.id == 0) {
+            if (term.private_field_id == RESERVED_ERROR) {
                 return TIRCAT_ERROR;
             }
-            if (term.id >= BUILTIN_TYPE_START && term.id < BUILTIN_TYPE_END) {
+            if (term.private_field_id >= BUILTIN_TYPE_START
+                && term.private_field_id < BUILTIN_TYPE_END
+            ) {
                 return TIRCAT_TYPE;
             }
-            if (term.id >= BUILTIN_MACRO_START && term.id < BUILTIN_MACRO_END) {
+            if (term.private_field_id >= BUILTIN_MACRO_START
+                && term.private_field_id < BUILTIN_MACRO_END
+            ) {
                 return TIRCAT_MACRO;
             }
             return TIRCAT_MODULE;

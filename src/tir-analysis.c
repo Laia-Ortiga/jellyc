@@ -157,7 +157,7 @@ static void check_new_array(LinearChecker *c, TirId node) {
 
 static void check_return(LinearChecker *c, TirId node) {
     TirReturn t = tir_get_return(c->tir, node);
-    if (t.value.id) {
+    if (!tir_is_reserved(t.value, RESERVED_ERROR)) {
         check_value(c, t.value, RVALUE);
     }
 }
@@ -201,7 +201,7 @@ static void check_switch(LinearChecker *c, TirId node) {
     for (int32_t i = 0; i < t.branches.len; i += 2) {
         TirId pattern = t.branches.ptr[i];
 
-        if (pattern.id) {
+        if (!tir_is_reserved(pattern, RESERVED_ERROR)) {
             check_value(c, pattern, RVALUE);
         }
     }
@@ -233,7 +233,7 @@ static void check_switch(LinearChecker *c, TirId node) {
 static void check_loop(LinearChecker *c, TirId node) {
     TirLoop t = tir_get_loop(c->tir, node);
 
-    if (t.init.id) {
+    if (!tir_is_reserved(t.init, RESERVED_ERROR)) {
         check_value(c, t.init, STATEMENT);
     }
 
@@ -245,7 +245,7 @@ static void check_loop(LinearChecker *c, TirId node) {
         check_node(c, t.block.ptr[i], STATEMENT);
     }
 
-    if (t.next.id) {
+    if (!tir_is_reserved(t.next, RESERVED_ERROR)) {
         check_value(c, t.next, STATEMENT);
     }
 

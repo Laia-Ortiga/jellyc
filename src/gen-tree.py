@@ -763,6 +763,18 @@ def gen_header(path, barriers, variants, config):
     global output
     module = config["module"]
     output = ''
+
+    add_line("typedef struct {")
+    add_line("int32_t private_field_id;")
+    add_line("} " + to_pascal(module) + "Id;")
+    add_line("")
+
+    add_line("typedef struct {")
+    for i in range(config["data_size"]):
+        add_line("int32_t " + chr(i + ord('a')) + ";")
+    add_line("} " + to_pascal(module) + "Data;")
+    add_line("")
+
     add_line("typedef enum {")
     for v in variants:
         per_variant(module, v, gen_tag)
@@ -1207,7 +1219,7 @@ tir_config = {
     "context_type": "TirContext {}",
     "writer": "tir_writer(c)->terms.",
     "main_access": "get_term_data(c, a)->",
-    "extra_access": "tir_get_storage(c, a)->terms.",
+    "extra_access": "tir_get_storage(c, a).tir->terms.",
 }
 gen_header("src/tir-types.h", tir_barriers, terms, tir_config)
 gen_source("src/tir-types.c", terms, tir_config)

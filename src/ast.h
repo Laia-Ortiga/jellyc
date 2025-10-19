@@ -6,22 +6,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
-    int32_t a;
-    int32_t b;
-    int32_t c;
-} AstData;
-
-typedef struct {
-    int32_t private_field_id;
-} AstId;
-
-typedef struct {
-    SumVecTable(AstId, AstData) nodes;
-    Vec(int32_t) extra;
-} Ast;
+typedef struct Ast Ast;
 
 #include "ast-types.h"
+
+struct Ast {
+    SumVecTable(AstId, AstData) nodes;
+    Vec(int32_t) extra;
+};
 
 static AstId const null_ast = {0};
 

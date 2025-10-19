@@ -131,7 +131,7 @@ bool is_recursive_error_type(TirContext c, TirId a) {
 bool is_aggregate_type(TirContext c, TirId type) {
     switch (get_tir_tag(c, type)) {
         case TIR_RESERVED: {
-            switch ((ReservedTerm) type.id) {
+            switch (tir_as_reserved(type)) {
                 case TYPE_VOID:
                 case TYPE_i8:
                 case TYPE_i16:
@@ -179,7 +179,7 @@ bool type_is_affine(TirContext c, TirId type) {
     TirTag tag = get_tir_tag(c, type);
     switch (tag) {
         case TIR_RESERVED: {
-            switch ((ReservedTerm) type.id) {
+            switch (tir_as_reserved(type)) {
                 case TYPE_VOID:
                 case TYPE_i8:
                 case TYPE_i16:
@@ -232,7 +232,7 @@ bool type_is_unknown_size(TirContext c, TirId type) {
             return false;
         }
         case TIR_RESERVED: {
-            switch ((ReservedTerm) type.id) {
+            switch (tir_as_reserved(type)) {
                 case TYPE_i8:
                 case TYPE_i16:
                 case TYPE_i32:
@@ -281,10 +281,10 @@ bool is_equality_type(TirContext c, TirId a) {
     if (type_is_arithmetic(a)) {
         return true;
     }
-    if (a.id == TYPE_bool) {
+    if (tir_is_reserved(a, TYPE_bool)) {
         return true;
     }
-    if (a.id == TYPE_byte) {
+    if (tir_is_reserved(a, TYPE_byte)) {
         return true;
     }
     switch (get_tir_tag(c, a)) {
@@ -325,7 +325,7 @@ static bool int_fits_in_bytes(int64_t i, int bytes) {
 }
 
 static int64_t sizeof_primitive(TirId type, Target target) {
-    switch ((ReservedTerm) type.id) {
+    switch (tir_as_reserved(type)) {
         case TYPE_VOID: return -1;
 
         case TYPE_i8:
@@ -347,7 +347,7 @@ static int64_t sizeof_primitive(TirId type, Target target) {
 }
 
 bool int_fits_in_type(int64_t i, TirId type, Target target) {
-    switch (type.id) {
+    switch (tir_as_reserved(type)) {
         case TYPE_i8:
         case TYPE_i16:
         case TYPE_i32:
@@ -372,7 +372,7 @@ int32_t alignof_type(TirContext c, TirId type, Target target) {
         case TIR_TYPE_PARAMETER: return -1;
 
         default: {
-            switch ((ReservedTerm) type.id) {
+            switch (tir_as_reserved(type)) {
                 case TYPE_VOID: return -1;
 
                 case TYPE_i8:

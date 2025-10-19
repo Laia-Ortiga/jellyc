@@ -1,20 +1,21 @@
 #include "type-match.h"
 
+#include "fwd.h"
 #include "tir.h"
 #include "type.h"
 
 #include <stdlib.h>
 
 static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatcher *matcher) {
-    if (!type.id) {
+    if (tir_is_reserved(type, RESERVED_ERROR)) {
         return 0;
     }
 
     if (matcher->extra) {
         int32_t i = matcher->extra - 1;
-        if (!results[i].id) {
+        if (tir_is_reserved(results[i], RESERVED_ERROR)) {
             results[i] = type;
-        } else if (results[i].id != type.id) {
+        } else if (!tir_eq(results[i], type)) {
             return 0;
         }
     }
@@ -24,7 +25,7 @@ static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatc
             return 1;
         }
         case TYPE_MATCH_BYTE: {
-            return type.id == TYPE_byte;
+            return tir_is_reserved(type, TYPE_byte);
         }
         case TYPE_MATCH_ARRAY: {
             if (get_tir_tag(c, type) == TIR_ARRAY_TYPE) {
@@ -91,16 +92,16 @@ int match_types(TirContext c, TirId *results, int32_t count, TirId *types, TypeM
 }
 
 int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) {
-    if (param.id == arg.id) {
+    if (tir_eq(param, arg)) {
         return 1;
     }
 
     TirTag tag = get_tir_tag(c, param);
     if (tag == TIR_TYPE_PARAMETER) {
         int32_t index = tir_get_type_parameter(c, param).index;
-        if (!results[index].id) {
+        if (tir_is_reserved(results[index], RESERVED_ERROR)) {
             results[index] = arg;
-        } else if (results[index].id != arg.id) {
+        } else if (!tir_eq(results[index], arg)) {
             return 0;
         }
         return 1;

@@ -24,15 +24,15 @@ int32_t alignof_type(TirContext c, TirId type, Target target);
 int64_t sizeof_type(TirContext c, TirId type, Target target);
 
 static inline bool type_is_fixed_int(TirId type) {
-    return type.id >= TYPE_i8 && type.id <= TYPE_i64;
+    return type.private_field_id >= TYPE_i8 && type.private_field_id <= TYPE_i64;
 }
 
 static inline bool type_is_int(TirId type) {
-    return type_is_fixed_int(type) || type.id == TYPE_isize;
+    return type_is_fixed_int(type) || type.private_field_id == TYPE_isize;
 }
 
 static inline bool type_is_float(TirId type) {
-    return type.id >= TYPE_f32 && type.id <= TYPE_f64;
+    return type.private_field_id >= TYPE_f32 && type.private_field_id <= TYPE_f64;
 }
 
 static inline bool type_is_arithmetic(TirId type) {

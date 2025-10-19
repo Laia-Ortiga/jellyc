@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ast.h"
 #include "fwd.h"
 #include "hash.h"
 
@@ -24,9 +23,14 @@ typedef enum {
     VALUE_SLICE,
 } ValueCategory;
 
+typedef struct Tir Tir;
+
 typedef struct {
-    int32_t id;
-} TirId;
+    Tir *global;
+    Tir *thread;
+} TirContext;
+
+#include "tir-types.h"
 
 static TirId const error_term = {0};
 #define ptype(type) ((TirId) {TYPE_##type})
@@ -36,13 +40,6 @@ typedef struct {
     int32_t count;
     TirId *ptr;
 } TermSet;
-
-typedef struct {
-    int32_t a;
-    int32_t b;
-    int32_t c;
-    int32_t d;
-} TirData;
 
 typedef struct {
     SumVec(TirData) terms;
@@ -55,7 +52,7 @@ typedef struct {
     int32_t start;
 } TypeScope;
 
-typedef struct {
+struct Tir {
     StringBuffer strtab;
     TermList terms;
     TirId main;
@@ -65,7 +62,7 @@ typedef struct {
     Vec(TirId) functions;
     Vec(TirId) type_scope_symbols;
     Vec(TypeScope) type_scopes;
-} Tir;
+};
 
 typedef struct {
     int32_t body_first;
@@ -73,13 +70,6 @@ typedef struct {
     Tir deps;
     int32_t local_count;
 } LocalTir;
-
-typedef struct {
-    Tir *global;
-    Tir *thread;
-} TirContext;
-
-#include "tir-types.h"
 
 // Constructors
 
@@ -116,13 +106,36 @@ char const *tir_get_str(TirContext c, int32_t s);
 int32_t tir_push_str(TirContext c, String s);
 int32_t tir_push_cstr(TirContext c, String s);
 
+static inline ReservedTerm tir_as_reserved(TirId id) {
+    return (ReservedTerm) id.private_field_id;
+}
+
+static inline bool tir_is_reserved(TirId id, ReservedTerm term) {
+    return tir_as_reserved(id) == term;
+}
+
+static inline bool tir_eq(TirId a, TirId b) {
+    return a.private_field_id == b.private_field_id;
+}
+
 static inline Tir *tir_writer(TirContext c) {
     return c.thread ? c.thread : c.global;
 }
 
-static inline Tir *tir_get_storage(TirContext c, TirId term) {
-    if (term.id - TERM_COUNT < c.global->terms.terms.len) {
-        return c.global;
+typedef struct {
+    Tir *tir;
+    int32_t index;
+} TermIndex;
+
+static inline TermIndex tir_get_storage(TirContext c, TirId term) {
+    if (term.private_field_id - TERM_COUNT < c.global->terms.terms.len) {
+        return (TermIndex) {
+            c.global,
+            term.private_field_id - TERM_COUNT,
+        };
     }
-    return c.thread;
+    return (TermIndex) {
+        c.thread,
+        term.private_field_id - TERM_COUNT - c.global->terms.terms.len,
+    };
 }

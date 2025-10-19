@@ -38,7 +38,7 @@ static void patch_br(Context *c, int32_t br, int32_t basic_block) {
 static MirTypeId transform_type(Context *c, TirId type) {
     switch (get_tir_tag(c->tir, type)) {
         case TIR_RESERVED: {
-            switch ((ReservedTerm) type.id) {
+            switch (tir_as_reserved(type)) {
                 case TYPE_VOID: {
                     return (MirTypeId) {MIR_TYPE_VOID};
                 }
@@ -108,15 +108,15 @@ static MirTypeId transform_type(Context *c, TirId type) {
             return (MirTypeId) {MIR_TYPE_SLICE};
         }
         case TIR_FUNCTION_TYPE: {
-            Tir *tir = tir_get_storage(c->tir, type);
-            if (tir == c->tir.global) {
-                if (c->global_struct_types[type.id - TERM_COUNT].private_field_id) {
-                    return c->global_struct_types[type.id - TERM_COUNT];
+            TermIndex index = tir_get_storage(c->tir, type);
+            if (index.tir == c->tir.global) {
+                if (c->global_struct_types[index.index].private_field_id) {
+                    return c->global_struct_types[index.index];
                 }
             }
-            if (tir == c->tir.thread) {
-                if (c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT].private_field_id) {
-                    return c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT];
+            if (index.tir == c->tir.thread) {
+                if (c->local_struct_types[index.index].private_field_id) {
+                    return c->local_struct_types[index.index];
                 }
             }
             TirFunctionType t = tir_get_function_type(c->tir, type);
@@ -136,11 +136,11 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 },
             });
             MirTypeId result = {c->mir.types.len - 1};
-            if (tir == c->tir.global) {
-                c->global_struct_types[type.id - TERM_COUNT] = result;
+            if (index.tir == c->tir.global) {
+                c->global_struct_types[index.index] = result;
             }
-            if (tir == c->tir.thread) {
-                c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT] = result;
+            if (index.tir == c->tir.thread) {
+                c->local_struct_types[index.index] = result;
             }
             return result;
         }
@@ -148,15 +148,15 @@ static MirTypeId transform_type(Context *c, TirId type) {
             return transform_type(c, remove_tags(c->tir, type));
         }
         case TIR_STRUCT_TYPE: {
-            Tir *tir = tir_get_storage(c->tir, type);
-            if (tir == c->tir.global) {
-                if (c->global_struct_types[type.id - TERM_COUNT].private_field_id) {
-                    return c->global_struct_types[type.id - TERM_COUNT];
+            TermIndex index = tir_get_storage(c->tir, type);
+            if (index.tir == c->tir.global) {
+                if (c->global_struct_types[index.index].private_field_id) {
+                    return c->global_struct_types[index.index];
                 }
             }
-            if (tir == c->tir.thread) {
-                if (c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT].private_field_id) {
-                    return c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT];
+            if (index.tir == c->tir.thread) {
+                if (c->local_struct_types[index.index].private_field_id) {
+                    return c->local_struct_types[index.index];
                 }
             }
             TirStructType t = tir_get_struct_type(c->tir, type);
@@ -176,11 +176,11 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 },
             });
             MirTypeId result = {c->mir.types.len - 1};
-            if (tir == c->tir.global) {
-                c->global_struct_types[type.id - TERM_COUNT] = result;
+            if (index.tir == c->tir.global) {
+                c->global_struct_types[index.index] = result;
             }
-            if (tir == c->tir.thread) {
-                c->local_struct_types[type.id - c->tir.global->terms.terms.len - TERM_COUNT] = result;
+            if (index.tir == c->tir.thread) {
+                c->local_struct_types[index.index] = result;
             }
             return result;
         }
@@ -303,7 +303,7 @@ static void transform_index(Context *c, TirId tir_id) {
     transform_node(c, t.a);
     transform_node(c, t.index);
     MirTag tag = MIR_INDEX;
-    if (remove_slice(c->tir, type).id) {
+    if (!tir_is_reserved(remove_slice(c->tir, type), RESERVED_ERROR)) {
         tag = MIR_SLICE_INDEX;
     }
     vec_push(&c->mir.insts, tag);
@@ -342,7 +342,7 @@ static void transform_slice(Context *c, TirId tir_id) {
     vec_push(&c->mir.data, -4);
     TirId operand_type = get_value_type(c->tir, t.a);
     MirTag tag = MIR_INDEX;
-    if (remove_slice(c->tir, operand_type).id) {
+    if (!tir_is_reserved(remove_slice(c->tir, operand_type), RESERVED_ERROR)) {
         tag = MIR_SLICE_INDEX;
     }
     vec_push(&c->mir.insts, tag);
@@ -418,7 +418,7 @@ static void transform_statement(Context *c, TirId tir_id) {
     transform_node(c, tir_id);
     TirId type = get_value_type(c->tir, tir_id);
 
-    if (type.id && type.id != TYPE_VOID) {
+    if (!tir_is_reserved(type, RESERVED_ERROR) && !tir_is_reserved(type, TYPE_VOID)) {
         vec_push(&c->mir.insts, MIR_STACK_POP);
     }
 }
@@ -477,13 +477,13 @@ static void transform_if(Context *c, TirId tir_id) {
 static void transform_switch(Context *c, TirId tir_id) {
     TirSwitch t = tir_get_switch(c->tir, tir_id);
 
-    if (t.type.id != TYPE_VOID) {
+    if (!tir_is_reserved(t.type, TYPE_VOID)) {
         vec_push(&c->mir.insts, MIR_ALLOC);
         push_type(c, transform_type(c, t.type));
     }
 
     int32_t copy_inst = -1;
-    bool condition_is_true = get_value_type(c->tir, t.condition).id == TYPE_bool
+    bool condition_is_true = tir_is_reserved(get_value_type(c->tir, t.condition), TYPE_bool)
         && get_tir_tag(c->tir, t.condition) == TIR_INT
         && tir_get_int(c->tir, t.condition).value;
 
@@ -499,7 +499,7 @@ static void transform_switch(Context *c, TirId tir_id) {
         TirId pattern = t.branches.ptr[i];
         TirId value = t.branches.ptr[i + 1];
 
-        if (pattern.id) {
+        if (!tir_is_reserved(pattern, RESERVED_ERROR)) {
             if (!condition_is_true) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY);
                 transform_node(c, pattern);
@@ -509,7 +509,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             }
 
             int32_t condition_br = add_br_instruction(c, MIR_BR_IF_NOT);
-            if (t.type.id != TYPE_VOID) {
+            if (!tir_is_reserved(t.type, TYPE_VOID)) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -521,7 +521,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             int32_t next_case_basic_block = c->basic_block;
             patch_br(c, condition_br, next_case_basic_block);
         } else {
-            if (t.type.id != TYPE_VOID) {
+            if (!tir_is_reserved(t.type, TYPE_VOID)) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -548,7 +548,7 @@ static void transform_switch(Context *c, TirId tir_id) {
 static void transform_loop(Context *c, TirId tir_id) {
     TirLoop t = tir_get_loop(c->tir, tir_id);
 
-    if (t.init.id) {
+    if (!tir_is_reserved(t.init, RESERVED_ERROR)) {
         transform_statement(c, t.init);
     }
 
@@ -568,7 +568,7 @@ static void transform_loop(Context *c, TirId tir_id) {
 
     int32_t continue_basic_block = condition_basic_block;
 
-    if (t.next.id) {
+    if (!tir_is_reserved(t.next, RESERVED_ERROR)) {
         int32_t continue_br = add_br_instruction(c, MIR_BR);
         continue_basic_block = c->basic_block;
         patch_br(c, continue_br, continue_basic_block);
@@ -605,7 +605,7 @@ static void transform_continue(Context *c) {
 static void transform_return(Context *c, TirId tir_id) {
     TirReturn t = tir_get_return(c->tir, tir_id);
 
-    if (t.value.id) {
+    if (!tir_is_reserved(t.value, RESERVED_ERROR)) {
         transform_node(c, t.value);
         c->basic_block++;
         vec_push(&c->mir.insts, MIR_RET);
@@ -626,7 +626,7 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
         transform_statement(c, statement);
     }
 
-    if (func_type.ret.id == TYPE_VOID && (c->mir.insts.len == start || c->mir.insts.ptr[c->mir.insts.len - 1] != MIR_RET_VOID)) {
+    if (tir_is_reserved(func_type.ret, TYPE_VOID) && (c->mir.insts.len == start || c->mir.insts.ptr[c->mir.insts.len - 1] != MIR_RET_VOID)) {
         vec_push(&c->mir.insts, MIR_RET_VOID);
     }
 }
@@ -858,7 +858,7 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         });
         mir = c.mir;
         mir.ends[i + 1] = c.mir.insts.len;
-        if (input->global_deps->main.id == input->functions[i].id) {
+        if (tir_eq(input->global_deps->main, input->functions[i])) {
             mir.main_function = i;
         }
     }

@@ -463,7 +463,7 @@ TirGeneric tir_get_generic(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.inner + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.params.len + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     result.params.ptr = (void *) extra;
     extra += result.params.len * (sizeof(result.params.ptr[0]) / sizeof(int32_t));
     return result;
@@ -479,7 +479,7 @@ TirBlock tir_get_block(TirContext c, TirId a) {
     TirBlock result;
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.stmts.len + 0, &get_term_data(c, a)->b, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     result.stmts.ptr = (void *) extra;
     extra += result.stmts.len * (sizeof(result.stmts.ptr[0]) / sizeof(int32_t));
     return result;
@@ -548,7 +548,7 @@ TirFunctionType tir_get_function_type(TirContext c, TirId a) {
     TirFunctionType result;
     memcpy((int32_t *) &result.ret + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.params.len + 0, &get_term_data(c, a)->b, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     result.params.ptr = (void *) extra;
     extra += result.params.len * (sizeof(result.params.ptr[0]) / sizeof(int32_t));
     return result;
@@ -565,7 +565,7 @@ TirTaggedType tir_get_tagged_type(TirContext c, TirId a) {
     memcpy((int32_t *) &result.name + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.inner + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.args.len + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     result.args.ptr = (void *) extra;
     extra += result.args.len * (sizeof(result.args.ptr[0]) / sizeof(int32_t));
     return result;
@@ -582,7 +582,7 @@ TirStructType tir_get_struct_type(TirContext c, TirId a) {
     memcpy((int32_t *) &result.scope + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.name + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.has_public_fields + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.file + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.alignment + 0, extra++, sizeof(int32_t));
@@ -855,7 +855,7 @@ TirCall tir_get_call(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.f + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.args.len + 0, extra++, sizeof(int32_t));
     result.args.ptr = (void *) extra;
     extra += result.args.len * (sizeof(result.args.ptr[0]) / sizeof(int32_t));
@@ -888,7 +888,7 @@ TirSlice tir_get_slice(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.a + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.low + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.high + 0, extra++, sizeof(int32_t));
     return result;
@@ -920,7 +920,7 @@ TirNewStruct tir_get_new_struct(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.field_indices.len + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
     result.field_indices.ptr = (void *) extra;
     extra += result.field_indices.len * (sizeof(result.field_indices.ptr[0]) / sizeof(int32_t));
@@ -940,7 +940,7 @@ TirNewArray tir_get_new_array(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.args.len + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     result.args.ptr = (void *) extra;
     extra += result.args.len * (sizeof(result.args.ptr[0]) / sizeof(int32_t));
     return result;
@@ -957,7 +957,7 @@ TirIf tir_get_if(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.condition + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.true_block.len + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.false_block.len + 0, extra++, sizeof(int32_t));
     result.true_block.ptr = (void *) extra;
@@ -978,7 +978,7 @@ TirSwitch tir_get_switch(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.condition + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.branches.len + 0, extra++, sizeof(int32_t));
     result.branches.ptr = (void *) extra;
     extra += result.branches.len * (sizeof(result.branches.ptr[0]) / sizeof(int32_t));
@@ -996,7 +996,7 @@ TirLoop tir_get_loop(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.init + 0, &get_term_data(c, a)->c, sizeof(int32_t));
-    int32_t *extra = tir_get_storage(c, a)->terms.extra.ptr + get_term_data(c, a)->d;
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.condition + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.next + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.block.len + 0, extra++, sizeof(int32_t));
