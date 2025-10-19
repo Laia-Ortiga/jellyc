@@ -243,7 +243,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
         slot = (slot + 1) & (set->capacity - 1);
     }
 
-    if (c.thread) {
+    if (c.thread != c.global) {
         TermSet *global_set = &c.global->terms.set;
         int32_t global_slot = hash & (global_set->capacity - 1);
         while (global_set->ptr[global_slot].private_field_id) {
@@ -297,7 +297,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
 }
 
 TirId new_tir(TirContext c, TirTag tag, TirData data) {
-    if (!c.thread) {
+    if (c.thread == c.global) {
         TirId t = {c.global->terms.terms.len + TERM_COUNT};
         sum_vec_push(&c.global->terms.terms, data, tag);
         return t;
@@ -723,12 +723,12 @@ char const *tir_get_str(TirContext c, int32_t s) {
 int32_t tir_push_str(TirContext c, String s) {
     Tir *tir = tir_writer(c);
     int32_t index = push_str(&tir->strtab, s);
-    return c.thread ? ~index : index;
+    return c.thread != c.global ? ~index : index;
 }
 
 int32_t tir_push_cstr(TirContext c, String s) {
     Tir *tir = tir_writer(c);
     int32_t index = push_str(&tir->strtab, s);
     push_str(&tir->strtab, (String) {1, ""});
-    return c.thread ? ~index : index;
+    return c.thread != c.global ? ~index : index;
 }

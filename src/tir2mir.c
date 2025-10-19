@@ -113,8 +113,7 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 if (c->global_struct_types[index.index].private_field_id) {
                     return c->global_struct_types[index.index];
                 }
-            }
-            if (index.tir == c->tir.thread) {
+            } else {
                 if (c->local_struct_types[index.index].private_field_id) {
                     return c->local_struct_types[index.index];
                 }
@@ -138,8 +137,7 @@ static MirTypeId transform_type(Context *c, TirId type) {
             MirTypeId result = {c->mir.types.len - 1};
             if (index.tir == c->tir.global) {
                 c->global_struct_types[index.index] = result;
-            }
-            if (index.tir == c->tir.thread) {
+            } else {
                 c->local_struct_types[index.index] = result;
             }
             return result;
@@ -153,8 +151,7 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 if (c->global_struct_types[index.index].private_field_id) {
                     return c->global_struct_types[index.index];
                 }
-            }
-            if (index.tir == c->tir.thread) {
+            } else {
                 if (c->local_struct_types[index.index].private_field_id) {
                     return c->local_struct_types[index.index];
                 }
@@ -178,8 +175,7 @@ static MirTypeId transform_type(Context *c, TirId type) {
             MirTypeId result = {c->mir.types.len - 1};
             if (index.tir == c->tir.global) {
                 c->global_struct_types[index.index] = result;
-            }
-            if (index.tir == c->tir.thread) {
+            } else {
                 c->local_struct_types[index.index] = result;
             }
             return result;
@@ -795,20 +791,20 @@ static void transform_node(Context *c, TirId tir_id) {
     }
 }
 
-static void tir_deps_to_mir(Context *c, Tir *deps) {
-    for (int32_t i = 0; i < deps->structs.len; i++) {
-        transform_type(c, deps->structs.ptr[i]);
+static void tir_deps_to_mir(Context *c) {
+    for (int32_t i = 0; i < c->tir.thread->structs.len; i++) {
+        transform_type(c, c->tir.thread->structs.ptr[i]);
     }
-    for (int32_t i = 0; i < deps->extern_functions.len; i++) {
-        TirExternFunction f = tir_get_extern_function(c->tir, deps->extern_functions.ptr[i]);
+    for (int32_t i = 0; i < c->tir.thread->extern_functions.len; i++) {
+        TirExternFunction f = tir_get_extern_function(c->tir, c->tir.thread->extern_functions.ptr[i]);
         MirTypeId type = transform_type(c, f.type);
         vec_push(&c->mir.extern_functions, (MirGlobal) {
             .name = tir_get_str(c->tir, f.name),
             .type = type,
         });
     }
-    for (int32_t i = 0; i < deps->extern_vars.len; i++) {
-        TirExternVar v = tir_get_extern_var(c->tir, deps->extern_vars.ptr[i]);
+    for (int32_t i = 0; i < c->tir.thread->extern_vars.len; i++) {
+        TirExternVar v = tir_get_extern_var(c->tir, c->tir.thread->extern_vars.ptr[i]);
         vec_push(&c->mir.extern_vars, (MirGlobal) {
             .name = tir_get_str(c->tir, v.name),
             .type = transform_type(c, v.type),
@@ -828,9 +824,10 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         c.mir = mir;
         c.target = input->target;
         c.tir.global = input->global_deps;
+        c.tir.thread = input->global_deps;
         c.scratch = scratch;
         c.global_struct_types = global_struct_types;
-        tir_deps_to_mir(&c, input->global_deps);
+        tir_deps_to_mir(&c);
         mir = c.mir;
     }
 
@@ -846,7 +843,7 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         c.local_struct_types = local_struct_types;
         mir.ends[i] = c.mir.insts.len;
         mir.data_starts[i] = c.mir.data.len;
-        tir_deps_to_mir(&c, &input->insts[i].deps);
+        tir_deps_to_mir(&c);
         transform_function(&c, input->insts[i].body_first, input->insts[i].body_length, input->functions[i]);
         free(c.break_instructions.ptr);
         free(c.continue_instructions.ptr);

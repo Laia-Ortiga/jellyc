@@ -119,7 +119,7 @@ static inline bool tir_eq(TirId a, TirId b) {
 }
 
 static inline Tir *tir_writer(TirContext c) {
-    return c.thread ? c.thread : c.global;
+    return c.thread;
 }
 
 typedef struct {

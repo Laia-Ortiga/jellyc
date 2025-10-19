@@ -298,7 +298,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
     }
 
     if (!c->scope) {
-        if (c->tir.thread || !tir_is_reserved(term, RESERVED_ERROR)) {
+        if (c->tir.thread != c->tir.global || !tir_is_reserved(term, RESERVED_ERROR)) {
             compiler_error("no local scope");
         } else {
             // TODO set a flag so that we don't repeat "use of undefined name" msg
@@ -337,7 +337,7 @@ static int analyze_def(Context *c, GlobalId def) {
     new_c.scope = NULL;
     new_c.loop_depth = 0;
     new_c.current_function_type = error_term;
-    new_c.tir.thread = NULL;
+    new_c.tir.thread = c->tir.global;
     analyze_term(&new_c, ref.ref.node, error_term);
     c->diagnostics = new_c.diagnostics;
     c->error |= new_c.error;
@@ -348,7 +348,7 @@ static int analyze_def(Context *c, GlobalId def) {
     if (get_ast_tag(new_c.ast, ref.ref.node) == AST_FUNCTION) {
         SourceIndex token = get_ast_token(new_c.ast, ref.ref.node);
         String name = id_token_to_string(ctx_source(&new_c), token);
-        if (equals(name, Str("main")) && !new_c.tir.thread) {
+        if (equals(name, Str("main")) && new_c.tir.thread == new_c.tir.global) {
             nth(new_c.globals, def).used = true;
         }
     }
@@ -741,7 +741,7 @@ static TirId analyze_function_decl(Context *c, AstId node) {
 
     register_id(c, (AstRef) {node, c->file}, value);
 
-    if (equals(name, Str("main")) && !c->tir.thread) {
+    if (equals(name, Str("main")) && c->tir.thread == c->tir.global) {
         if (f.type_params.len || f.params.len || !is_ast_null(f.ret)) {
             node_diagnostic(c, node, Diagnostic(ErrorMainSignature, {0}));
         }
@@ -3161,6 +3161,7 @@ TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {
         .globals = global_lists[0],
         .tir = {
             .global = &global_tir,
+            .thread = &global_tir,
         },
         .functions = arena_alloc(permanent, FunctionRef, input->function_body_count),
         .function_locals = arena_alloc(&scratch, LocalList, input->function_body_count),
