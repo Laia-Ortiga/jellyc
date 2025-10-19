@@ -26,6 +26,13 @@ typedef struct {
 } FunctionRef;
 
 typedef struct {
+    int32_t body_first;
+    int32_t body_length;
+    Tir deps;
+    int32_t local_count;
+} LocalTir;
+
+typedef struct {
     Tir global_deps;
     LocalTir *insts;
     FunctionRef *functions;

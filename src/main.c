@@ -504,8 +504,8 @@ int main(int argc, char **argv) {
         .asts = asts,
         .ast_refs = ast_refs.table,
         .functions = tir_output.global_deps.functions.ptr,
-        .global_deps = &tir_output.global_deps,
-        .insts = tir_output.insts,
+        .global_tir = &tir_output.global_deps,
+        .function_tirs = tir_output.insts,
         .function_count = tir_output.global_deps.functions.len,
     }, &permanent_arena, scratch_arena);
     GenInput gen_input = {

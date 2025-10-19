@@ -5,6 +5,7 @@
 #include "mir.h"
 #include "tir.h"
 #include "fwd.h"
+#include "type-analysis.h"
 
 typedef struct {
     Target target;
@@ -13,8 +14,8 @@ typedef struct {
     Asts asts;
     AstRefs ast_refs;
     TirId *functions;
-    Tir *global_deps;
-    LocalTir *insts;
+    Tir *global_tir;
+    LocalTir *function_tirs;
     int32_t function_count;
 } MirAnalysisInput;
 

@@ -817,14 +817,14 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
     mir.ends = arena_alloc(permanent, int32_t, input->function_count + 1);
     mir.data_starts = arena_alloc(permanent, int32_t, input->function_count);
     mir.main_function = -1;
-    MirTypeId *global_struct_types = arena_alloc(&scratch, MirTypeId, input->global_deps->terms.terms.len);
+    MirTypeId *global_struct_types = arena_alloc(&scratch, MirTypeId, input->global_tir->terms.terms.len);
 
     {
         Context c = {0};
         c.mir = mir;
         c.target = input->target;
-        c.tir.global = input->global_deps;
-        c.tir.thread = input->global_deps;
+        c.tir.global = input->global_tir;
+        c.tir.thread = input->global_tir;
         c.scratch = scratch;
         c.global_struct_types = global_struct_types;
         tir_deps_to_mir(&c);
@@ -835,8 +835,8 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         Context c = {0};
         c.mir = mir;
         c.target = input->target;
-        c.tir.global = input->global_deps;
-        c.tir.thread = &input->insts[i].deps;
+        c.tir.global = input->global_tir;
+        c.tir.thread = &input->function_tirs[i].deps;
         c.scratch = scratch;
         c.global_struct_types = global_struct_types;
         MirTypeId *local_struct_types = arena_alloc(&scratch, MirTypeId, c.tir.thread->terms.terms.len);
@@ -844,7 +844,7 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         mir.ends[i] = c.mir.insts.len;
         mir.data_starts[i] = c.mir.data.len;
         tir_deps_to_mir(&c);
-        transform_function(&c, input->insts[i].body_first, input->insts[i].body_length, input->functions[i]);
+        transform_function(&c, input->function_tirs[i].body_first, input->function_tirs[i].body_length, input->functions[i]);
         free(c.break_instructions.ptr);
         free(c.continue_instructions.ptr);
         TirFunction f = tir_get_function(c.tir, input->functions[i]);
@@ -855,7 +855,7 @@ Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch) {
         });
         mir = c.mir;
         mir.ends[i + 1] = c.mir.insts.len;
-        if (tir_eq(input->global_deps->main, input->functions[i])) {
+        if (tir_eq(input->global_tir->main, input->functions[i])) {
             mir.main_function = i;
         }
     }

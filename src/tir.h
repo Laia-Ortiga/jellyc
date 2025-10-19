@@ -64,13 +64,6 @@ struct Tir {
     Vec(TypeScope) type_scopes;
 };
 
-typedef struct {
-    int32_t body_first;
-    int32_t body_length;
-    Tir deps;
-    int32_t local_count;
-} LocalTir;
-
 // Constructors
 
 TirId new_tir(TirContext c, TirTag tag, TirData data);
