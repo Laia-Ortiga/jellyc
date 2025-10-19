@@ -7,6 +7,7 @@
 #include "fwd.h"
 
 typedef struct {
+    Target target;
     Paths paths;
     Sources sources;
     Asts asts;
@@ -17,10 +18,4 @@ typedef struct {
     int32_t function_count;
 } MirAnalysisInput;
 
-typedef struct {
-    Mir mir;
-    int32_t *ends;
-    int32_t *data_starts;
-} MirResult;
-
-MirResult tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch);
+Mir tir_to_mir(MirAnalysisInput *input, Arena *permanent, Arena scratch);

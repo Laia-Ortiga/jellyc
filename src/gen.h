@@ -3,10 +3,8 @@
 #include "tir2mir.h"
 
 typedef struct {
-    Tir global_deps;
-    LocalTir *insts;
-    MirResult *mir_result;
+    Mir *mir;
 } GenInput;
 
-void gen_c(GenInput *input, Target target);
-void gen_llvm(GenInput *input, Target target);
+void gen_c(GenInput *in, Target target);
+void gen_llvm(GenInput *in, Target target);

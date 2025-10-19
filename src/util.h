@@ -3,38 +3,26 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-static inline int64_t load_i64(uint32_t low, uint32_t high) {
-    union {
-        int64_t value;
-        uint64_t bits;
-    } result;
-    result.bits = (uint64_t) low | ((uint64_t) high << 32);
-    return result.value;
+static inline int64_t load_i64(void const *p) {
+    int64_t value;
+    memcpy(&value, p, sizeof(value));
+    return value;
 }
 
-static inline double load_f64(uint32_t low, uint32_t high) {
-    union {
-        double value;
-        uint64_t bits;
-    } result;
-    result.bits = (uint64_t) low | ((uint64_t) high << 32);
-    return result.value;
+static inline double load_f64(void const *p) {
+    double value;
+    memcpy(&value, p, sizeof(value));
+    return value;
 }
 
-static inline void store_i64(int64_t x, uint32_t *low, uint32_t *high) {
-    *low = (uint32_t) x;
-    *high = (uint32_t) ((uint64_t) x >> 32);
+static inline void store_i64(void *p, int64_t x) {
+    memcpy(p, &x, sizeof(x));
 }
 
-static inline void store_f64(double x, uint32_t *low, uint32_t *high) {
-    union {
-        double value;
-        uint64_t bits;
-    } u;
-    u.value = x;
-    *low = (uint32_t) u.bits;
-    *high = (uint32_t) ((uint64_t) u.bits >> 32);
+static inline void store_f64(void *p, double x) {
+    memcpy(p, &x, sizeof(x));
 }
 
 #define compiler_error(msg) \

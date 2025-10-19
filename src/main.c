@@ -497,7 +497,8 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    MirResult mir_result = tir_to_mir(&(MirAnalysisInput) {
+    Mir mir_result = tir_to_mir(&(MirAnalysisInput) {
+        .target = options.target,
         .paths = paths,
         .sources = sources,
         .asts = asts,
@@ -508,9 +509,7 @@ int main(int argc, char **argv) {
         .function_count = tir_output.global_deps.functions.len,
     }, &permanent_arena, scratch_arena);
     GenInput gen_input = {
-        .global_deps = tir_output.global_deps,
-        .insts = tir_output.insts,
-        .mir_result = &mir_result,
+        .mir = &mir_result,
     };
     switch (options.backend) {
         case BACKEND_C: {

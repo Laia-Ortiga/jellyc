@@ -1,0 +1,97 @@
+X(ALLOC, DATA(type, MirTypeId))
+X(ALLOC_VAR, DATA(type, MirTypeId) DATA(index, int32_t))
+X(STACK_COPY)
+X(STACK_COPY_AT, DATA(index, int32_t))
+X(STACK_POP)
+
+// Value
+
+X(FALSE)
+X(TRUE)
+X(I8, DATA(value, int32_t))
+X(I16, DATA(value, int32_t))
+X(I32, DATA(value, int32_t))
+X(I64, DATA(value, int64_t))
+X(F32, DATA(value, float))
+X(F64, DATA(value, double))
+X(NULL)
+X(STRING, DATA(type, MirTypeId) DATA(value, char const *))
+X(PARAMETER, DATA(type, MirTypeId) DATA(index, int32_t))
+X(VARIABLE, DATA(type, MirTypeId) DATA(index, int32_t))
+X(GLOBAL_VAR, DATA(type, MirTypeId) DATA(name, char const *))
+X(GLOBAL_FUNCTION, DATA(type, MirTypeId) DATA(name, char const *))
+
+// ( a b -- )
+X(ASSIGN)
+
+/*
+    Unary
+    ( a -- r )
+*/
+
+X(NEG)
+X(NOT)
+X(ADDRESS)
+X(DEREF, DATA(type, MirTypeId))
+
+/*
+    Binary
+    ( a b -- r )
+*/
+
+X(ADD)
+X(SUB)
+X(MUL)
+X(DIV)
+X(MOD)
+X(AND)
+X(OR)
+X(XOR)
+X(SHL)
+X(SHR)
+X(EQ)
+X(NE)
+X(LT)
+X(GT)
+X(LE)
+X(GE)
+X(INDEX, DATA(elem_type, MirTypeId))
+X(SLICE_INDEX, DATA(elem_type, MirTypeId))
+
+/*
+    Cast
+    ( a -- r )
+    data ( type -- )
+*/
+
+X(ITOF, DATA(type, MirTypeId))
+X(ITRUNC, DATA(type, MirTypeId))
+
+// It acts like X(ITRUNC) but it crashes if it overflows.
+X(INARROW, DATA(type, MirTypeId))
+
+X(SEXT, DATA(type, MirTypeId))
+X(ZEXT, DATA(type, MirTypeId))
+X(FTOI, DATA(type, MirTypeId))
+X(FTRUNC, DATA(type, MirTypeId))
+X(FEXT, DATA(type, MirTypeId))
+
+/*
+    Access
+    ( a -- r )
+    data ( field -- )
+*/
+X(ACCESS, DATA(field, int32_t))
+
+X(CALL, DATA(ret_type, MirTypeId) DATA(arg_count, int32_t))
+
+// Control Flow
+
+X(BR, DATA(block, int32_t))
+X(BR_IF, DATA(block, int32_t))
+X(BR_IF_NOT, DATA(block, int32_t))
+X(RET_VOID)
+X(RET)
+
+#undef X
+#undef DATA
