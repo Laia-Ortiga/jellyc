@@ -1568,36 +1568,6 @@ static TirId analyze_null(Context *c, AstId node, TirId hint) {
     });
 }
 
-static TirId analyze_un_arithmetic(Context *c, AstId node, TirId hint, TirTag tag) {
-    AstUnary n = ast_get_unary(c->ast, node);
-    TirId operand_value = expect_value(c, n.a, hint);
-    TirId operand_type = get_value_type(c->tir, operand_value);
-
-    if (!type_is_arithmetic(operand_type)) {
-        node_diagnostic(c, n.a, Diagnostic(ErrorUnaryUnexpectedOperand, {
-            .ctx = c->tir,
-            .type = operand_type,
-        }));
-        return error_term;
-    }
-
-    return tir_push_tag(c->tir, tag, (TirUnary) {
-        .node = node,
-        .type = operand_type,
-        .a = operand_value,
-    });
-}
-
-static TirId analyze_not(Context *c, AstId node) {
-    AstUnary n = ast_get_unary(c->ast, node);
-    TirId operand_value = expect_value_type(c, n.a, reserved_tir(bool));
-    return tir_push_tag(c->tir, TIR_NOT, (TirUnary) {
-        .node = node,
-        .type = reserved_tir(bool),
-        .a = operand_value,
-    });
-}
-
 static TirId analyze_address(Context *c, AstId node, TirId hint) {
     AstUnary n = ast_get_unary(c->ast, node);
     TirId operand_value = expect_value(c, n.a, remove_any_pointer(c->tir, hint));
@@ -1885,6 +1855,36 @@ static TirId analyze_bin_operand(Context *c, AstId node, TirId hint) {
     }
 
     return value;
+}
+
+static TirId analyze_un_arithmetic(Context *c, AstId node, TirId hint, TirTag tag) {
+    AstUnary n = ast_get_unary(c->ast, node);
+    TirId operand_value = analyze_bin_operand(c, n.a, hint);
+    TirId operand_type = get_value_type(c->tir, operand_value);
+
+    if (!type_is_arithmetic(operand_type)) {
+        node_diagnostic(c, n.a, Diagnostic(ErrorUnaryUnexpectedOperand, {
+            .ctx = c->tir,
+            .type = operand_type,
+        }));
+        return error_term;
+    }
+
+    return tir_push_tag(c->tir, tag, (TirUnary) {
+        .node = node,
+        .type = operand_type,
+        .a = operand_value,
+    });
+}
+
+static TirId analyze_not(Context *c, AstId node) {
+    AstUnary n = ast_get_unary(c->ast, node);
+    TirId operand_value = expect_value_type(c, n.a, reserved_tir(bool));
+    return tir_push_tag(c->tir, TIR_NOT, (TirUnary) {
+        .node = node,
+        .type = reserved_tir(bool),
+        .a = operand_value,
+    });
 }
 
 static TirId analyze_bin_arithmetic(Context *c, AstId node, TirId hint, TirTag tag) {
