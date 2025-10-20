@@ -29,9 +29,10 @@
             "program": "${workspaceFolder}/build/jellyc",
             "args": [
                 "test/fibonacci.jel",
+                "lib/libc.jel",
+                "lib/linux.jel",
                 "lib/std_heap.jel",
                 "lib/std_io.jel",
-                "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -43,9 +44,10 @@
             "program": "${workspaceFolder}/build/jellyc",
             "args": [
                 "test/array.jel",
+                "lib/libc.jel",
+                "lib/linux.jel",
                 "lib/std_heap.jel",
                 "lib/std_io.jel",
-                "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -57,9 +59,10 @@
             "program": "${workspaceFolder}/build/jellyc",
             "args": [
                 "test/basic_lexer.jel",
+                "lib/libc.jel",
+                "lib/linux.jel",
                 "lib/std_heap.jel",
                 "lib/std_io.jel",
-                "lib/libc.jel",
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -122,6 +125,7 @@
                 "test/opengl/terrain.jel",
                 "test/opengl/util.jel",
                 "lib/libc.jel",
+                "lib/linux.jel",
                 "lib/std_heap.jel",
                 "lib/std_io.jel",
             ],

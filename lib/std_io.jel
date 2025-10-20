@@ -1,38 +1,83 @@
 module std
 
 import libc
+import linux
+
+# Write
+
+public struct WriterState {
+    error bool,
+}
+
+public struct Writer {
+    state WriterState,
+    write function (state *mut WriterState, buffer @i8) -> isize,
+}
+
+public function write_str(writer *mut Writer, s @i8) {
+    writer!.write(&writer!.state, s)
+}
+
+function write_uint(buffer @mut i8, i isize, x i64) -> isize {
+    buffer[i - 1] = '0' + x % 10
+    switch true {
+        x / 10 != 0 => write_uint(buffer, i - 1, x / 10),
+        else => i - 1,
+    }
+}
+
+public function write_int(writer *mut Writer, x i64) {
+    mut buffer = [<i8> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mut i = buffer.length
+
+    if x < 0 {
+        let digit = 10 - x % 10
+        let next = {x + digit} / -10
+
+        i -= 1
+        buffer[i] = '0' + digit
+
+        if next != 0 {
+            i = write_uint(&buffer, i, next)
+        }
+
+        i -= 1
+        buffer[i] = '-'
+    } else {
+        i = write_uint(&buffer, i, x)
+    }
+
+    write_str(writer, &buffer[i:buffer.length])
+}
 
 # Print
 
-public function print_byte(c i8) {
-    libc.putchar(`zero_extend[c])
+function stdout_write(state *mut WriterState, buffer @i8) -> isize {
+    let n = linux.write(1, buffer.data, buffer.length)
+    switch true {
+        n < 0 => {
+            state!.error = true
+            0
+        },
+        else => n,
+    }
+}
+
+function stdout() -> Writer {
+    (
+        state = (error = false),
+        write = stdout_write,
+    )
 }
 
 public function print_str(s @i8) {
-    for i = 0; i < s.length; i + 1 {
-        print_byte(s[i])
-    }
-}
-
-function print_int_rec(x i64) {
-    if x / 10 != 0 {
-        print_int_rec(x / 10)
-    }
-    print_byte('0' + x % 10)
+    mut writer = stdout()
+    write_str(&writer, s)
 }
 
 public function print_int(x i64) {
-    if x < 0 {
-        print_byte('-')
-        let digit = 10 - x % 10
-        let next = {x + digit} / -10
-        if next != 0 {
-            print_int_rec(next)
-        }
-        print_byte('0' + digit)
-    } else {
-        print_int_rec(x)
-    }
+    mut writer = stdout()
+    write_int(&writer, x)
 }
 
 # File

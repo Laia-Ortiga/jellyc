@@ -1,0 +1,7 @@
+module linux
+
+public extern function write(
+    fd i32,
+    buf *byte,
+    count isize,
+) -> isize
