@@ -133,7 +133,7 @@ static SourceIndex expect(Parser *parser, TokenTag tag) {
 }
 
 static SourceIndex expect_id(Parser *parser) {
-    if (parser->lookahead.tag != TOK_ID && (!parser->internal || parser->lookahead.tag != TOK_BUILTIN_ID)) {
+    if (parser->lookahead.tag != TOK_ID && (!parser->internal || parser->lookahead.tag != TOK_RESERVED_ID)) {
         error(parser, &(ParseError) {
             .start = parser->lookahead.start,
             .end = parser->lookahead.end,
@@ -690,7 +690,7 @@ static AstId parse_prefix(Parser *parser) {
             return parse_switch(parser, consume(parser).start);
         }
         case TOK_ID:
-        case TOK_BUILTIN_ID: {
+        case TOK_RESERVED_ID: {
             return ast_push_tag(&parser->ast, AST_ID, (AstLeaf) {
                 .token = consume(parser).start,
             });

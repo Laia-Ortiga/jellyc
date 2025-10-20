@@ -100,9 +100,9 @@ void print_type(FILE *file, TirContext c, TirId type) {
         }
         case TIR_RESERVED: {
             switch (tir_as_reserved(type)) {
-                case TYPE_VOID: fprintf(file, "void"); return;
+                case RESERVED_VOID: fprintf(file, "void"); return;
 
-                #define TYPE(type) case TYPE_##type: fprintf(file, #type); return;
+                #define TYPE(type) case RESERVED_##type: fprintf(file, #type); return;
                 #include "simple-types"
 
                 default: break;
@@ -151,7 +151,7 @@ void print_type(FILE *file, TirContext c, TirId type) {
                 print_type(file, c, f.params.ptr[j]);
             }
             fprintf(file, ")");
-            if (!tir_is_reserved(f.ret, TYPE_VOID)) {
+            if (!tir_is_reserved(f.ret, RESERVED_VOID)) {
                 fprintf(file, " -> ");
                 print_type(file, c, f.ret);
             }

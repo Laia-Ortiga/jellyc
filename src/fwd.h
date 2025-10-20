@@ -61,34 +61,31 @@ typedef enum {
 typedef enum {
     RESERVED_ERROR = 0,
 
-    BUILTIN_TYPE_START = INT_MIN,
-    TYPE_VOID = BUILTIN_TYPE_START,
-    #define TYPE(type) TYPE_##type,
+    RESERVED_TYPE_START = INT_MIN,
+    RESERVED_VOID = RESERVED_TYPE_START,
+    #define TYPE(type) RESERVED_##type,
     #include "simple-types"
-    BUILTIN_TYPE_END,
+    RESERVED_TYPE_END,
 
-    BUILTIN_MACRO_START = BUILTIN_TYPE_END,
-    BUILTIN_ALIGNOF = BUILTIN_MACRO_START,
-    BUILTIN_SIZEOF,
-    BUILTIN_CAST,
-    BUILTIN_ZERO_EXTEND,
-    BUILTIN_SLICE,
-    BUILTIN_AFFINE,
-    BUILTIN_ARRAY_LENGTH_TYPE,
-    BUILTIN_MACRO_END,
+    RESERVED_MACRO_START = RESERVED_TYPE_END,
+    RESERVED_ALIGNOF = RESERVED_MACRO_START,
+    RESERVED_SIZEOF,
+    RESERVED_CAST,
+    RESERVED_ZERO_EXTEND,
+    RESERVED_SLICE,
+    RESERVED_AFFINE,
+    RESERVED_ARRAY_LENGTH_TYPE,
+    RESERVED_MACRO_END,
 
-    BUILTIN_TERM_END = BUILTIN_MACRO_END,
-
-    TERM_COUNT = 1,
-    BUILTIN_SIZE = 0,
-    BUILTIN_ALIGNMENT,
-    TERM_GLOBAL_COUNT,
+    RESERVED_SIZE = 0,
+    RESERVED_ALIGNMENT,
+    RESERVED_INTERNAL_COUNT,
 } ReservedTerm;
 
 typedef struct {
     SymbolKind kind;
     union {
-        ReservedTerm builtin;
+        ReservedTerm reserved;
         GlobalId global;
         LocalId local;
     };

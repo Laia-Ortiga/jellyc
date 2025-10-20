@@ -32,8 +32,8 @@ typedef struct {
 
 #include "tir-types.h"
 
-static TirId const error_term = {0};
-#define ptype(type) ((TirId) {TYPE_##type})
+static TirId const error_term = {RESERVED_ERROR};
+#define reserved_tir(x) ((TirId) {RESERVED_##x})
 
 typedef struct {
     int32_t capacity;
@@ -121,14 +121,14 @@ typedef struct {
 } TermIndex;
 
 static inline TermIndex tir_get_storage(TirContext c, TirId term) {
-    if (term.private_field_id - TERM_COUNT < c.global->terms.terms.len) {
+    if (term.private_field_id - 1 < c.global->terms.terms.len) {
         return (TermIndex) {
             c.global,
-            term.private_field_id - TERM_COUNT,
+            term.private_field_id - 1,
         };
     }
     return (TermIndex) {
         c.thread,
-        term.private_field_id - TERM_COUNT - c.global->terms.terms.len,
+        term.private_field_id - 1 - c.global->terms.terms.len,
     };
 }

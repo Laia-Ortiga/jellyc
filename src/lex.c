@@ -94,14 +94,14 @@ static TokenTag resolve_tag(String s) {
     return TOK_ID;
 }
 
-static TokenTag builtin_id(Lexer *lexer) {
+static TokenTag reserved_id(Lexer *lexer) {
     if (is_alpha(peek(lexer))) {
         consume(lexer);
         while (is_id_char(peek(lexer))) {
             consume(lexer);
         }
     }
-    return TOK_BUILTIN_ID;
+    return TOK_RESERVED_ID;
 }
 
 static TokenTag id(Lexer *lexer, SourceIndex start) {
@@ -261,7 +261,7 @@ Token next_token(Lexer *lexer) {
                 break;
             }
             case '`': {
-                tag = builtin_id(lexer);
+                tag = reserved_id(lexer);
                 break;
             }
             default: {

@@ -39,23 +39,23 @@ static MirTypeId transform_type(Context *c, TirId type) {
     switch (get_tir_tag(c->tir, type)) {
         case TIR_RESERVED: {
             switch (tir_as_reserved(type)) {
-                case TYPE_VOID: {
+                case RESERVED_VOID: {
                     return (MirTypeId) {MIR_TYPE_VOID};
                 }
-                case TYPE_i8:
-                case TYPE_byte: {
+                case RESERVED_i8:
+                case RESERVED_byte: {
                     return (MirTypeId) {MIR_TYPE_I8};
                 }
-                case TYPE_i16: {
+                case RESERVED_i16: {
                     return (MirTypeId) {MIR_TYPE_I16};
                 }
-                case TYPE_i32: {
+                case RESERVED_i32: {
                     return (MirTypeId) {MIR_TYPE_I32};
                 }
-                case TYPE_i64: {
+                case RESERVED_i64: {
                     return (MirTypeId) {MIR_TYPE_I64};
                 }
-                case TYPE_isize: {
+                case RESERVED_isize: {
                     switch (c->target) {
                         case TARGET_ISIZE_64: {
                             return (MirTypeId) {MIR_TYPE_I64};
@@ -69,13 +69,13 @@ static MirTypeId transform_type(Context *c, TirId type) {
                     }
                     break;
                 }
-                case TYPE_f32: {
+                case RESERVED_f32: {
                     return (MirTypeId) {MIR_TYPE_F32};
                 }
-                case TYPE_f64: {
+                case RESERVED_f64: {
                     return (MirTypeId) {MIR_TYPE_F64};
                 }
-                case TYPE_bool: {
+                case RESERVED_bool: {
                     return (MirTypeId) {MIR_TYPE_BOOL};
                 }
                 default: {
@@ -97,7 +97,7 @@ static MirTypeId transform_type(Context *c, TirId type) {
             return (MirTypeId) {c->mir.types.len - 1};
         }
         case TIR_ARRAY_LENGTH_TYPE: {
-            return transform_type(c, ptype(isize));
+            return transform_type(c, reserved_tir(isize));
         }
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: {
@@ -414,7 +414,7 @@ static void transform_statement(Context *c, TirId tir_id) {
     transform_node(c, tir_id);
     TirId type = get_value_type(c->tir, tir_id);
 
-    if (!tir_is_reserved(type, RESERVED_ERROR) && !tir_is_reserved(type, TYPE_VOID)) {
+    if (!tir_is_reserved(type, RESERVED_ERROR) && !tir_is_reserved(type, RESERVED_VOID)) {
         vec_push(&c->mir.insts, MIR_STACK_POP);
     }
 }
@@ -473,13 +473,13 @@ static void transform_if(Context *c, TirId tir_id) {
 static void transform_switch(Context *c, TirId tir_id) {
     TirSwitch t = tir_get_switch(c->tir, tir_id);
 
-    if (!tir_is_reserved(t.type, TYPE_VOID)) {
+    if (!tir_is_reserved(t.type, RESERVED_VOID)) {
         vec_push(&c->mir.insts, MIR_ALLOC);
         push_type(c, transform_type(c, t.type));
     }
 
     int32_t copy_inst = -1;
-    bool condition_is_true = tir_is_reserved(get_value_type(c->tir, t.condition), TYPE_bool)
+    bool condition_is_true = tir_is_reserved(get_value_type(c->tir, t.condition), RESERVED_bool)
         && get_tir_tag(c->tir, t.condition) == TIR_INT
         && tir_get_int(c->tir, t.condition).value;
 
@@ -505,7 +505,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             }
 
             int32_t condition_br = add_br_instruction(c, MIR_BR_IF_NOT);
-            if (!tir_is_reserved(t.type, TYPE_VOID)) {
+            if (!tir_is_reserved(t.type, RESERVED_VOID)) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -517,7 +517,7 @@ static void transform_switch(Context *c, TirId tir_id) {
             int32_t next_case_basic_block = c->basic_block;
             patch_br(c, condition_br, next_case_basic_block);
         } else {
-            if (!tir_is_reserved(t.type, TYPE_VOID)) {
+            if (!tir_is_reserved(t.type, RESERVED_VOID)) {
                 vec_push(&c->mir.insts, MIR_STACK_COPY_AT);
                 vec_push(&c->mir.data, copy_inst);
                 transform_node(c, value);
@@ -622,7 +622,7 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
         transform_statement(c, statement);
     }
 
-    if (tir_is_reserved(func_type.ret, TYPE_VOID) && (c->mir.insts.len == start || c->mir.insts.ptr[c->mir.insts.len - 1] != MIR_RET_VOID)) {
+    if (tir_is_reserved(func_type.ret, RESERVED_VOID) && (c->mir.insts.len == start || c->mir.insts.ptr[c->mir.insts.len - 1] != MIR_RET_VOID)) {
         vec_push(&c->mir.insts, MIR_RET_VOID);
     }
 }

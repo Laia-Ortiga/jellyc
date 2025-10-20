@@ -137,12 +137,12 @@ static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
         return (Symbol) {.kind = SYM_GLOBAL, .global = {*module_def}};
     }
 
-    int32_t *builtin_def = htable_lookup(b->global_scope, name);
-    if (builtin_def) {
-        if (*builtin_def >= 0) {
-            return (Symbol) {.kind = SYM_GLOBAL, .global = {*builtin_def}};
+    int32_t *reserved_def = htable_lookup(b->global_scope, name);
+    if (reserved_def) {
+        if (*reserved_def >= 0) {
+            return (Symbol) {.kind = SYM_GLOBAL, .global = {*reserved_def}};
         }
-        return (Symbol) {.kind = SYM_BUILTIN, .builtin = *builtin_def};
+        return (Symbol) {.kind = SYM_BUILTIN, .reserved = *reserved_def};
     }
 
     return (Symbol) {0};
@@ -199,7 +199,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
-        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < TERM_GLOBAL_COUNT) {
+        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < RESERVED_INTERNAL_COUNT) {
             // Defined in "internal.jel".
             vec_push(b->ast_refs, (AstGlobal) {
                 .is_public = !!is_public,
@@ -411,17 +411,17 @@ int main(int argc, char **argv) {
     }
 
     HashTable global_scope = htable_init();
-    #define TYPE(type) htable_try_insert(&global_scope, Str(#type), TYPE_##type);
+    #define TYPE(type) htable_try_insert(&global_scope, Str(#type), RESERVED_##type);
     #include "simple-types"
-    htable_try_insert(&global_scope, Str("`Size"), BUILTIN_SIZE);
-    htable_try_insert(&global_scope, Str("`Alignment"), BUILTIN_ALIGNMENT);
-    htable_try_insert(&global_scope, Str("`align_of"), BUILTIN_ALIGNOF);
-    htable_try_insert(&global_scope, Str("`size_of"), BUILTIN_SIZEOF);
-    htable_try_insert(&global_scope, Str("`cast"), BUILTIN_CAST);
-    htable_try_insert(&global_scope, Str("`zero_extend"), BUILTIN_ZERO_EXTEND);
-    htable_try_insert(&global_scope, Str("`slice"), BUILTIN_SLICE);
-    htable_try_insert(&global_scope, Str("`Affine"), BUILTIN_AFFINE);
-    htable_try_insert(&global_scope, Str("`ArrayLength"), BUILTIN_ARRAY_LENGTH_TYPE);
+    htable_try_insert(&global_scope, Str("`Size"), RESERVED_SIZE);
+    htable_try_insert(&global_scope, Str("`Alignment"), RESERVED_ALIGNMENT);
+    htable_try_insert(&global_scope, Str("`align_of"), RESERVED_ALIGNOF);
+    htable_try_insert(&global_scope, Str("`size_of"), RESERVED_SIZEOF);
+    htable_try_insert(&global_scope, Str("`cast"), RESERVED_CAST);
+    htable_try_insert(&global_scope, Str("`zero_extend"), RESERVED_ZERO_EXTEND);
+    htable_try_insert(&global_scope, Str("`slice"), RESERVED_SLICE);
+    htable_try_insert(&global_scope, Str("`Affine"), RESERVED_AFFINE);
+    htable_try_insert(&global_scope, Str("`ArrayLength"), RESERVED_ARRAY_LENGTH_TYPE);
 
     AstRefVec ast_refs = {0};
     int32_t function_body_count = 0;

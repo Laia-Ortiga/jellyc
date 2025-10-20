@@ -25,7 +25,7 @@ static int match_types_single(TirContext c, TirId *results, TirId type, TypeMatc
             return 1;
         }
         case TYPE_MATCH_BYTE: {
-            return tir_is_reserved(type, TYPE_byte);
+            return tir_is_reserved(type, RESERVED_byte);
         }
         case TYPE_MATCH_ARRAY: {
             if (get_tir_tag(c, type) == TIR_ARRAY_TYPE) {

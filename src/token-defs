@@ -46,7 +46,7 @@ TOKEN(ASSIGN_OR, "|=")
 TOKEN(ASSIGN_XOR, "^=")
 
 TOKEN(ID, "identifier")
-TOKEN(BUILTIN_ID, "built-in identifier")
+TOKEN(RESERVED_ID, "built-in identifier")
 TOKEN(INT, "int")
 TOKEN(HEX_INT, "int")
 TOKEN(FLOAT, "float")

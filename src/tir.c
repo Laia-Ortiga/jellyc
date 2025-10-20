@@ -298,12 +298,12 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
 
 TirId new_tir(TirContext c, TirTag tag, TirData data) {
     if (c.thread == c.global) {
-        TirId t = {c.global->terms.terms.len + TERM_COUNT};
+        TirId t = {c.global->terms.terms.len + 1};
         sum_vec_push(&c.global->terms.terms, data, tag);
         return t;
     }
 
-    TirId t = {c.global->terms.terms.len + TERM_COUNT + c.thread->terms.terms.len};
+    TirId t = {c.global->terms.terms.len + 1 + c.thread->terms.terms.len};
     sum_vec_push(&c.thread->terms.terms, data, tag);
     return t;
 }
@@ -430,13 +430,13 @@ TirCategory get_term_category(TirContext c, TirId term) {
             if (term.private_field_id == RESERVED_ERROR) {
                 return TIRCAT_ERROR;
             }
-            if (term.private_field_id >= BUILTIN_TYPE_START
-                && term.private_field_id < BUILTIN_TYPE_END
+            if (term.private_field_id >= RESERVED_TYPE_START
+                && term.private_field_id < RESERVED_TYPE_END
             ) {
                 return TIRCAT_TYPE;
             }
-            if (term.private_field_id >= BUILTIN_MACRO_START
-                && term.private_field_id < BUILTIN_MACRO_END
+            if (term.private_field_id >= RESERVED_MACRO_START
+                && term.private_field_id < RESERVED_MACRO_END
             ) {
                 return TIRCAT_MACRO;
             }
@@ -483,7 +483,7 @@ TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
 
     if (tag == TIR_SLICE_TYPE || tag == TIR_MUT_SLICE_TYPE) {
         switch (index) {
-            case 0: return ptype(isize);
+            case 0: return reserved_tir(isize);
             case 1: return tir_get_slice_type(c, type).cached_ptr;
             default: return error_term;
         }
