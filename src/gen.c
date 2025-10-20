@@ -574,10 +574,33 @@ static void gen_deref(GenContext *c) {
     fprintf(c->stream, ";\n");
 }
 
-static void gen_unary(GenContext *c, char const *op) {
+static void gen_neg(GenContext *c) {
+    MirOperand a = pop_operand(c);
+    if (!is_mir_float_type(a.type)) {
+        MirOperand result = new_tmp(c, false, a.type);
+        fprintf(c->stream, "    ");
+        gen_type_before(c, result.type);
+        fprintf(c->stream, "t%d", result.index);
+        gen_type_after(c, result.type);
+        fprintf(c->stream, ";\n");
+
+        fprintf(c->stream, "    if (__builtin_sub_overflow(0, ");
+        gen_operand(c, &a);
+        fprintf(c->stream, ", &");
+        gen_operand(c, &result);
+        fprintf(c->stream, ")) { __builtin_abort(); }\n");
+    } else {
+        introduce_temporary(c, false, a.type);
+        fputs("-", c->stream);
+        gen_operand(c, &a);
+        fprintf(c->stream, ";\n");
+    }
+}
+
+static void gen_not(GenContext *c) {
     MirOperand a = pop_operand(c);
     introduce_temporary(c, false, a.type);
-    fputs(op, c->stream);
+    fputs("!", c->stream);
     gen_operand(c, &a);
     fprintf(c->stream, ";\n");
 }
@@ -1005,8 +1028,8 @@ static void gen_instruction(GenContext *c, int32_t i) {
         case MIR_GLOBAL_VAR: gen_global(c); break;
         case MIR_GLOBAL_FUNCTION: gen_global(c); break;
         case MIR_ASSIGN: gen_assign(c); break;
-        case MIR_NEG: gen_unary(c, "-"); break;
-        case MIR_NOT: gen_unary(c, "!"); break;
+        case MIR_NEG: gen_neg(c); break;
+        case MIR_NOT: gen_not(c); break;
         case MIR_ADDRESS: gen_address(c); break;
         case MIR_DEREF: gen_deref(c); break;
         case MIR_ADD: gen_binary(c, "__builtin_add_overflow", "+"); break;
