@@ -125,27 +125,12 @@ static String get_string_from_location(SourceLoc const *loc) {
 }
 
 static Symbol lookup(GlobalScopeBuilder *b, FileId file, String name) {
-    int32_t *file_def = htable_lookup(&nth(b->files, file).scope, name);
-    if (file_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*file_def}};
-    }
-
-    ModuleId module = nth(b->files, file).module;
-
-    int32_t *module_def = htable_lookup(&nth(b->modules, module).scope, name);
-    if (module_def) {
-        return (Symbol) {.kind = SYM_GLOBAL, .global = {*module_def}};
-    }
-
-    int32_t *reserved_def = htable_lookup(b->global_scope, name);
-    if (reserved_def) {
-        if (*reserved_def >= 0) {
-            return (Symbol) {.kind = SYM_GLOBAL, .global = {*reserved_def}};
-        }
-        return (Symbol) {.kind = SYM_BUILTIN, .reserved = *reserved_def};
-    }
-
-    return (Symbol) {0};
+    Scopes scopes = {
+        .files = b->files,
+        .modules = b->modules,
+        .reserved = b->global_scope,
+    };
+    return lookup_global(&scopes, file, name);
 }
 
 static int add_global(GlobalScopeBuilder *b, AstRef def) {
@@ -199,7 +184,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
 
     Symbol prev_sym = lookup(b, def.file, name);
     if (prev_sym.kind != SYM_UNDEFINED) {
-        if (prev_sym.kind == SYM_GLOBAL && prev_sym.global.private_field_id < RESERVED_INTERNAL_COUNT) {
+        if (prev_sym.kind == SYM_PUBLIC_GLOBAL && prev_sym.global.private_field_id < RESERVED_INTERNAL_COUNT) {
             // Defined in "internal.jel".
             vec_push(b->ast_refs, (AstGlobal) {
                 .is_public = !!is_public,
@@ -208,7 +193,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
             return 0;
         }
         print_diagnostic(&loc, &Diagnostic(ErrorMultipleDefinition, {0}));
-        if (prev_sym.kind == SYM_GLOBAL) {
+        if (prev_sym.kind == SYM_PRIVATE_GLOBAL || prev_sym.kind == SYM_PUBLIC_GLOBAL) {
             AstRef prev_ref = nth(b->ast_refs->table, prev_sym.global).ref;
             SourceLoc prev_loc = get_ast_location(b, prev_ref);
             print_diagnostic(&prev_loc, &Diagnostic(NotePreviousDefinition, {0}));

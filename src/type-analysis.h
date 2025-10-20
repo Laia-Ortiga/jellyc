@@ -39,4 +39,6 @@ typedef struct {
     int error;
 } TirOutput;
 
+Symbol lookup_module_global(Scopes *scopes, ModuleId module, String name);
+Symbol lookup_global(Scopes *scopes, FileId file, String name);
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch);

@@ -188,60 +188,13 @@ typedef struct {
     bool is_public;
 } ModuleSymbol;
 
-static ModuleSymbol lookup_module_symbol(Context *c, ModuleId m, String name) {
-    int32_t *def = htable_lookup(&nth(c->modules, m).scope, name);
-    if (def) {
-        if (*def >= 0) {
-            return (ModuleSymbol) {
-                .def = {*def},
-                .is_public = false,
-            };
-        } else {
-            return (ModuleSymbol) {
-                .def = {~*def},
-                .is_public = true,
-            };
-        }
-    }
-    return (ModuleSymbol) {
-        .def = {-1},
-        .is_public = false,
-    };
-}
-
 static Symbol lookup(Context *c, FileId file, String name) {
-    int32_t *file_def = htable_lookup(&nth(c->files, file).scope, name);
-    if (file_def) {
-        return (Symbol) {
-            .kind = SYM_GLOBAL,
-            .global = {*file_def},
-        };
-    }
-
-    ModuleId module = nth(c->files, file).module;
-    ModuleSymbol module_def = lookup_module_symbol(c, module, name);
-    if (id_is_valid(module_def.def)) {
-        return (Symbol) {
-            .kind = SYM_GLOBAL,
-            .global = module_def.def,
-        };
-    }
-
-    int32_t *reserved_def = htable_lookup(c->global_scope, name);
-    if (reserved_def) {
-        if (*reserved_def >= 0) {
-            return (Symbol) {
-                .kind = SYM_GLOBAL,
-                .global = {*reserved_def},
-            };
-        }
-        return (Symbol) {
-            .kind = SYM_BUILTIN,
-            .reserved = *reserved_def,
-        };
-    }
-
-    return (Symbol) {0};
+    Scopes scopes = {
+        .files = c->files,
+        .modules = c->modules,
+        .reserved = c->global_scope,
+    };
+    return lookup_global(&scopes, file, name);
 }
 
 static LocalId lookup_local(Context *c, String name) {
@@ -266,7 +219,7 @@ static void register_id(Context *c, AstRef ref, TirId term) {
     String name = get_id_source(c, ref);
     Symbol prev_symbol = find_symbol(c, ref.file, name);
 
-    if (prev_symbol.kind == SYM_GLOBAL
+    if ((prev_symbol.kind == SYM_PRIVATE_GLOBAL || prev_symbol.kind == SYM_PUBLIC_GLOBAL)
         && nth(c->visited, prev_symbol.global) == VISITING) {
         nth(c->tir_refs, prev_symbol.global) = term;
         return;
@@ -276,11 +229,12 @@ static void register_id(Context *c, AstRef ref, TirId term) {
         name_diagnostic(c, ref, Diagnostic(ErrorMultipleDefinition, {0}));
         AstRef prev_ref;
         switch (prev_symbol.kind) {
-            case SYM_BUILTIN: {
+            case SYM_RESERVED: {
                 name_diagnostic(c, ref, Diagnostic(NotePreviousBuiltinDefinition, {0}));
                 return;
             }
-            case SYM_GLOBAL: {
+            case SYM_PRIVATE_GLOBAL:
+            case SYM_PUBLIC_GLOBAL: {
                 prev_ref = nth(c->ast_refs, prev_symbol.global).ref;
                 break;
             }
@@ -1313,10 +1267,11 @@ static TirId analyze_id(Context *c, AstId node) {
             register_id(c, ref, error_term);
             break;
         }
-        case SYM_BUILTIN: {
+        case SYM_RESERVED: {
             return (TirId) {symbol.reserved};
         }
-        case SYM_GLOBAL: {
+        case SYM_PRIVATE_GLOBAL:
+        case SYM_PUBLIC_GLOBAL: {
             nth(c->globals, symbol.global).used = true;
             return resolve_global(c, ref, symbol.global);
         }
@@ -2219,23 +2174,28 @@ static TirId analyze_access(Context *c, AstId node) {
 
     if (get_term_category(c->tir, operand_value) == TIRCAT_MODULE) {
         ModuleId module = tir_to_module(operand_value);
-        ModuleSymbol symbol = lookup_module_symbol(c, module, field_name);
+        Scopes scopes = {
+            .files = c->files,
+            .modules = c->modules,
+            .reserved = c->global_scope,
+        };
+        Symbol symbol = lookup_module_global(&scopes, module, field_name);
 
-        if (!id_is_valid(symbol.def) || !symbol.is_public) {
+        if (!id_is_valid(symbol.global) || symbol.kind != SYM_PUBLIC_GLOBAL) {
             name_diagnostic(
                 c,
                 (AstRef) {node, c->file},
                 Diagnostic(ErrorUndefinedNameFromModule, {
                     .module = module,
-                    .def = symbol.def,
-                    .is_private = id_is_valid(symbol.def) && !symbol.is_public,
+                    .def = symbol.global,
+                    .is_private = id_is_valid(symbol.global) && symbol.kind != SYM_PUBLIC_GLOBAL,
                 })
             );
 
             return error_term;
         }
 
-        return resolve_global(c, (AstRef) {n.s, c->file}, symbol.def);
+        return resolve_global(c, (AstRef) {n.s, c->file}, symbol.global);
     }
 
     if (get_term_category(c->tir, operand_value) == TIRCAT_TYPE) {
@@ -3128,6 +3088,57 @@ static void print_sema_error(ErrorContext *c, SemaError *e) {
             print_diagnostic(&loc, &Diagnostic(NoteForgotImport, {0}));
         }
     }
+}
+
+Symbol lookup_module_global(Scopes *scopes, ModuleId module, String name) {
+    int32_t *module_def = htable_lookup(&nth(scopes->modules, module).scope, name);
+    if (module_def) {
+        if (*module_def >= 0) {
+            return (Symbol) {
+                .kind = SYM_PRIVATE_GLOBAL,
+                .global = {*module_def},
+            };
+        } else {
+            return (Symbol) {
+                .kind = SYM_PUBLIC_GLOBAL,
+                .global = {~*module_def},
+            };
+        }
+    }
+
+    return (Symbol) {0};
+}
+
+Symbol lookup_global(Scopes *scopes, FileId file, String name) {
+    int32_t *file_def = htable_lookup(&nth(scopes->files, file).scope, name);
+    if (file_def) {
+        return (Symbol) {
+            .kind = SYM_PUBLIC_GLOBAL,
+            .global = {*file_def},
+        };
+    }
+
+    ModuleId module = nth(scopes->files, file).module;
+    Symbol module_sym = lookup_module_global(scopes, module, name);
+    if (module_sym.kind != SYM_UNDEFINED) {
+        return module_sym;
+    }
+
+    int32_t *reserved_def = htable_lookup(scopes->reserved, name);
+    if (reserved_def) {
+        if (*reserved_def >= 0) {
+            return (Symbol) {
+                .kind = SYM_PUBLIC_GLOBAL,
+                .global = {*reserved_def},
+            };
+        }
+        return (Symbol) {
+            .kind = SYM_RESERVED,
+            .reserved = *reserved_def,
+        };
+    }
+
+    return (Symbol) {0};
 }
 
 TirOutput analyze_types(TirInput *input, Arena *permanent, Arena scratch) {

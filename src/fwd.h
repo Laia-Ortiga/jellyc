@@ -53,8 +53,9 @@ typedef struct {
 
 typedef enum {
     SYM_UNDEFINED,
-    SYM_BUILTIN,
-    SYM_GLOBAL,
+    SYM_RESERVED,
+    SYM_PRIVATE_GLOBAL,
+    SYM_PUBLIC_GLOBAL,
     SYM_LOCAL,
 } SymbolKind;
 
@@ -110,3 +111,9 @@ typedef Table(ModuleId, Module) Modules;
 typedef VecTable(GlobalId, AstGlobal) AstRefVec;
 typedef typeof((AstRefVec) {0}.table) AstRefs;
 typedef Vec(GlobalId) DefVec;
+
+typedef struct {
+    Files files;
+    Modules modules;
+    HashTable *reserved;
+} Scopes;
