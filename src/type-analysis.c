@@ -2571,6 +2571,28 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
         }));
         return error_term;
     }
+    if (get_term_category(c->tir, g.inner) == TIRCAT_VALUE) {
+        TirId type = get_value_type(c->tir, g.inner);
+        type = replace_type_parameters(type, &(ReplaceTypeInfo) {
+            .c = c->tir,
+            .args = arg_types,
+            .scratch = *c->scratch,
+            .target = c->options->target,
+        });
+        return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            .node = node,
+            .type = type,
+            .a = g.inner,
+        });
+    }
+    if (get_term_category(c->tir, g.inner) != TIRCAT_TYPE) {
+        node_diagnostic(
+            c,
+            node,
+            Diagnostic(ErrorIndexOperandRole, {0})
+        );
+        return error_term;
+    }
     return replace_type_parameters(g.inner, &(ReplaceTypeInfo) {
         .c = c->tir,
         .args = arg_types,
