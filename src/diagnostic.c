@@ -203,6 +203,11 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             print_type(stderr, d.ctx, d.type);
             break;
         })
+        CASE(ErrorArrayTypeSugarExpectsConstInt, d, {
+            (void) d;
+            fprintf(stderr, "expected integer constant");
+            break;
+        })
         CASE(ErrorArrayTypeExpectsLengthType, d, {
             fprintf(stderr, "array index type must be `ArrayLength, but found ");
             print_type(stderr, d.ctx, d.type);

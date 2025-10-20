@@ -1228,10 +1228,15 @@ static TirId analyze_array_type(Context *c, AstId node) {
 
 static TirId analyze_array_type_sugar(Context *c, AstId node) {
     AstArrayTypeSugar n = ast_get_array_type_sugar(c->ast, node);
-    TirId length_result = expect_value_type(c, n.length, reserved_tir(isize));
+    TirId length_result = expect_value(c, n.length, reserved_tir(isize));
     int64_t len = 0;
     TirId index = try_get_int_const(c, length_result, &len) ? new_array_length_type(c->tir, len) : error_term;
     TirId element = expect_type(c, n.elem);
+
+    if (tir_is_reserved(index, RESERVED_ERROR)) {
+        node_diagnostic(c, n.length, Diagnostic(ErrorArrayTypeSugarExpectsConstInt, {0}));
+    }
+
     return new_array_type(c->tir, (TirArrayType) {
         .index = index,
         .elem = element,
