@@ -2114,7 +2114,7 @@ static TirId resolve_enum_member(Context *c, AstId node, TirId type) {
         return error_term;
     }
 
-    return tir_get_storage(c->tir, type).tir->type_scope_symbols.ptr[*sym_ptr];
+    return tir_get_storage(c->tir, type).tir->type_scope_symbols.ptr[scope->start + *sym_ptr];
 }
 
 static TirId analyze_enum_member(Context *c, AstId node) {
