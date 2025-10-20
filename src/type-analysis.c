@@ -363,6 +363,21 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
         return result;
     }
 
+    if (!tir_is_reserved(hint, RESERVED_ERROR) && get_tir_tag(c->tir, result) == TIR_GENERIC) {
+        TirGeneric g = tir_get_generic(c->tir, result);
+        TirId g_type = get_value_type(c->tir, g.inner);
+        if (!tir_is_reserved(g_type, RESERVED_ERROR)) {
+            TirId *arg_types = arena_alloc(c->scratch, TirId, g.params.len);
+            if (match_type_parameters(c->tir, arg_types, g_type, hint)) {
+                return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+                    .node = node,
+                    .type = hint,
+                    .a = g.inner,
+                });
+            }
+        }
+    }
+
     if (!tir_is_reserved(result, RESERVED_ERROR)) {
         node_diagnostic(c, node, Diagnostic(ErrorExpectedValue, {0}));
     }
