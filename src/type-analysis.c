@@ -369,7 +369,7 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
         if (!tir_is_reserved(g_type, RESERVED_ERROR)) {
             TirId *arg_types = arena_alloc(c->scratch, TirId, g.params.len);
             if (match_type_parameters(c->tir, arg_types, g_type, hint)) {
-                return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+                return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                     .node = node,
                     .type = hint,
                     .a = g.inner,
@@ -385,46 +385,18 @@ static TirId expect_value(Context *c, AstId node, TirId hint) {
     return error_term;
 }
 
-static TirTag get_cast_type(Context *c, TirId operand_type, TirId cast_type) {
+static bool is_valid_cast(Context *c, TirId operand_type, TirId cast_type) {
     if (!tir_is_reserved(remove_pointer(c->tir, operand_type), RESERVED_ERROR)
         && !tir_is_reserved(remove_pointer(c->tir, cast_type), RESERVED_ERROR)
     ) {
-        return TIR_NOP;
+        return true;
     }
 
-    if (type_is_int(operand_type) && type_is_float(cast_type)) {
-        return TIR_ITOF;
+    if (type_is_arithmetic(operand_type) && type_is_arithmetic(cast_type)) {
+        return true;
     }
 
-    if (type_is_float(operand_type) && type_is_int(cast_type)) {
-        return TIR_FTOI;
-    }
-
-    if (type_is_int(operand_type) && type_is_int(cast_type)) {
-        int64_t start_size = sizeof_type(c->tir, operand_type, c->options->target);
-        int64_t target_size = sizeof_type(c->tir, cast_type, c->options->target);
-        if (target_size < start_size) {
-            return TIR_ITRUNC;
-        } else if (target_size > start_size) {
-            return TIR_SEXT;
-        } else {
-            return TIR_NOP;
-        }
-    }
-
-    if (type_is_float(operand_type) && type_is_float(cast_type)) {
-        int64_t start_size = sizeof_type(c->tir, operand_type, c->options->target);
-        int64_t target_size = sizeof_type(c->tir, cast_type, c->options->target);
-        if (target_size < start_size) {
-            return TIR_FTRUNC;
-        } else if (target_size > start_size) {
-            return TIR_FEXT;
-        } else {
-            return TIR_NOP;
-        }
-    }
-
-    return -1;
+    return false;
 }
 
 static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirId wanted_type) {
@@ -440,12 +412,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
     // Types don't match. Attempt implicit conversion.
 
     if (type_is_int(provided) && type_is_int(wanted_type)) {
-        TirTag tag = get_cast_type(c, provided, wanted_type);
-        assert((int) tag != -1);
-        if (tag == TIR_ITRUNC) {
-            tag = TIR_INARROW;
-        }
-        return tir_push_tag(c->tir, tag, (TirCast) {
+        return tir_push_tag(c->tir, TIR_CHECKED_CAST, (TirCast) {
             .node = node,
             .type = wanted_type,
             .a = value,
@@ -508,7 +475,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && !tir_is_reserved(t[0], RESERVED_ERROR)) {
-            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -528,7 +495,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && !tir_is_reserved(t[0], RESERVED_ERROR)) {
-            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -548,7 +515,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && !tir_is_reserved(t[0], RESERVED_ERROR)) {
-            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -568,7 +535,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             },
         };
         if (match_types(c->tir, t, 2, types, matchers) && !tir_is_reserved(t[0], RESERVED_ERROR)) {
-            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -585,7 +552,7 @@ static TirId apply_implicit_conversion(Context *c, AstId node, TirId value, TirI
             match_T(1),
         };
         if (match_types(c->tir, t, 2, types, matchers) && !tir_is_reserved(t[0], RESERVED_ERROR)) {
-            return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+            return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
                 .node = node,
                 .type = wanted_type,
                 .a = value,
@@ -1050,7 +1017,7 @@ static TirId analyze_struct(Context *c, AstId node) {
     }
 
     int32_t name_i = tir_push_cstr(c->tir, name);
-    TirId inner_type = new_struct_type(c->tir, c->options->target, (TirStructType) {
+    TirId inner_type = new_struct_type(c->tir, (TirStructType) {
         .scope = scope_index,
         .name = name_i,
         .has_public_fields = s.has_public_fields,
@@ -1673,55 +1640,55 @@ static TirId get_internal_term(Context *c, ReservedTerm p) {
 static TirId analyze_alignof(Context *c, AstId node) {
     AstCall call = ast_get_call(c->ast, node);
     TirId operand_type = expect_type(c, get_call_arg(&call, 0));
-    int32_t i = alignof_type(c->tir, operand_type, c->options->target);
-    expect_arg_count(c, node, 1);
-    if (i >= 1) {
-        TirId type_alignment_tag = get_internal_term(c, RESERVED_ALIGNMENT);
-        type_alignment_tag = as_generic_term(c->tir, type_alignment_tag).inner;
-        TirId type = replace_type_parameters(type_alignment_tag, &(ReplaceTypeInfo) {
-            .c = c->tir,
-            .args = &operand_type,
-            .scratch = *c->scratch,
-            .target = c->options->target,
-        });
-        return tir_push(c->tir, (TirInt) {
-            .node = node,
-            .type = type,
-            .value = i,
-        });
+
+    if (type_is_unknown_size(c->tir, operand_type)) {
+        node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeSize, {
+            .ctx = c->tir,
+            .type = operand_type,
+        }));
     }
-    node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeAlignment, {
-        .ctx = c->tir,
-        .type = operand_type,
-    }));
-    return error_term;
+
+    expect_arg_count(c, node, 1);
+    TirId type_size_tag = get_internal_term(c, RESERVED_ALIGNMENT);
+    type_size_tag = as_generic_term(c->tir, type_size_tag).inner;
+    TirId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
+        .c = c->tir,
+        .args = &operand_type,
+        .scratch = *c->scratch,
+        .target = c->options->target,
+    });
+    return tir_push(c->tir, (TirAlignOf) {
+        .node = node,
+        .type = type,
+        .operand_type = operand_type,
+    });
 }
 
 static TirId analyze_sizeof(Context *c, AstId node) {
     AstCall call = ast_get_call(c->ast, node);
     TirId operand_type = expect_type(c, get_call_arg(&call, 0));
-    int64_t i = sizeof_type(c->tir, operand_type, c->options->target);
-    expect_arg_count(c, node, 1);
-    if (i >= 1) {
-        TirId type_size_tag = get_internal_term(c, RESERVED_SIZE);
-        type_size_tag = as_generic_term(c->tir, type_size_tag).inner;
-        TirId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
-            .c = c->tir,
-            .args = &operand_type,
-            .scratch = *c->scratch,
-            .target = c->options->target,
-        });
-        return tir_push(c->tir, (TirInt) {
-            .node = node,
-            .type = type,
-            .value = i,
-        });
+
+    if (type_is_unknown_size(c->tir, operand_type)) {
+        node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeSize, {
+            .ctx = c->tir,
+            .type = operand_type,
+        }));
     }
-    node_diagnostic(c, node, Diagnostic(ErrorTypeUnknownTypeSize, {
-        .ctx = c->tir,
-        .type = operand_type,
-    }));
-    return error_term;
+
+    expect_arg_count(c, node, 1);
+    TirId type_size_tag = get_internal_term(c, RESERVED_SIZE);
+    type_size_tag = as_generic_term(c->tir, type_size_tag).inner;
+    TirId type = replace_type_parameters(type_size_tag, &(ReplaceTypeInfo) {
+        .c = c->tir,
+        .args = &operand_type,
+        .scratch = *c->scratch,
+        .target = c->options->target,
+    });
+    return tir_push(c->tir, (TirSizeOf) {
+        .node = node,
+        .type = type,
+        .operand_type = operand_type,
+    });
 }
 
 static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
@@ -1740,8 +1707,7 @@ static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
         return operand_value;
     }
 
-    TirTag cast_kind = get_cast_type(c, operand_type, cast_type);
-    if ((int) cast_kind == -1) {
+    if (!is_valid_cast(c, operand_type, cast_type)) {
         node_diagnostic(c, get_call_arg(&call, 0), Diagnostic(ErrorCast, {
             .ctx = c->tir,
             .type1 = operand_type,
@@ -1750,7 +1716,7 @@ static TirId analyze_cast(Context *c, AstId node, TirId cast_type) {
         return error_term;
     }
 
-    return tir_push_tag(c->tir, cast_kind, (TirCast) {
+    return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
         .node = node,
         .type = cast_type,
         .a = operand_value,
@@ -1762,13 +1728,13 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
     TirId operand_value = expect_value(c, get_call_arg(&call, 0), hint);
     expect_arg_count(c, node, 1);
 
-    if (tir_is_reserved(hint, RESERVED_ERROR) || !type_is_fixed_int(hint)) {
+    if (tir_is_reserved(hint, RESERVED_ERROR) || !type_is_int(hint)) {
         node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
         return error_term;
     }
 
     TirId operand_type = get_value_type(c->tir, operand_value);
-    if (!type_is_fixed_int(operand_type)) {
+    if (!type_is_int(operand_type)) {
         node_diagnostic(c, call.a, Diagnostic(ErrorCast, {
             .ctx = c->tir,
             .type1 = operand_type,
@@ -1777,12 +1743,7 @@ static TirId analyze_zero_extend(Context *c, AstId node, TirId hint) {
         return error_term;
     }
 
-    if (sizeof_type(c->tir, hint, c->options->target)
-        >= sizeof_type(c->tir, operand_type, c->options->target)) {
-        return operand_value;
-    }
-
-    return tir_push_tag(c->tir, TIR_ZEXT, (TirCast) {
+    return tir_push_tag(c->tir, TIR_UNSIGNED_CAST, (TirCast) {
         .node = node,
         .type = hint,
         .a = operand_value,
@@ -1846,8 +1807,7 @@ static TirId analyze_bin_operand(Context *c, AstId node, TirId hint) {
     TirId type = remove_tags(c->tir, get_value_type(c->tir, value));
 
     if (type_is_int(type) && !tir_is_reserved(type, RESERVED_i64)) {
-        TirTag tag = get_cast_type(c, type, reserved_tir(i64));
-        return tir_push_tag(c->tir, tag, (TirCast) {
+        return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
             .node = node,
             .type = reserved_tir(i64),
             .a = value,
@@ -2394,7 +2354,7 @@ static TirId analyze_affine_ctor(Context *c, AstId node, TirId affine_type) {
 
     TirId param_type = tir_get_affine_type(c->tir, affine_type).elem;
     TirId arg_result = expect_value_type(c, get_call_arg(&call, 0), param_type);
-    return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+    return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
         .node = node,
         .type = affine_type,
         .a = arg_result,
@@ -2594,7 +2554,7 @@ static TirId analyze_tagged_type(Context *c, AstId node, TirId term) {
             .scratch = *c->scratch,
             .target = c->options->target,
         });
-        return tir_push_tag(c->tir, TIR_NOP, (TirCast) {
+        return tir_push_tag(c->tir, TIR_CAST, (TirCast) {
             .node = node,
             .type = type,
             .a = g.inner,

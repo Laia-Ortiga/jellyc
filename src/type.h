@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mir.h"
 #include "tir.h"
 
 TirId remove_any_pointer(TirContext c, TirId a);
@@ -11,6 +12,9 @@ TirId remove_c_pointer_like(TirContext c, TirId a);
 TirId remove_array_like(TirContext c, TirId a);
 TirId remove_tags(TirContext c, TirId a);
 
+// Returns -1 if the function fails.
+int64_t type_get_domain_size(TirContext c, TirId a);
+
 bool is_recursive_error_type(TirContext c, TirId a);
 bool is_aggregate_type(TirContext c, TirId a);
 bool type_is_affine(TirContext c, TirId a);
@@ -20,8 +24,8 @@ bool is_relative_type(TirContext c, TirId a);
 
 bool int_fits_in_type(int64_t i, TirId type, Target target);
 int32_t sizeof_pointer(Target target);
-int32_t alignof_type(TirContext c, TirId type, Target target);
-int64_t sizeof_type(TirContext c, TirId type, Target target);
+int32_t alignof_type(Mir *mir, MirTypeId type, Target target);
+int64_t sizeof_type(Mir *mir, MirTypeId type, Target target);
 
 static inline bool type_is_fixed_int(TirId type) {
     return type.private_field_id >= RESERVED_i8 && type.private_field_id <= RESERVED_i64;

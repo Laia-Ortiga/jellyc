@@ -433,8 +433,6 @@ types = [
             { "name": "file", "ty": file },
             { "name": "fields", "ty": list_of(ty) },
 
-            { "name": "alignment", "ty": i32 },
-            { "name": "size", "ty": i64 },
             { "name": "is_affine", "ty": boolean },
         ],
     },
@@ -593,21 +591,31 @@ values = [
     {
         "name": "cast",
         "names": [
-            "itof",
-            "itrunc",
-            "inarrow",
-            "sext",
-            "zext",
-            "ftoi",
-            "ftrunc",
-            "fext",
-            "nop",
+            "cast",
+            "checked_cast",
+            "unsigned_cast",
             "array_to_slice",
         ],
         "fields": [
             { "name": "node", "ty": node },
             { "name": "type", "ty": ty },
             { "name": "a", "ty": val },
+        ],
+    },
+    {
+        "name": "size_of",
+        "fields": [
+            { "name": "node", "ty": node },
+            { "name": "type", "ty": ty },
+            { "name": "operand_type", "ty": ty },
+        ],
+    },
+    {
+        "name": "align_of",
+        "fields": [
+            { "name": "node", "ty": node },
+            { "name": "type", "ty": ty },
+            { "name": "operand_type", "ty": ty },
         ],
     },
     {

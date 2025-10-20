@@ -192,10 +192,6 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             print_indent(--p->depth);
             printf("],\n");
             print_indent(p->depth);
-            printf("alignment: %d,\n", t.alignment);
-            print_indent(p->depth);
-            printf("size: %ld,\n", t.size);
-            print_indent(p->depth);
             printf("is_affine: %d,\n", t.is_affine);
             print_indent(--p->depth);
             printf(")");
@@ -995,10 +991,10 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf(")");
             break;
         }
-        case TIR_ITOF: {
+        case TIR_CAST: {
             TirCast t = tir_get_cast(p->tir, a);
             p->depth++;
-            printf("Itof(\n");
+            printf("Cast(\n");
             print_indent(p->depth);
             printf("type: ");
             print_type(stdout, p->tir, t.type);
@@ -1011,10 +1007,10 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf(")");
             break;
         }
-        case TIR_ITRUNC: {
+        case TIR_CHECKED_CAST: {
             TirCast t = tir_get_cast(p->tir, a);
             p->depth++;
-            printf("Itrunc(\n");
+            printf("CheckedCast(\n");
             print_indent(p->depth);
             printf("type: ");
             print_type(stdout, p->tir, t.type);
@@ -1027,106 +1023,10 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf(")");
             break;
         }
-        case TIR_INARROW: {
+        case TIR_UNSIGNED_CAST: {
             TirCast t = tir_get_cast(p->tir, a);
             p->depth++;
-            printf("Inarrow(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_SEXT: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Sext(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_ZEXT: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Zext(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_FTOI: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Ftoi(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_FTRUNC: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Ftrunc(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_FEXT: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Fext(\n");
-            print_indent(p->depth);
-            printf("type: ");
-            print_type(stdout, p->tir, t.type);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("a: ");
-            print_tir_node(p, t.a);
-            printf(",\n");
-            print_indent(--p->depth);
-            printf(")");
-            break;
-        }
-        case TIR_NOP: {
-            TirCast t = tir_get_cast(p->tir, a);
-            p->depth++;
-            printf("Nop(\n");
+            printf("UnsignedCast(\n");
             print_indent(p->depth);
             printf("type: ");
             print_type(stdout, p->tir, t.type);
@@ -1150,6 +1050,38 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             print_indent(p->depth);
             printf("a: ");
             print_tir_node(p, t.a);
+            printf(",\n");
+            print_indent(--p->depth);
+            printf(")");
+            break;
+        }
+        case TIR_SIZE_OF: {
+            TirSizeOf t = tir_get_size_of(p->tir, a);
+            p->depth++;
+            printf("SizeOf(\n");
+            print_indent(p->depth);
+            printf("type: ");
+            print_type(stdout, p->tir, t.type);
+            printf(",\n");
+            print_indent(p->depth);
+            printf("operand_type: ");
+            print_type(stdout, p->tir, t.operand_type);
+            printf(",\n");
+            print_indent(--p->depth);
+            printf(")");
+            break;
+        }
+        case TIR_ALIGN_OF: {
+            TirAlignOf t = tir_get_align_of(p->tir, a);
+            p->depth++;
+            printf("AlignOf(\n");
+            print_indent(p->depth);
+            printf("type: ");
+            print_type(stdout, p->tir, t.type);
+            printf(",\n");
+            print_indent(p->depth);
+            printf("operand_type: ");
+            print_type(stdout, p->tir, t.operand_type);
             printf(",\n");
             print_indent(--p->depth);
             printf(")");

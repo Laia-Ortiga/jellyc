@@ -102,15 +102,12 @@ TirId tir_push_struct_type(TirContext c, TirStructType a) {
     memcpy(&data.a, (int32_t *) &a.scope + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.name + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.has_public_fields + 0, sizeof(int32_t));
-    int32_t n = 6;
+    int32_t n = 3;
     n += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
     data.d = tir_writer(c)->terms.extra.len;
     int32_t *extra = vec_grow(&tir_writer(c)->terms.extra, n);
     memcpy(extra++, (int32_t *) &a.file + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
-    memcpy(extra++, (int32_t *) &a.alignment + 0, sizeof(int32_t));
-    memcpy(extra++, (int32_t *) &a.size + 0, sizeof(int32_t));
-    memcpy(extra++, (int32_t *) &a.size + 1, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.is_affine + 0, sizeof(int32_t));
     memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
     extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
@@ -280,15 +277,9 @@ TirId tir_push_binary(TirContext c, TirTag tag, TirBinary a) {
 
 TirId tir_push_cast(TirContext c, TirTag tag, TirCast a) {
     switch (tag) {
-        case TIR_ITOF:
-        case TIR_ITRUNC:
-        case TIR_INARROW:
-        case TIR_SEXT:
-        case TIR_ZEXT:
-        case TIR_FTOI:
-        case TIR_FTRUNC:
-        case TIR_FEXT:
-        case TIR_NOP:
+        case TIR_CAST:
+        case TIR_CHECKED_CAST:
+        case TIR_UNSIGNED_CAST:
         case TIR_ARRAY_TO_SLICE:
             break;
         default:
@@ -299,6 +290,22 @@ TirId tir_push_cast(TirContext c, TirTag tag, TirCast a) {
     memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.a + 0, sizeof(int32_t));
     return new_tir(c, tag, data);
+}
+
+TirId tir_push_size_of(TirContext c, TirSizeOf a) {
+    TirData data;
+    memcpy(&data.a, (int32_t *) &a.node + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.operand_type + 0, sizeof(int32_t));
+    return new_tir(c, TIR_SIZE_OF, data);
+}
+
+TirId tir_push_align_of(TirContext c, TirAlignOf a) {
+    TirData data;
+    memcpy(&data.a, (int32_t *) &a.node + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.operand_type + 0, sizeof(int32_t));
+    return new_tir(c, TIR_ALIGN_OF, data);
 }
 
 TirId tir_push_call(TirContext c, TirCall a) {
@@ -585,9 +592,6 @@ TirStructType tir_get_struct_type(TirContext c, TirId a) {
     int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
     memcpy((int32_t *) &result.file + 0, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
-    memcpy((int32_t *) &result.alignment + 0, extra++, sizeof(int32_t));
-    memcpy((int32_t *) &result.size + 0, extra++, sizeof(int32_t));
-    memcpy((int32_t *) &result.size + 1, extra++, sizeof(int32_t));
     memcpy((int32_t *) &result.is_affine + 0, extra++, sizeof(int32_t));
     result.fields.ptr = (void *) extra;
     extra += result.fields.len * (sizeof(result.fields.ptr[0]) / sizeof(int32_t));
@@ -823,15 +827,9 @@ TirBinary tir_get_binary(TirContext c, TirId a) {
 
 TirCast tir_get_cast(TirContext c, TirId a) {
     switch (get_tir_tag(c, a)) {
-        case TIR_ITOF:
-        case TIR_ITRUNC:
-        case TIR_INARROW:
-        case TIR_SEXT:
-        case TIR_ZEXT:
-        case TIR_FTOI:
-        case TIR_FTRUNC:
-        case TIR_FEXT:
-        case TIR_NOP:
+        case TIR_CAST:
+        case TIR_CHECKED_CAST:
+        case TIR_UNSIGNED_CAST:
         case TIR_ARRAY_TO_SLICE:
             break;
         default:
@@ -841,6 +839,34 @@ TirCast tir_get_cast(TirContext c, TirId a) {
     memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.a + 0, &get_term_data(c, a)->c, sizeof(int32_t));
+    return result;
+}
+
+TirSizeOf tir_get_size_of(TirContext c, TirId a) {
+    switch (get_tir_tag(c, a)) {
+        case TIR_SIZE_OF:
+            break;
+        default:
+            abort();
+    }
+    TirSizeOf result;
+    memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
+    memcpy((int32_t *) &result.operand_type + 0, &get_term_data(c, a)->c, sizeof(int32_t));
+    return result;
+}
+
+TirAlignOf tir_get_align_of(TirContext c, TirId a) {
+    switch (get_tir_tag(c, a)) {
+        case TIR_ALIGN_OF:
+            break;
+        default:
+            abort();
+    }
+    TirAlignOf result;
+    memcpy((int32_t *) &result.node + 0, &get_term_data(c, a)->a, sizeof(int32_t));
+    memcpy((int32_t *) &result.type + 0, &get_term_data(c, a)->b, sizeof(int32_t));
+    memcpy((int32_t *) &result.operand_type + 0, &get_term_data(c, a)->c, sizeof(int32_t));
     return result;
 }
 

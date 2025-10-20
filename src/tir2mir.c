@@ -157,10 +157,18 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 }
             }
             TirStructType t = tir_get_struct_type(c->tir, type);
+            int32_t alignment = 1;
+            int64_t size = 0;
             int32_t first_field = c->mir.type_extra.len;
             vec_grow(&c->mir.type_extra, t.fields.len);
             for (int32_t i = 0; i < t.fields.len; i++) {
                 MirTypeId field = transform_type(c, t.fields.ptr[i]);
+                int32_t field_align = alignof_type(&c->mir, field, c->target);
+                size = (size + field_align - 1) / field_align * field_align;
+                size += sizeof_type(&c->mir, field, c->target);
+                if (field_align > alignment) {
+                    alignment = field_align;
+                }
                 c->mir.type_extra.ptr[first_field + i] = field;
             }
             vec_push(&c->mir.types, (MirTypeUnion) {
@@ -168,8 +176,8 @@ static MirTypeId transform_type(Context *c, TirId type) {
                 .struct_ = {
                     .field_count = t.fields.len,
                     .first_field = first_field,
-                    .alignment = t.alignment,
-                    .size = t.size,
+                    .alignment = alignment,
+                    .size = size,
                 },
             });
             MirTypeId result = {c->mir.types.len - 1};
@@ -228,16 +236,92 @@ static void transform_deref(Context *c, TirId tir_id) {
     push_type(c, transform_type(c, t.type));
 }
 
-static void transform_cast(Context *c, TirId tir_id, MirTag tag) {
-    TirCast t = tir_get_cast(c->tir, tir_id);
-    transform_node(c, t.a);
-    vec_push(&c->mir.insts, tag);
-    push_type(c, transform_type(c, t.type));
+static MirTag get_cast_type(Context *c, MirTypeId operand_type, MirTypeId cast_type) {
+    if (operand_type.private_field_id == cast_type.private_field_id) {
+        return -1;
+    }
+
+    if (is_mir_int_type(operand_type) && is_mir_float_type(cast_type)) {
+        return MIR_ITOF;
+    }
+
+    if (is_mir_float_type(operand_type) && is_mir_int_type(cast_type)) {
+        return MIR_FTOI;
+    }
+
+    if (is_mir_int_type(operand_type) && is_mir_int_type(cast_type)) {
+        int64_t start_size = sizeof_type(&c->mir, operand_type, c->target);
+        int64_t target_size = sizeof_type(&c->mir, cast_type, c->target);
+        if (target_size < start_size) {
+            return MIR_ITRUNC;
+        } else if (target_size > start_size) {
+            return MIR_SEXT;
+        } else {
+            return -1;
+        }
+    }
+
+    if (is_mir_float_type(operand_type) && is_mir_float_type(cast_type)) {
+        int64_t start_size = sizeof_type(&c->mir, operand_type, c->target);
+        int64_t target_size = sizeof_type(&c->mir, cast_type, c->target);
+        if (target_size < start_size) {
+            return MIR_FTRUNC;
+        } else if (target_size > start_size) {
+            return MIR_FEXT;
+        } else {
+            return -1;
+        }
+    }
+
+    return -1;
 }
 
-static void transform_nop(Context *c, TirId tir_id) {
+static void transform_cast(Context *c, TirId tir_id) {
     TirCast t = tir_get_cast(c->tir, tir_id);
     transform_node(c, t.a);
+
+    MirTypeId operand_type = transform_type(c, get_value_type(c->tir, t.a));
+    MirTypeId cast_type = transform_type(c, t.type);
+    MirTag tag = get_cast_type(c, operand_type, cast_type);
+
+    if ((int) tag != -1) {
+        vec_push(&c->mir.insts, tag);
+        push_type(c, cast_type);
+    }
+}
+
+static void transform_checked_cast(Context *c, TirId tir_id) {
+    TirCast t = tir_get_cast(c->tir, tir_id);
+    transform_node(c, t.a);
+
+    MirTypeId operand_type = transform_type(c, get_value_type(c->tir, t.a));
+    MirTypeId cast_type = transform_type(c, t.type);
+    MirTag tag = get_cast_type(c, operand_type, cast_type);
+
+    if ((int) tag != -1) {
+        if (tag == MIR_ITRUNC) {
+            tag = MIR_INARROW;
+        }
+        vec_push(&c->mir.insts, tag);
+        push_type(c, cast_type);
+    }
+}
+
+static void transform_unsigned_cast(Context *c, TirId tir_id) {
+    TirCast t = tir_get_cast(c->tir, tir_id);
+    transform_node(c, t.a);
+
+    MirTypeId operand_type = transform_type(c, get_value_type(c->tir, t.a));
+    MirTypeId cast_type = transform_type(c, t.type);
+    MirTag tag = get_cast_type(c, operand_type, cast_type);
+
+    if ((int) tag != -1) {
+        if (tag == MIR_SEXT) {
+            tag = MIR_ZEXT;
+        }
+        vec_push(&c->mir.insts, tag);
+        push_type(c, cast_type);
+    }
 }
 
 static void transform_tmp_address(Context *c, TirId tir_id) {
@@ -278,6 +362,58 @@ static void transform_access(Context *c, TirId tir_id) {
     transform_node(c, t.s);
     vec_push(&c->mir.insts, MIR_ACCESS);
     vec_push(&c->mir.data, t.field);
+}
+
+static void push_int(Context *c, TirId type, int64_t value) {
+    switch (transform_type(c, type).private_field_id) {
+        case MIR_TYPE_BOOL: {
+            vec_push(&c->mir.insts, value ? MIR_TRUE : MIR_FALSE);
+            break;
+        }
+        case MIR_TYPE_I8: {
+            vec_push(&c->mir.insts, MIR_I8);
+            vec_push(&c->mir.data, value);
+            break;
+        }
+        case MIR_TYPE_I16: {
+            vec_push(&c->mir.insts, MIR_I16);
+            vec_push(&c->mir.data, value);
+            break;
+        }
+        case MIR_TYPE_I32: {
+            vec_push(&c->mir.insts, MIR_I32);
+            vec_push(&c->mir.data, value);
+            break;
+        }
+        case MIR_TYPE_I64: {
+            vec_push(&c->mir.insts, MIR_I64);
+            store_i64(vec_grow(&c->mir.data, 2), value);
+            break;
+        }
+        default: {
+            abort();
+        }
+    }
+}
+
+static void transform_size_of(Context *c, TirId tir_id) {
+    TirSizeOf t = tir_get_size_of(c->tir, tir_id);
+    MirTypeId type = transform_type(c, t.operand_type);
+    int64_t size = sizeof_type(&c->mir, type, c->target);
+    if (size < 0) {
+        TODO("add error message");
+    }
+    push_int(c, t.type, size);
+}
+
+static void transform_align_of(Context *c, TirId tir_id) {
+    TirAlignOf t = tir_get_align_of(c->tir, tir_id);
+    MirTypeId type = transform_type(c, t.operand_type);
+    int64_t align = alignof_type(&c->mir, type, c->target);
+    if (align < 0) {
+        TODO("add error message");
+    }
+    push_int(c, t.type, align);
 }
 
 static void transform_call(Context *c, TirId tir_id) {
@@ -658,35 +794,7 @@ static void transform_node(Context *c, TirId tir_id) {
         }
         case TIR_INT: {
             TirInt i = tir_get_int(c->tir, tir_id);
-            switch (transform_type(c, i.type).private_field_id) {
-                case MIR_TYPE_BOOL: {
-                    vec_push(&c->mir.insts, i.value ? MIR_TRUE : MIR_FALSE);
-                    break;
-                }
-                case MIR_TYPE_I8: {
-                    vec_push(&c->mir.insts, MIR_I8);
-                    vec_push(&c->mir.data, i.value);
-                    break;
-                }
-                case MIR_TYPE_I16: {
-                    vec_push(&c->mir.insts, MIR_I16);
-                    vec_push(&c->mir.data, i.value);
-                    break;
-                }
-                case MIR_TYPE_I32: {
-                    vec_push(&c->mir.insts, MIR_I32);
-                    vec_push(&c->mir.data, i.value);
-                    break;
-                }
-                case MIR_TYPE_I64: {
-                    vec_push(&c->mir.insts, MIR_I64);
-                    store_i64(vec_grow(&c->mir.data, 2), i.value);
-                    break;
-                }
-                default: {
-                    abort();
-                }
-            }
+            push_int(c, i.type, i.value);
             break;
         }
         case TIR_FLOAT: {
@@ -765,16 +873,12 @@ static void transform_node(Context *c, TirId tir_id) {
         case TIR_ASSIGN_OR: transform_compound_assignment(c, tir_id, MIR_OR); break;
         case TIR_ASSIGN_XOR: transform_compound_assignment(c, tir_id, MIR_XOR); break;
         case TIR_ACCESS: transform_access(c, tir_id); break;
-        case TIR_ITOF: transform_cast(c, tir_id, MIR_ITOF); break;
-        case TIR_ITRUNC: transform_cast(c, tir_id, MIR_ITRUNC); break;
-        case TIR_INARROW: transform_cast(c, tir_id, MIR_INARROW); break;
-        case TIR_SEXT: transform_cast(c, tir_id, MIR_SEXT); break;
-        case TIR_ZEXT: transform_cast(c, tir_id, MIR_ZEXT); break;
-        case TIR_FTOI: transform_cast(c, tir_id, MIR_FTOI); break;
-        case TIR_FTRUNC: transform_cast(c, tir_id, MIR_FTRUNC); break;
-        case TIR_FEXT: transform_cast(c, tir_id, MIR_FEXT); break;
-        case TIR_NOP: transform_nop(c, tir_id); break;
+        case TIR_CAST: transform_cast(c, tir_id); break;
+        case TIR_CHECKED_CAST: transform_checked_cast(c, tir_id); break;
+        case TIR_UNSIGNED_CAST: transform_unsigned_cast(c, tir_id); break;
         case TIR_ARRAY_TO_SLICE: transform_array_to_slice(c, tir_id); break;
+        case TIR_SIZE_OF: transform_size_of(c, tir_id); break;
+        case TIR_ALIGN_OF: transform_align_of(c, tir_id); break;
         case TIR_CALL: transform_call(c, tir_id); break;
         case TIR_INDEX: transform_index(c, tir_id); break;
         case TIR_SLICE: transform_slice(c, tir_id); break;
@@ -787,7 +891,24 @@ static void transform_node(Context *c, TirId tir_id) {
         case TIR_BREAK: transform_break(c); break;
         case TIR_CONTINUE: transform_continue(c); break;
         case TIR_RETURN: transform_return(c, tir_id); break;
-        default: compiler_error("tir_to_mir: unimplemented tag");
+
+        case TIR_ERROR:
+        case TIR_RESERVED:
+        case TIR_GENERIC:
+        case TIR_ARRAY_TYPE:
+        case TIR_ARRAY_LENGTH_TYPE:
+        case TIR_PTR_TYPE:
+        case TIR_MUT_PTR_TYPE:
+        case TIR_SLICE_TYPE:
+        case TIR_MUT_SLICE_TYPE:
+        case TIR_FUNCTION_TYPE:
+        case TIR_TAGGED_TYPE:
+        case TIR_STRUCT_TYPE:
+        case TIR_ENUM_TYPE:
+        case TIR_AFFINE_TYPE:
+        case TIR_TYPE_PARAMETER: {
+            compiler_error("tir_to_mir: unimplemented tag");
+        }
     }
 }
 

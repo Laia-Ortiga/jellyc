@@ -248,7 +248,7 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
             for (int32_t i = 0; i < t.fields.len; i++) {
                 fields[i] = replace_type_parameters(get_struct_type_field(info->c, generic, i), info);
             }
-            return new_struct_type(info->c, info->target, (TirStructType) {
+            return new_struct_type(info->c, (TirStructType) {
                 .name = t.name,
                 .scope = t.scope,
                 .fields = {t.fields.len, fields},

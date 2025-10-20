@@ -359,28 +359,18 @@ TirId new_function_type(TirContext c, TirFunctionType t) {
     });
 }
 
-static void init_struct_type_cache(TirContext c, Target target, TirStructType *t) {
-    int32_t alignment = 1;
-    int64_t size = 0;
+static void init_struct_type_cache(TirContext c, TirStructType *t) {
     bool is_affine = false;
     for (int32_t i = 0; i < t->fields.len; i++) {
-        int32_t field_align = alignof_type(c, t->fields.ptr[i], target);
-        size = (size + field_align - 1) / field_align * field_align;
-        size += sizeof_type(c, t->fields.ptr[i], target);
-        if (field_align > alignment) {
-            alignment = field_align;
-        }
         if (!is_affine && type_is_affine(c, t->fields.ptr[i])) {
             is_affine = true;
         }
     }
-    t->alignment = alignment;
-    t->size = size;
     t->is_affine = is_affine;
 }
 
-TirId new_struct_type(TirContext c, Target target, TirStructType t) {
-    init_struct_type_cache(c, target, &t);
+TirId new_struct_type(TirContext c, TirStructType t) {
+    init_struct_type_cache(c, &t);
     return tir_push_struct_type(c, t);
 }
 
@@ -579,15 +569,9 @@ ValueCategory get_value_category(TirContext c, TirId value) {
         case TIR_ASSIGN_AND:
         case TIR_ASSIGN_OR:
         case TIR_ASSIGN_XOR:
-        case TIR_ITOF:
-        case TIR_ITRUNC:
-        case TIR_INARROW:
-        case TIR_SEXT:
-        case TIR_ZEXT:
-        case TIR_FTOI:
-        case TIR_FTRUNC:
-        case TIR_FEXT:
-        case TIR_NOP:
+        case TIR_CAST:
+        case TIR_CHECKED_CAST:
+        case TIR_UNSIGNED_CAST:
         case TIR_ARRAY_TO_SLICE:
         case TIR_CALL:
         case TIR_NEW_STRUCT:
@@ -660,15 +644,9 @@ bool is_value_mutable(TirContext c, TirId value) {
         case TIR_ASSIGN_AND:
         case TIR_ASSIGN_OR:
         case TIR_ASSIGN_XOR:
-        case TIR_ITOF:
-        case TIR_ITRUNC:
-        case TIR_INARROW:
-        case TIR_SEXT:
-        case TIR_ZEXT:
-        case TIR_FTOI:
-        case TIR_FTRUNC:
-        case TIR_FEXT:
-        case TIR_NOP:
+        case TIR_CAST:
+        case TIR_CHECKED_CAST:
+        case TIR_UNSIGNED_CAST:
         case TIR_ARRAY_TO_SLICE:
         case TIR_CALL:
         case TIR_NEW_STRUCT:

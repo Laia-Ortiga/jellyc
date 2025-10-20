@@ -1,5 +1,6 @@
 #include "type.h"
 
+#include "mir.h"
 #include "tir.h"
 
 #include <stdlib.h>
@@ -77,6 +78,17 @@ TirId remove_tags(TirContext c, TirId type) {
     }
 
     return tir_get_tagged_type(c, type).inner;
+}
+
+int64_t type_get_domain_size(TirContext c, TirId a) {
+    switch (get_tir_tag(c, a)) {
+        case TIR_ARRAY_LENGTH_TYPE: {
+            return tir_get_array_length_type(c, a).length;
+        }
+        default: {
+            return -1;
+        }
+    }
 }
 
 bool is_recursive_error_type(TirContext c, TirId a) {
@@ -366,73 +378,81 @@ int32_t sizeof_pointer(Target target) {
     abort();
 }
 
-int32_t alignof_type(TirContext c, TirId type, Target target) {
-    switch (get_tir_tag(c, type)) {
-        case TIR_RESERVED: return -1;
-        case TIR_TYPE_PARAMETER: return -1;
+int32_t alignof_type(Mir *mir, MirTypeId type, Target target) {
+    switch ((MirType) type.private_field_id) {
+        case MIR_TYPE_I8:
+        case MIR_TYPE_BOOL: return 1;
 
-        default: {
-            switch (tir_as_reserved(type)) {
-                case RESERVED_VOID: return -1;
+        case MIR_TYPE_I16: return 2;
 
-                case RESERVED_i8:
-                case RESERVED_bool:
-                case RESERVED_byte: return 1;
+        case MIR_TYPE_I32:
+        case MIR_TYPE_F32: return 4;
 
-                case RESERVED_i16: return 2;
+        case MIR_TYPE_I64:
+        case MIR_TYPE_F64: return 8;
 
-                case RESERVED_i32:
-                case RESERVED_f32: return 4;
+        case MIR_TYPE_VOID: return -1;
 
-                case RESERVED_i64:
-                case RESERVED_f64: return 8;
+        case MIR_TYPE_PTR:
+        case MIR_TYPE_SLICE: return sizeof_pointer(target);
 
-                case RESERVED_isize: return sizeof_pointer(target);
-
-                default: break;
-            }
-            abort();
-        }
-        case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
-        case TIR_FUNCTION_TYPE:
-        case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return sizeof_pointer(target);
-
-        case TIR_ARRAY_TYPE: return alignof_type(c, tir_get_array_type(c, type).elem, target);
-        case TIR_ARRAY_LENGTH_TYPE: return sizeof_pointer(target);
-        case TIR_STRUCT_TYPE: return tir_get_struct_type(c, type).alignment;
-        case TIR_ENUM_TYPE: return alignof_type(c, tir_get_enum_type(c, type).repr, target);
-        case TIR_TAGGED_TYPE: return alignof_type(c, tir_get_tagged_type(c, type).inner, target);
-        case TIR_AFFINE_TYPE: return alignof_type(c, tir_get_affine_type(c, type).elem, target);
+        case MIR_TYPE_START: break;
     }
+
+    MirTypeUnion u = get_mir_type(mir, type);
+    switch (u.tag) {
+        case MIR_TYPE_ARRAY: {
+            return alignof_type(mir, u.array.elem, target);
+        }
+        case MIR_TYPE_FUNCTION: {
+            return sizeof_pointer(target);
+        }
+        case MIR_TYPE_STRUCT: {
+            return u.struct_.alignment;
+        }
+    }
+
+    abort();
 }
 
-int64_t sizeof_type(TirContext c, TirId type, Target target) {
-    switch (get_tir_tag(c, type)) {
-        case TIR_RESERVED: return sizeof_primitive(type, target);
+int64_t sizeof_type(Mir *mir, MirTypeId type, Target target) {
+    switch ((MirType) type.private_field_id) {
+        case MIR_TYPE_I8:
+        case MIR_TYPE_BOOL: return 1;
 
-        case TIR_TYPE_PARAMETER: return -1;
+        case MIR_TYPE_I16: return 2;
 
-        case TIR_PTR_TYPE:
-        case TIR_MUT_PTR_TYPE:
-        case TIR_FUNCTION_TYPE: return sizeof_pointer(target);
+        case MIR_TYPE_I32:
+        case MIR_TYPE_F32: return 4;
 
-        case TIR_SLICE_TYPE:
-        case TIR_MUT_SLICE_TYPE: return 2 * sizeof_pointer(target);
+        case MIR_TYPE_I64:
+        case MIR_TYPE_F64: return 8;
 
-        case TIR_ARRAY_TYPE: {
-            TirArrayType array = tir_get_array_type(c, type);
-            int64_t length = tir_get_array_length_type(c, array.index).length;
-            return length * sizeof_type(c, array.elem, target);
+        case MIR_TYPE_VOID: return -1;
+
+        case MIR_TYPE_PTR: return sizeof_pointer(target);
+        case MIR_TYPE_SLICE: return 2 * sizeof_pointer(target);
+
+        case MIR_TYPE_START: break;
+    }
+
+    MirTypeUnion u = get_mir_type(mir, type);
+    switch (u.tag) {
+        case MIR_TYPE_ARRAY: {
+            int64_t elem_size = sizeof_type(mir, u.array.elem, target);
+            int64_t size;
+            if (__builtin_mul_overflow(u.array.length, elem_size, &size)) {
+                return -1;
+            }
+            return size;
         }
-        case TIR_ARRAY_LENGTH_TYPE: return sizeof_pointer(target);
-        case TIR_STRUCT_TYPE: return tir_get_struct_type(c, type).size;
-        case TIR_ENUM_TYPE: return sizeof_type(c, tir_get_enum_type(c, type).repr, target);
-        case TIR_TAGGED_TYPE: return sizeof_type(c, tir_get_tagged_type(c, type).inner, target);
-        case TIR_AFFINE_TYPE: return sizeof_type(c, tir_get_affine_type(c, type).elem, target);
-        default: {
-            abort();
+        case MIR_TYPE_FUNCTION: {
+            return sizeof_pointer(target);
+        }
+        case MIR_TYPE_STRUCT: {
+            return u.struct_.size;
         }
     }
+
+    abort();
 }

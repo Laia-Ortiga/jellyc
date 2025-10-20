@@ -75,7 +75,7 @@ TirId new_mut_ptr_type(TirContext c, TirId elem);
 TirId new_slice_type(TirContext c, TirId elem);
 TirId new_mut_slice_type(TirContext c, TirId elem);
 TirId new_function_type(TirContext c, TirFunctionType t);
-TirId new_struct_type(TirContext c, Target target, TirStructType t);
+TirId new_struct_type(TirContext c, TirStructType t);
 TirId new_affine_type(TirContext c, TirId elem);
 TirId new_tagged_type(TirContext c, TirTaggedType t);
 

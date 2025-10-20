@@ -92,6 +92,10 @@ static inline bool is_mir_terminator(MirTag tag) {
     }
 }
 
+static inline bool is_mir_int_type(MirTypeId type) {
+    return type.private_field_id >= MIR_TYPE_I8 && type.private_field_id <= MIR_TYPE_I64;
+}
+
 static inline bool is_mir_float_type(MirTypeId type) {
     return type.private_field_id >= MIR_TYPE_F32 && type.private_field_id <= MIR_TYPE_F64;
 }

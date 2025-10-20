@@ -36,3 +36,5 @@ static inline void store_f64(void *p, double x) {
         fprintf(stderr, "Compiler error: " fmt "\n", __VA_ARGS__); \
         abort(); \
     } while (0)
+
+#define TODO(msg) compiler_error(msg)

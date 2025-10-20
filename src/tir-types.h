@@ -68,16 +68,12 @@ typedef enum {
     TIR_ASSIGN_AND,
     TIR_ASSIGN_OR,
     TIR_ASSIGN_XOR,
-    TIR_ITOF,
-    TIR_ITRUNC,
-    TIR_INARROW,
-    TIR_SEXT,
-    TIR_ZEXT,
-    TIR_FTOI,
-    TIR_FTRUNC,
-    TIR_FEXT,
-    TIR_NOP,
+    TIR_CAST,
+    TIR_CHECKED_CAST,
+    TIR_UNSIGNED_CAST,
     TIR_ARRAY_TO_SLICE,
+    TIR_SIZE_OF,
+    TIR_ALIGN_OF,
     TIR_CALL,
     TIR_INDEX,
     TIR_SLICE,
@@ -138,8 +134,6 @@ typedef struct {
     int32_t has_public_fields;
     FileId file;
     struct { int32_t len; TirId *ptr; } fields;
-    int32_t alignment;
-    int64_t size;
     int32_t is_affine;
 } TirStructType;
 
@@ -230,6 +224,18 @@ typedef struct {
     TirId type;
     TirId a;
 } TirCast;
+
+typedef struct {
+    AstId node;
+    TirId type;
+    TirId operand_type;
+} TirSizeOf;
+
+typedef struct {
+    AstId node;
+    TirId type;
+    TirId operand_type;
+} TirAlignOf;
 
 typedef struct {
     AstId node;
@@ -337,6 +343,8 @@ TirId tir_push_let(TirContext c, TirLet a);
 TirId tir_push_unary(TirContext c, TirTag tag, TirUnary a);
 TirId tir_push_binary(TirContext c, TirTag tag, TirBinary a);
 TirId tir_push_cast(TirContext c, TirTag tag, TirCast a);
+TirId tir_push_size_of(TirContext c, TirSizeOf a);
+TirId tir_push_align_of(TirContext c, TirAlignOf a);
 TirId tir_push_call(TirContext c, TirCall a);
 TirId tir_push_index(TirContext c, TirIndex a);
 TirId tir_push_slice(TirContext c, TirSlice a);
@@ -374,6 +382,8 @@ TirLet tir_get_let(TirContext c, TirId a);
 TirUnary tir_get_unary(TirContext c, TirId a);
 TirBinary tir_get_binary(TirContext c, TirId a);
 TirCast tir_get_cast(TirContext c, TirId a);
+TirSizeOf tir_get_size_of(TirContext c, TirId a);
+TirAlignOf tir_get_align_of(TirContext c, TirId a);
 TirCall tir_get_call(TirContext c, TirId a);
 TirIndex tir_get_index(TirContext c, TirId a);
 TirSlice tir_get_slice(TirContext c, TirId a);
@@ -407,6 +417,8 @@ TirReturn tir_get_return(TirContext c, TirId a);
         TirNull: tir_push_null, \
         TirString: tir_push_string, \
         TirLet: tir_push_let, \
+        TirSizeOf: tir_push_size_of, \
+        TirAlignOf: tir_push_align_of, \
         TirCall: tir_push_call, \
         TirIndex: tir_push_index, \
         TirSlice: tir_push_slice, \
@@ -434,4 +446,4 @@ TirReturn tir_get_return(TirContext c, TirId a);
 #define TIR_TYPE_START 4
 #define TIR_TYPE_END 16
 #define TIR_VALUE_START 16
-#define TIR_VALUE_END 80
+#define TIR_VALUE_END 76
