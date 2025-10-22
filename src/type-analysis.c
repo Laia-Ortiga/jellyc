@@ -756,6 +756,7 @@ static TirBlock analyze_block(
                 case AST_FUNCTION:
                 case AST_ENUM:
                 case AST_STRUCT:
+                case AST_UNION:
                 case AST_NEWTYPE:
                 case AST_CONST:
                 case AST_EXTERN_FUNCTION:
@@ -1011,11 +1012,6 @@ static TirId analyze_struct(Context *c, AstId node) {
 
     SourceIndex token = get_ast_token(c->ast, node);
     String name = id_token_to_string(ctx_source(c), token);
-
-    if (!s.fields.len) {
-        node_diagnostic(c, node, Diagnostic(ErrorEmptyStruct, {0}));
-    }
-
     int32_t name_i = tir_push_cstr(c->tir, name);
     TirId inner_type = new_struct_type(c->tir, (TirStructType) {
         .scope = scope_index,
@@ -1038,6 +1034,94 @@ static TirId analyze_struct(Context *c, AstId node) {
             .node = node,
             .inner = inner_type,
             .params = {s.type_params.len, type_param_types},
+        });
+    }
+
+    register_id(c, (AstRef) {node, c->file}, type);
+    vec_push(&tir->structs, inner_type);
+    return type;
+}
+
+static TirId analyze_union(Context *c, AstId node) {
+    AstUnion n = ast_get_union(c->ast, node);
+    push_scope(c);
+    Tir *tir = tir_writer(c->tir);
+
+    TirId *type_param_types = arena_alloc(c->scratch, TirId, n.type_params.len);
+    for (int32_t i = 0; i < n.type_params.len; i++) {
+        SourceIndex token = get_ast_token(c->ast, n.type_params.ptr[i]);
+        String name = id_token_to_string(ctx_source(c), token);
+        type_param_types[i] = tir_push(c->tir, (TirTypeParameter) {
+            .index = i,
+            .name = tir_push_cstr(c->tir, name),
+        });
+        register_id(c, (AstRef) {n.type_params.ptr[i], c->file}, type_param_types[i]);
+    }
+
+    TirId *field_types = arena_alloc(c->scratch, TirId, n.fields.len);
+    for (int32_t i = 0; i < n.fields.len; i++) {
+        AstParam param = ast_get_param(c->ast, n.fields.ptr[i]);
+        field_types[i] = expect_type(c, param.type);
+        if (type_is_unknown_size(c->tir, field_types[i])) {
+            node_diagnostic(c, n.fields.ptr[i], Diagnostic(ErrorTypeUnknownTypeSize, {
+                .ctx = c->tir,
+                .type = field_types[i],
+            }));
+        }
+    }
+
+    pop_scope(c);
+    TypeScope scope = {
+        .symbols = htable_init(),
+        .start = tir->type_scope_symbols.len,
+    };
+
+    for (int32_t i = 0; i < n.fields.len; i++) {
+        SourceIndex field_token = get_ast_token(c->ast, n.fields.ptr[i]);
+        String field_name = id_token_to_string(ctx_source(c), field_token);
+
+        TirId value = tir_push_tag(c->tir, TIR_PARAMETER, (TirVariable) {
+            .node = n.fields.ptr[i],
+            .type = field_types[i],
+            .index = i,
+        });
+        vec_push(&tir->type_scope_symbols, value);
+        int64_t prev = htable_try_insert(&scope.symbols, field_name, i);
+
+        if (prev >= 0) {
+            node_diagnostic(c, n.fields.ptr[i], Diagnostic(ErrorMultipleDefinition, {0}));
+            AstId prev_ref = n.fields.ptr[prev];
+            node_diagnostic(c, prev_ref, Diagnostic(NotePreviousDefinition, {0}));
+        }
+    }
+
+    int32_t scope_index = tir->type_scopes.len;
+    vec_push(&tir->type_scopes, scope);
+
+    SourceIndex token = get_ast_token(c->ast, node);
+    String name = id_token_to_string(ctx_source(c), token);
+    int32_t name_i = tir_push_cstr(c->tir, name);
+    TirId inner_type = new_union_type(c->tir, (TirUnionType) {
+        .scope = scope_index,
+        .name = name_i,
+        .has_public_fields = n.has_public_fields,
+        .file = c->file,
+        .fields = {n.fields.len, field_types},
+    });
+
+    inner_type = new_tagged_type(c->tir, (TirTaggedType) {
+        .name = name_i,
+        .inner = inner_type,
+        .args = {n.type_params.len, type_param_types},
+    });
+
+    TirId type = inner_type;
+
+    if (n.type_params.len) {
+        type = tir_push(c->tir, (TirGeneric) {
+            .node = node,
+            .inner = inner_type,
+            .params = {n.type_params.len, type_param_types},
         });
     }
 
@@ -2398,6 +2482,9 @@ static TirId analyze_map(Context *c, AstId node, TirId hint) {
 
             return analyze_struct_ctor(c, node, map.entries.len, values, &g, field_indices);
         }
+        case TIR_UNION_TYPE: {
+            TODO("");
+        }
         default: {
             node_diagnostic(c, node, Diagnostic(ErrorTypeConstructorType, {
                 .ctx = c->tir,
@@ -2715,8 +2802,8 @@ static TirId analyze_list(Context *c, AstId node, TirId hint) {
         }
     }
 
-    if (!list.elems.len) {
-        node_diagnostic(c, node, Diagnostic(ErrorEmptyArray, {0}));
+    if (!list.elems.len && tir_is_reserved(elem_type, RESERVED_ERROR)) {
+        node_diagnostic(c, node, Diagnostic(ErrorTypeInference, {0}));
         return error_term;
     }
 
@@ -3035,6 +3122,7 @@ static TirId analyze_term(Context *c, AstId node, TirId hint) {
         case AST_FUNCTION: return analyze_function_decl(c, node);
         case AST_ENUM: return analyze_enum(c, node);
         case AST_STRUCT: return analyze_struct(c, node);
+        case AST_UNION: return analyze_union(c, node);
         case AST_NEWTYPE: return analyze_newtype(c, node);
         case AST_EXTERN_FUNCTION: return analyze_extern_function(c, node);
         case AST_EXTERN_VAR: return analyze_extern_var(c, node);

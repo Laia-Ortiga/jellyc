@@ -169,6 +169,7 @@ int match_type_parameters(TirContext c, TirId *results, TirId param, TirId arg) 
             return 1;
         }
         case TIR_STRUCT_TYPE:
+        case TIR_UNION_TYPE:
         case TIR_ENUM_TYPE:
         case TIR_TYPE_PARAMETER: {
             break;
@@ -249,6 +250,18 @@ TirId replace_type_parameters(TirId generic, ReplaceTypeInfo *info) {
                 fields[i] = replace_type_parameters(get_struct_type_field(info->c, generic, i), info);
             }
             return new_struct_type(info->c, (TirStructType) {
+                .name = t.name,
+                .scope = t.scope,
+                .fields = {t.fields.len, fields},
+            });
+        }
+        case TIR_UNION_TYPE: {
+            TirUnionType t = tir_get_union_type(info->c, generic);
+            TirId *fields = arena_alloc(&info->scratch, TirId, t.fields.len);
+            for (int32_t i = 0; i < t.fields.len; i++) {
+                fields[i] = replace_type_parameters(get_struct_type_field(info->c, generic, i), info);
+            }
+            return new_union_type(info->c, (TirUnionType) {
                 .name = t.name,
                 .scope = t.scope,
                 .fields = {t.fields.len, fields},

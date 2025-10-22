@@ -96,6 +96,7 @@ bool is_recursive_error_type(TirContext c, TirId a) {
         case TIR_RESERVED:
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_STRUCT_TYPE:
+        case TIR_UNION_TYPE:
         case TIR_ENUM_TYPE:
         case TIR_TYPE_PARAMETER: {
             return false;
@@ -172,6 +173,7 @@ bool is_aggregate_type(TirContext c, TirId type) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE:
         case TIR_STRUCT_TYPE:
+        case TIR_UNION_TYPE:
         case TIR_TYPE_PARAMETER: {
             return true;
         }
@@ -228,6 +230,9 @@ bool type_is_affine(TirContext c, TirId type) {
         case TIR_STRUCT_TYPE: {
             return tir_get_struct_type(c, type).is_affine;
         }
+        case TIR_UNION_TYPE: {
+            return tir_get_union_type(c, type).is_affine;
+        }
         case TIR_AFFINE_TYPE: {
             return true;
         }
@@ -268,6 +273,7 @@ bool type_is_unknown_size(TirContext c, TirId type) {
         case TIR_MUT_SLICE_TYPE:
         case TIR_FUNCTION_TYPE:
         case TIR_STRUCT_TYPE:
+        case TIR_UNION_TYPE:
         case TIR_ENUM_TYPE: {
             return false;
         }
@@ -428,7 +434,7 @@ int64_t sizeof_type(Mir *mir, MirTypeId type, Target target) {
         case MIR_TYPE_I64:
         case MIR_TYPE_F64: return 8;
 
-        case MIR_TYPE_VOID: return -1;
+        case MIR_TYPE_VOID: return 0;
 
         case MIR_TYPE_PTR: return sizeof_pointer(target);
         case MIR_TYPE_SLICE: return 2 * sizeof_pointer(target);

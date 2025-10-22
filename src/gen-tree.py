@@ -80,6 +80,15 @@ ast_nodes = [
         ],
     },
     {
+        "name": "union",
+        "fields": [
+            { "name": "token", "ty": token },
+            { "name": "has_public_fields", "ty": boolean },
+            { "name": "type_params", "ty": list_of(node) },
+            { "name": "fields", "ty": list_of(node) },
+        ],
+    },
+    {
         "name": "newtype",
         "fields": [
             { "name": "token", "ty": token },
@@ -426,6 +435,18 @@ types = [
     },
     {
         "name": "struct_type",
+        "fields": [
+            { "name": "scope", "ty": scope },
+            { "name": "name", "ty": strtab },
+            { "name": "has_public_fields", "ty": boolean },
+            { "name": "file", "ty": file },
+            { "name": "fields", "ty": list_of(ty) },
+
+            { "name": "is_affine", "ty": boolean },
+        ],
+    },
+    {
+        "name": "union_type",
         "fields": [
             { "name": "scope", "ty": scope },
             { "name": "name", "ty": strtab },

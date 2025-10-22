@@ -24,21 +24,10 @@ typedef struct {
     bool print_debug;
 } Options;
 
-typedef struct {
-    int32_t private_field_id;
-} FileId;
-
-typedef struct {
-    int32_t private_field_id;
-} ModuleId;
-
-typedef struct {
-    int32_t private_field_id;
-} GlobalId;
-
-typedef struct {
-    int32_t private_field_id;
-} LocalId;
+typedef IdType FileId;
+typedef IdType ModuleId;
+typedef IdType GlobalId;
+typedef IdType LocalId;
 
 static FileId const internal_file_id = {0};
 

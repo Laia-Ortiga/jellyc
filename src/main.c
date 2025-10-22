@@ -154,6 +154,7 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
             break;
         }
         case AST_STRUCT:
+        case AST_UNION:
         case AST_ENUM:
         case AST_NEWTYPE:
         case AST_CONST: {

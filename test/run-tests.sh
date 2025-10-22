@@ -42,6 +42,7 @@ test jellyc -backend=llvm lib/*.jel test/opengl/*.jel
 test jellyc -print-debug test/print_type.jel
 test_all lib/*.jel test/feature/if.jel
 test_all lib/*.jel test/feature/switch.jel
+test_all lib/*.jel test/feature/void.jel
 test_all lib/*.jel test/feature/while.jel
 rm -f a.c a.ll a.out
 echo "$success_counter tests passed"

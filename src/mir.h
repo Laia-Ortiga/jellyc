@@ -26,9 +26,7 @@ typedef enum {
     MIR_TYPE_START,
 } MirType;
 
-typedef struct {
-    int32_t private_field_id;
-} MirTypeId;
+typedef IdType MirTypeId;
 
 typedef struct {
     MirTypeId elem;

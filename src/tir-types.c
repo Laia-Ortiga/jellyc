@@ -114,6 +114,23 @@ TirId tir_push_struct_type(TirContext c, TirStructType a) {
     return new_tir(c, TIR_STRUCT_TYPE, data);
 }
 
+TirId tir_push_union_type(TirContext c, TirUnionType a) {
+    TirData data;
+    memcpy(&data.a, (int32_t *) &a.scope + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.name + 0, sizeof(int32_t));
+    memcpy(&data.c, (int32_t *) &a.has_public_fields + 0, sizeof(int32_t));
+    int32_t n = 3;
+    n += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
+    data.d = tir_writer(c)->terms.extra.len;
+    int32_t *extra = vec_grow(&tir_writer(c)->terms.extra, n);
+    memcpy(extra++, (int32_t *) &a.file + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.is_affine + 0, sizeof(int32_t));
+    memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
+    extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
+    return new_tir(c, TIR_UNION_TYPE, data);
+}
+
 TirId tir_push_enum_type(TirContext c, TirEnumType a) {
     TirData data;
     memcpy(&data.a, (int32_t *) &a.scope + 0, sizeof(int32_t));
@@ -586,6 +603,26 @@ TirStructType tir_get_struct_type(TirContext c, TirId a) {
             abort();
     }
     TirStructType result;
+    memcpy((int32_t *) &result.scope + 0, &get_term_data(c, a)->a, sizeof(int32_t));
+    memcpy((int32_t *) &result.name + 0, &get_term_data(c, a)->b, sizeof(int32_t));
+    memcpy((int32_t *) &result.has_public_fields + 0, &get_term_data(c, a)->c, sizeof(int32_t));
+    int32_t *extra = tir_get_storage(c, a).tir->terms.extra.ptr + get_term_data(c, a)->d;
+    memcpy((int32_t *) &result.file + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.is_affine + 0, extra++, sizeof(int32_t));
+    result.fields.ptr = (void *) extra;
+    extra += result.fields.len * (sizeof(result.fields.ptr[0]) / sizeof(int32_t));
+    return result;
+}
+
+TirUnionType tir_get_union_type(TirContext c, TirId a) {
+    switch (get_tir_tag(c, a)) {
+        case TIR_UNION_TYPE:
+            break;
+        default:
+            abort();
+    }
+    TirUnionType result;
     memcpy((int32_t *) &result.scope + 0, &get_term_data(c, a)->a, sizeof(int32_t));
     memcpy((int32_t *) &result.name + 0, &get_term_data(c, a)->b, sizeof(int32_t));
     memcpy((int32_t *) &result.has_public_fields + 0, &get_term_data(c, a)->c, sizeof(int32_t));

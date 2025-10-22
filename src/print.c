@@ -157,6 +157,10 @@ void print_type(FILE *file, TirContext c, TirId type) {
             }
             return;
         }
+        case TIR_STRUCT_TYPE: {
+            fprintf(file, "%s", tir_get_str(c, tir_get_struct_type(c, type).name));
+            return;
+        }
         case TIR_ENUM_TYPE: {
             fprintf(file, "%s", tir_get_str(c, tir_get_enum_type(c, type).name));
             return;

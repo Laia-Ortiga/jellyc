@@ -21,6 +21,7 @@ KEYWORD(return)
 KEYWORD(struct)
 KEYWORD(switch)
 KEYWORD(true)
+KEYWORD(union)
 KEYWORD(while)
 
 #undef KEYWORD

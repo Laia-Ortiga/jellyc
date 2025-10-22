@@ -374,6 +374,21 @@ TirId new_struct_type(TirContext c, TirStructType t) {
     return tir_push_struct_type(c, t);
 }
 
+static void init_union_type_cache(TirContext c, TirUnionType *t) {
+    bool is_affine = false;
+    for (int32_t i = 0; i < t->fields.len; i++) {
+        if (!is_affine && type_is_affine(c, t->fields.ptr[i])) {
+            is_affine = true;
+        }
+    }
+    t->is_affine = is_affine;
+}
+
+TirId new_union_type(TirContext c, TirUnionType t) {
+    init_union_type_cache(c, &t);
+    return tir_push_union_type(c, t);
+}
+
 TirId new_tagged_type(TirContext c, TirTaggedType t) {
     return new_structural_type(c, (StructuralType) {
         .tag = TIR_TAGGED_TYPE,

@@ -419,6 +419,23 @@ static AstId parse_struct(Parser *parser) {
     });
 }
 
+static AstId parse_union(Parser *parser) {
+    expect(parser, TOK_KW_union);
+    SourceIndex token = expect_id(parser);
+    ExtraList type_parameters = parse_type_parameters(parser);
+    expect(parser, TOK_CURLYL);
+    bool has_public_fields = accept(parser, TOK_KW_public);
+    ExtraList fields = parse_fields(parser);
+    AstId *fields_ptr = pop_list(parser, fields);
+    AstId *type_parameters_ptr = pop_list(parser, type_parameters);
+    return ast_push(&parser->ast, (AstUnion) {
+        .token = token,
+        .has_public_fields = has_public_fields,
+        .type_params = {type_parameters.len, type_parameters_ptr},
+        .fields = {fields.len, fields_ptr},
+    });
+}
+
 static AstId parse_enum(Parser *parser) {
     expect(parser, TOK_KW_enum);
     SourceIndex token = expect_id(parser);
@@ -477,6 +494,10 @@ static AstId parse_block(Parser *parser) {
             }
             case TOK_KW_struct: {
                 push_list(parser, &stmts, parse_struct(parser));
+                break;
+            }
+            case TOK_KW_union: {
+                push_list(parser, &stmts, parse_union(parser));
                 break;
             }
             case TOK_KW_enum: {
@@ -883,6 +904,10 @@ static void parse_root(Parser *parser) {
             }
             case TOK_KW_struct: {
                 def = parse_struct(parser);
+                break;
+            }
+            case TOK_KW_union: {
+                def = parse_union(parser);
                 break;
             }
             case TOK_KW_enum: {

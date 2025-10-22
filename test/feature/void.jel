@@ -1,0 +1,38 @@
+module main
+
+struct Empty {}
+
+struct NotEmpty {
+    a i32,
+    empty Empty,
+    b i32,
+}
+
+function main() {
+    # This generates no code.
+    let x = Empty()
+
+    # This can generate any pointer.
+    let y = &Empty()
+
+    # This generates no code.
+    y! = x
+
+    f(0, x, 1)
+
+    let z = g()
+
+    let empty_array = [Empty(), Empty(), Empty()]
+    let empty_array2 = <[:0]i64> []
+    empty_array[1 + 2]
+    empty_array[0:3]
+}
+
+# x won't exist in the executable.
+function f(a i32, x Empty, b i32) {
+
+}
+
+function g() -> NotEmpty {
+    (empty = Empty(), a = 0, b = 1)
+}

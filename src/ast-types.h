@@ -15,6 +15,7 @@ typedef enum {
     AST_FUNCTION,
     AST_ENUM,
     AST_STRUCT,
+    AST_UNION,
     AST_NEWTYPE,
     AST_CONST,
     AST_EXTERN_FUNCTION,
@@ -123,6 +124,13 @@ typedef struct {
     struct { int32_t len; AstId *ptr; } type_params;
     struct { int32_t len; AstId *ptr; } fields;
 } AstStruct;
+
+typedef struct {
+    SourceIndex token;
+    int32_t has_public_fields;
+    struct { int32_t len; AstId *ptr; } type_params;
+    struct { int32_t len; AstId *ptr; } fields;
+} AstUnion;
 
 typedef struct {
     SourceIndex token;
@@ -282,6 +290,7 @@ AstId ast_push_public(Ast *c, AstPublic a);
 AstId ast_push_function(Ast *c, AstFunction a);
 AstId ast_push_enum(Ast *c, AstEnum a);
 AstId ast_push_struct(Ast *c, AstStruct a);
+AstId ast_push_union(Ast *c, AstUnion a);
 AstId ast_push_newtype(Ast *c, AstNewtype a);
 AstId ast_push_const(Ast *c, AstConst a);
 AstId ast_push_extern_function(Ast *c, AstExternFunction a);
@@ -317,6 +326,7 @@ AstPublic ast_get_public(Ast *c, AstId a);
 AstFunction ast_get_function(Ast *c, AstId a);
 AstEnum ast_get_enum(Ast *c, AstId a);
 AstStruct ast_get_struct(Ast *c, AstId a);
+AstUnion ast_get_union(Ast *c, AstId a);
 AstNewtype ast_get_newtype(Ast *c, AstId a);
 AstConst ast_get_const(Ast *c, AstId a);
 AstExternFunction ast_get_extern_function(Ast *c, AstId a);
@@ -354,6 +364,7 @@ AstLeaf ast_get_leaf(Ast *c, AstId a);
         AstFunction: ast_push_function, \
         AstEnum: ast_push_enum, \
         AstStruct: ast_push_struct, \
+        AstUnion: ast_push_union, \
         AstNewtype: ast_push_newtype, \
         AstConst: ast_push_const, \
         AstExternFunction: ast_push_extern_function, \

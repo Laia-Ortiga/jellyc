@@ -79,6 +79,24 @@ AstId ast_push_struct(Ast *c, AstStruct a) {
     return new_ast(c, AST_STRUCT, data);
 }
 
+AstId ast_push_union(Ast *c, AstUnion a) {
+    AstData data;
+    memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
+    memcpy(&data.b, (int32_t *) &a.has_public_fields + 0, sizeof(int32_t));
+    int32_t n = 2;
+    n += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
+    n += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
+    data.c = c->extra.len;
+    int32_t *extra = vec_grow(&c->extra, n);
+    memcpy(extra++, (int32_t *) &a.type_params.len + 0, sizeof(int32_t));
+    memcpy(extra++, (int32_t *) &a.fields.len + 0, sizeof(int32_t));
+    memcpy(extra, a.type_params.ptr, a.type_params.len * sizeof(a.type_params.ptr[0]));
+    extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
+    memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
+    extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
+    return new_ast(c, AST_UNION, data);
+}
+
 AstId ast_push_newtype(Ast *c, AstNewtype a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
@@ -502,6 +520,26 @@ AstStruct ast_get_struct(Ast *c, AstId a) {
             abort();
     }
     AstStruct result;
+    memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
+    memcpy((int32_t *) &result.has_public_fields + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
+    int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;
+    memcpy((int32_t *) &result.type_params.len + 0, extra++, sizeof(int32_t));
+    memcpy((int32_t *) &result.fields.len + 0, extra++, sizeof(int32_t));
+    result.type_params.ptr = (void *) extra;
+    extra += result.type_params.len * (sizeof(result.type_params.ptr[0]) / sizeof(int32_t));
+    result.fields.ptr = (void *) extra;
+    extra += result.fields.len * (sizeof(result.fields.ptr[0]) / sizeof(int32_t));
+    return result;
+}
+
+AstUnion ast_get_union(Ast *c, AstId a) {
+    switch (get_ast_tag(c, a)) {
+        case AST_UNION:
+            break;
+        default:
+            abort();
+    }
+    AstUnion result;
     memcpy((int32_t *) &result.token + 0, &nth(c->nodes.data_table, a).a, sizeof(int32_t));
     memcpy((int32_t *) &result.has_public_fields + 0, &nth(c->nodes.data_table, a).b, sizeof(int32_t));
     int32_t *extra = c->extra.ptr + nth(c->nodes.data_table, a).c;

@@ -921,6 +921,7 @@ static void gen_access(GenContext *c) {
     MirOperand s = pop_operand(c);
     int32_t field = pop_data(c);
     MirTypeId field_type;
+    assert(s.is_lvalue);
     if (s.type.private_field_id == MIR_TYPE_SLICE) {
         switch (field) {
             case 0: field_type = (MirTypeId) {c->target == TARGET_ISIZE_64 ? MIR_TYPE_I64 : MIR_TYPE_I32}; break;
@@ -928,13 +929,23 @@ static void gen_access(GenContext *c) {
             default: abort();
         }
     } else {
-        field_type = c->mir->type_extra.ptr[get_mir_type(c->mir, s.type).struct_.first_field + field];
+        MirStructType struct_type = get_mir_type(c->mir, s.type).struct_;
+        if (field == struct_type.field_count) {
+            int32_t tmp = new_tmp(c, true, (MirTypeId) {MIR_TYPE_VOID}).index;
+            fprintf(c->stream, "  %%%d = getelementptr inbounds ", tmp);
+            gen_type(c, s.type);
+            fprintf(c->stream, ", ptr ");
+            gen_operand(c, &s);
+            fprintf(c->stream, ", i64 1\n");
+            return;
+        } else {
+            field_type = c->mir->type_extra.ptr[struct_type.first_field + field];
+        }
     }
     int32_t tmp = new_tmp(c, true, field_type).index;
     fprintf(c->stream, "  %%%d = getelementptr inbounds ", tmp);
     gen_type(c, s.type);
     fprintf(c->stream, ", ptr ");
-    assert(s.is_lvalue);
     gen_operand(c, &s);
     fprintf(c->stream, ", i64 0, i32 %d\n", field);
 }

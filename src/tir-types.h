@@ -23,6 +23,7 @@ typedef enum {
     TIR_FUNCTION_TYPE,
     TIR_TAGGED_TYPE,
     TIR_STRUCT_TYPE,
+    TIR_UNION_TYPE,
     TIR_ENUM_TYPE,
     TIR_AFFINE_TYPE,
     TIR_TYPE_PARAMETER,
@@ -136,6 +137,15 @@ typedef struct {
     struct { int32_t len; TirId *ptr; } fields;
     int32_t is_affine;
 } TirStructType;
+
+typedef struct {
+    int32_t scope;
+    int32_t name;
+    int32_t has_public_fields;
+    FileId file;
+    struct { int32_t len; TirId *ptr; } fields;
+    int32_t is_affine;
+} TirUnionType;
 
 typedef struct {
     int32_t scope;
@@ -328,6 +338,7 @@ TirId tir_push_slice_type(TirContext c, TirTag tag, TirSliceType a);
 TirId tir_push_function_type(TirContext c, TirFunctionType a);
 TirId tir_push_tagged_type(TirContext c, TirTaggedType a);
 TirId tir_push_struct_type(TirContext c, TirStructType a);
+TirId tir_push_union_type(TirContext c, TirUnionType a);
 TirId tir_push_enum_type(TirContext c, TirEnumType a);
 TirId tir_push_affine_type(TirContext c, TirAffineType a);
 TirId tir_push_type_parameter(TirContext c, TirTypeParameter a);
@@ -367,6 +378,7 @@ TirSliceType tir_get_slice_type(TirContext c, TirId a);
 TirFunctionType tir_get_function_type(TirContext c, TirId a);
 TirTaggedType tir_get_tagged_type(TirContext c, TirId a);
 TirStructType tir_get_struct_type(TirContext c, TirId a);
+TirUnionType tir_get_union_type(TirContext c, TirId a);
 TirEnumType tir_get_enum_type(TirContext c, TirId a);
 TirAffineType tir_get_affine_type(TirContext c, TirId a);
 TirTypeParameter tir_get_type_parameter(TirContext c, TirId a);
@@ -406,6 +418,7 @@ TirReturn tir_get_return(TirContext c, TirId a);
         TirFunctionType: tir_push_function_type, \
         TirTaggedType: tir_push_tagged_type, \
         TirStructType: tir_push_struct_type, \
+        TirUnionType: tir_push_union_type, \
         TirEnumType: tir_push_enum_type, \
         TirAffineType: tir_push_affine_type, \
         TirTypeParameter: tir_push_type_parameter, \
@@ -444,6 +457,6 @@ TirReturn tir_get_return(TirContext c, TirId a);
     )(c, tag, __VA_ARGS__))
 
 #define TIR_TYPE_START 4
-#define TIR_TYPE_END 16
-#define TIR_VALUE_START 16
-#define TIR_VALUE_END 76
+#define TIR_TYPE_END 17
+#define TIR_VALUE_START 17
+#define TIR_VALUE_END 77

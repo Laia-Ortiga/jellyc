@@ -197,6 +197,31 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf(")");
             break;
         }
+        case TIR_UNION_TYPE: {
+            TirUnionType t = tir_get_union_type(p->tir, a);
+            p->depth++;
+            printf("UnionType(\n");
+            print_indent(p->depth);
+            printf("scope: %d,\n", t.scope);
+            print_indent(p->depth);
+            printf("name: %s,\n", tir_get_str(p->tir, t.name));
+            print_indent(p->depth);
+            printf("has_public_fields: %d,\n", t.has_public_fields);
+            print_indent(p->depth++);
+            printf("fields: [\n");
+            for (int32_t i = 0; i < t.fields.len; i++) {
+                print_indent(p->depth);
+                print_tir_node(p, t.fields.ptr[i]);
+                printf(",\n");
+            }
+            print_indent(--p->depth);
+            printf("],\n");
+            print_indent(p->depth);
+            printf("is_affine: %d,\n", t.is_affine);
+            print_indent(--p->depth);
+            printf(")");
+            break;
+        }
         case TIR_ENUM_TYPE: {
             TirEnumType t = tir_get_enum_type(p->tir, a);
             p->depth++;

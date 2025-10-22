@@ -378,16 +378,6 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             fprintf(stderr, " because it has unknown size at compile time");
             break;
         })
-        CASE(ErrorEmptyArray, d, {
-            (void) d;
-            fprintf(stderr, "empty array");
-            break;
-        })
-        CASE(ErrorEmptyStruct, d, {
-            (void) d;
-            fprintf(stderr, "empty struct");
-            break;
-        })
         CASE(ErrorSwitchIncompatibleCases, d, {
             (void) d;
             fprintf(stderr, "switch arms have incompatible types");

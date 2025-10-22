@@ -955,7 +955,19 @@ static void gen_access(GenContext *c) {
             default: abort();
         }
     } else {
-        field_type = c->mir->type_extra.ptr[get_mir_type(c->mir, s.type).struct_.first_field + field];
+        MirStructType struct_type = get_mir_type(c->mir, s.type).struct_;
+        if (field == struct_type.field_count) {
+            introduce_temporary(c, true, (MirTypeId) {MIR_TYPE_VOID});
+            fprintf(c->stream, "(");
+            gen_ptr_type_before(c, s.type);
+            gen_ptr_type_after(c, s.type);
+            fprintf(c->stream, ") &");
+            gen_operand(c, &s);
+            fprintf(c->stream, " + 1;\n");
+            return;
+        } else {
+            field_type = c->mir->type_extra.ptr[struct_type.first_field + field];
+        }
     }
     introduce_temporary(c, true, field_type);
     fprintf(c->stream, "&((");
@@ -1188,8 +1200,8 @@ void gen_c(GenInput *in, Target target) {
     if (in->mir->main_function >= 0) {
         char const *name = in->mir->functions.ptr[in->mir->main_function].name;
         fprintf(c.stream, "int main(void) {\n");
-        fprintf(c.stream, "    %s();", name);
-        fprintf(c.stream, "    return 0;");
+        fprintf(c.stream, "    %s();\n", name);
+        fprintf(c.stream, "    return 0;\n");
         fprintf(c.stream, "}\n");
     }
 

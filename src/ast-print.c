@@ -140,6 +140,39 @@ static void print_ast_node(AstPrinter *p, AstId a) {
             printf(")");
             break;
         }
+        case AST_UNION: {
+            AstUnion t = ast_get_union(p->ast, a);
+            p->depth++;
+            printf("Union(\n");
+            print_indent(p->depth);
+            printf("token: ");
+            Lexer lexer0 = new_lexer(substring(p->source, t.token.index, p->source.len));
+            Token token = next_token(&lexer0);
+            String s = substring(lexer0.source, token.start.index, token.end.index);
+            fwrite(s.ptr, 1, s.len, stdout);
+            printf(",\n");
+            print_indent(p->depth++);
+            printf("type_params: [\n");
+            for (int32_t i = 0; i < t.type_params.len; i++) {
+                print_indent(p->depth);
+                print_ast_node(p, t.type_params.ptr[i]);
+                printf(",\n");
+            }
+            print_indent(--p->depth);
+            printf("],\n");
+            print_indent(p->depth++);
+            printf("fields: [\n");
+            for (int32_t i = 0; i < t.fields.len; i++) {
+                print_indent(p->depth);
+                print_ast_node(p, t.fields.ptr[i]);
+                printf(",\n");
+            }
+            print_indent(--p->depth);
+            printf("],\n");
+            print_indent(--p->depth);
+            printf(")");
+            break;
+        }
         case AST_NEWTYPE: {
             AstNewtype t = ast_get_newtype(p->ast, a);
             p->depth++;
