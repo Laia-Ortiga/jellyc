@@ -26,6 +26,7 @@ VARIANT(ErrorIndexOperandRole, X(unused, int))
 
 /* Type Analysis */
 VARIANT(ErrorEnumExpectsIntType, X(ctx, TirContext) X(type, TirId))
+VARIANT(ErrorArrayTypeSugarExpectsConstInt, X(unused, int))
 VARIANT(ErrorArrayTypeExpectsLengthType, X(ctx, TirContext) X(type, TirId))
 VARIANT(ErrorUnaryUnexpectedOperand, X(ctx, TirContext) X(type, TirId))
 VARIANT(ErrorBinaryUnexpectedOperands, X(ctx, TirContext) X(type1, TirId) X(type2, TirId))
