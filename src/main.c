@@ -216,7 +216,10 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     return 0;
 }
 
-#include "internal.h"
+static char const internal_jel[] = {
+    #embed "internal.jel"
+    , 0
+};
 
 typedef struct {
     int32_t file_count;
@@ -324,8 +327,8 @@ int main(int argc, char **argv) {
 
     Sources sources = {arena_alloc(&permanent_arena, String, file_count)};
     nth(sources, internal_file_id) = (String) {
-        internal_jel_len,
-        (char *) internal_jel,
+        sizeof(internal_jel) - 1,
+        internal_jel,
     };
 
     for (int32_t i = 1; i < file_count; i++) {
