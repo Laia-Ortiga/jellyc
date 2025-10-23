@@ -387,7 +387,8 @@ int32_t sizeof_pointer(Target target) {
 int32_t alignof_type(Mir *mir, MirTypeId type, Target target) {
     switch ((MirType) type.private_field_id) {
         case MIR_TYPE_I8:
-        case MIR_TYPE_BOOL: return 1;
+        case MIR_TYPE_BOOL:
+        case MIR_TYPE_VOID: return 1;
 
         case MIR_TYPE_I16: return 2;
 
@@ -396,8 +397,6 @@ int32_t alignof_type(Mir *mir, MirTypeId type, Target target) {
 
         case MIR_TYPE_I64:
         case MIR_TYPE_F64: return 8;
-
-        case MIR_TYPE_VOID: return -1;
 
         case MIR_TYPE_PTR:
         case MIR_TYPE_SLICE: return sizeof_pointer(target);
