@@ -113,11 +113,6 @@ void print_diagnostic(SourceLoc const *loc, Diagnostic const *diagnostic) {
             );
             break;
         })
-        CASE(ErrorEmptyChar, d, {
-            (void) d;
-            fprintf(stderr, "empty character literal");
-            break;
-        })
         CASE(ErrorCharTooLong, d, {
             (void) d;
             fprintf(stderr, "character literal too long");
