@@ -44,7 +44,7 @@ typedef struct {
 } LinearChecker;
 
 static void error(LinearChecker *c, AstId node, Diagnostic d) {
-    SourceIndex token = get_ast_token(&nth(c->asts, c->file), node);
+    SourceIndex token = ast_get_token(&nth(c->asts, c->file), node);
     SourceLoc loc = {0};
     loc.path = nth(c->paths, c->file);
     loc.source = nth(c->sources, c->file);
@@ -259,14 +259,14 @@ static void check_function(
 ) {
     int32_t block = input->insts[f_index].body_first;
     int32_t block_length = input->insts[f_index].body_length;
+    TirId *stmts = tir_get_block_stmts(c->tir.thread, block);
     for (int32_t i = 0; i < block_length; i++) {
-        TirId statement = {get_term_extra(c->tir.thread, block + i)};
-        check_node(c, statement, STATEMENT);
+        check_node(c, stmts[i], STATEMENT);
     }
 }
 
 static void check_node(LinearChecker *c, TirId node, ExpectedValue expected_category) {
-    switch (get_tir_tag(c->tir, node)) {
+    switch (tir_get_tag(c->tir, node)) {
         default: {
             abort();
         }

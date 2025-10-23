@@ -66,7 +66,7 @@ struct Tir {
 
 // Constructors
 
-TirId new_tir(TirContext c, TirTag tag, TirData data);
+TirId tir_new(TirContext c, TirTag tag, TirData data);
 
 TirId new_array_type(TirContext c, TirArrayType t);
 TirId new_array_length_type(TirContext c, int64_t length);
@@ -82,10 +82,10 @@ TirId new_tagged_type(TirContext c, TirTaggedType t);
 
 // Other
 
-TirTag get_tir_tag(TirContext c, TirId term);
-TirData const *get_term_data(TirContext c, TirId term);
-int32_t get_term_extra(Tir *c, int32_t index);
-TirCategory get_term_category(TirContext c, TirId term);
+TirTag tir_get_tag(TirContext c, TirId t);
+TirData const *tir_get_data(TirContext c, TirId t);
+TirCategory tir_get_category(TirContext c, TirId t);
+TirId *tir_get_block_stmts(Tir *c, int32_t block);
 
 TirId get_value_type(TirContext c, TirId value);
 ValueCategory get_value_category(TirContext c, TirId value);

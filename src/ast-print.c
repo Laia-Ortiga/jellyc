@@ -1,5 +1,5 @@
 static void print_ast_node(AstPrinter *p, AstId a) {
-    switch (get_ast_tag(p->ast, a)) {
+    switch (ast_get_tag(p->ast, a)) {
         case AST_ROOT: {
             printf("Root");
             break;

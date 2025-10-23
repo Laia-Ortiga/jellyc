@@ -52,7 +52,7 @@ static TypeTranslation *get_type_translation(Context *c, TirId type) {
 }
 
 static MirTypeId transform_type(Context *c, TirId type) {
-    TirTag tag = get_tir_tag(c->tir, type);
+    TirTag tag = tir_get_tag(c->tir, type);
     switch (tag) {
         case TIR_RESERVED: {
             switch (tir_as_reserved(type)) {
@@ -741,7 +741,7 @@ static void transform_switch(Context *c, TirId tir_id) {
 
     int32_t copy_inst = -1;
     bool condition_is_true = tir_is_reserved(get_value_type(c->tir, t.condition), RESERVED_bool)
-        && get_tir_tag(c->tir, t.condition) == TIR_INT
+        && tir_get_tag(c->tir, t.condition) == TIR_INT
         && tir_get_int(c->tir, t.condition).value;
 
     if (!condition_is_true) {
@@ -881,10 +881,10 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
     TirId type = get_value_type(c->tir, value);
     TirFunctionType func_type = tir_get_function_type(c->tir, type);
     int32_t start = c->mir.insts.len;
+    TirId *stmts = tir_get_block_stmts(c->tir.thread, block);
 
     for (int32_t i = 0; i < block_length; i++) {
-        TirId statement = {get_term_extra(c->tir.thread, block + i)};
-        transform_statement(c, statement);
+        transform_statement(c, stmts[i]);
     }
 
     if (tir_is_reserved(func_type.ret, RESERVED_VOID) && (c->mir.insts.len == start || c->mir.insts.ptr[c->mir.insts.len - 1] != MIR_RET_VOID)) {
@@ -893,7 +893,7 @@ static void transform_function(Context *c, int32_t block, int32_t block_length, 
 }
 
 static void transform_node(Context *c, TirId tir_id) {
-    switch (get_tir_tag(c->tir, tir_id)) {
+    switch (tir_get_tag(c->tir, tir_id)) {
         case TIR_FUNCTION: {
             TirFunction t = tir_get_function(c->tir, tir_id);
             vec_push(&c->mir.insts, MIR_GLOBAL_FUNCTION);

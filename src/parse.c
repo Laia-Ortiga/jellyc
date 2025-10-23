@@ -228,7 +228,7 @@ static AstId parse_if(Parser *parser) {
     AstId cond = parse_expr(parser, PREC_NONE);
     AstId true_block = parse_block(parser);
 
-    AstId false_block = null_ast;
+    AstId false_block = ast_null;
     if (accept(parser, TOK_KW_else)) {
         false_block = parse_block(parser);
     }
@@ -284,7 +284,7 @@ static ExtraList parse_switch_cases(Parser *parser) {
             expect(parser, TOK_COMMA);
             AstId node = ast_push(&parser->ast, (AstSwitchCase) {
                 .token = token,
-                .pattern = null_ast,
+                .pattern = ast_null,
                 .value = value,
             });
             push_list(parser, &cases, node);
@@ -318,7 +318,7 @@ static AstId parse_ret_type(Parser *parser) {
     if (accept(parser, TOK_ARROW)) {
         return parse_expr(parser, PREC_UNARY);
     }
-    return null_ast;
+    return ast_null;
 }
 
 static AstId parse_extern_function(Parser *parser) {
@@ -361,7 +361,7 @@ static AstId parse_extern(Parser *parser) {
                     .provided = parser->lookahead.tag,
                 }),
             });
-            return null_ast;
+            return ast_null;
     }
 }
 
@@ -538,7 +538,7 @@ static AstId parse_block(Parser *parser) {
             }
             case TOK_KW_return: {
                 SourceIndex token = consume(parser).start;
-                AstId value = null_ast;
+                AstId value = ast_null;
 
                 if (parser->lookahead.tag != TOK_CURLYR) {
                     value = parse_expr(parser, PREC_NONE);
@@ -734,7 +734,7 @@ static AstId parse_prefix(Parser *parser) {
                 .end = token.end,
                 .diag = Diagnostic(ErrorInvalidFloat, {0}),
             });
-            return null_ast;
+            return ast_null;
         }
         case TOK_CHAR: {
             return ast_push_tag(&parser->ast, AST_CHAR, (AstLeaf) {
@@ -768,7 +768,7 @@ static AstId parse_prefix(Parser *parser) {
                 .end = token.end,
                 .diag = Diagnostic(ErrorExpectedExpression, {0}),
             });
-            return null_ast;
+            return ast_null;
         }
     }
 }
@@ -795,7 +795,7 @@ static AstId parse_index(Parser *parser, SourceIndex token, AstId left) {
     bool is_range = false;
     if (accept(parser, TOK_COLON)) {
         is_range = true;
-        push_list(parser, &args, null_ast);
+        push_list(parser, &args, ast_null);
         if (parser->lookahead.tag != TOK_SQUARER) {
             push_list(parser, &args, parse_expr(parser, PREC_NONE));
         }
@@ -891,7 +891,7 @@ static void parse_root(Parser *parser) {
     while (parser->lookahead.tag != TOK_SENTINEL) {
         SourceIndex def_token = parser->lookahead.start;
         bool is_public = accept(parser, TOK_KW_public);
-        AstId def = null_ast;
+        AstId def = ast_null;
 
         switch (parser->lookahead.tag) {
             case TOK_KW_extern: {
@@ -931,7 +931,7 @@ static void parse_root(Parser *parser) {
             }
         }
 
-        if (!is_ast_null(def)) {
+        if (!ast_is_null(def)) {
             if (is_public) {
                 def = ast_push(&parser->ast, (AstPublic) {
                     .token = def_token,
@@ -943,8 +943,8 @@ static void parse_root(Parser *parser) {
         }
     }
 
-    nth(parser->ast.nodes.data_table, null_ast).b = defs.len;
-    nth(parser->ast.nodes.data_table, null_ast).c = parser->ast.extra.len;
+    nth(parser->ast.nodes.data_table, ast_null).b = defs.len;
+    nth(parser->ast.nodes.data_table, ast_null).c = parser->ast.extra.len;
     AstId *extra = (AstId *) vec_grow(&parser->ast.extra, defs.len);
     memcpy(extra, pop_list(parser, defs), defs.len * sizeof(AstId));
     assert(parser->extra_stack.len == 0);

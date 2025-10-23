@@ -15,21 +15,21 @@ struct Ast {
     Vec(int32_t) extra;
 };
 
-static AstId const null_ast = {0};
+static AstId const ast_null = {0};
 
-static inline bool is_ast_null(AstId ast_id) {
-    return !ast_id.private_field_id;
+static inline bool ast_is_null(AstId ast_id) {
+    return id_as_index(ast_id) == id_as_index(ast_null);
 }
 
-static inline AstTag get_ast_tag(Ast *ast, AstId node) {
+static inline AstTag ast_get_tag(Ast *ast, AstId node) {
     return nth(ast->nodes.tag_table, node);
 }
 
-static inline SourceIndex get_ast_token(Ast *ast, AstId node) {
+static inline SourceIndex ast_get_token(Ast *ast, AstId node) {
     return (SourceIndex) {nth(ast->nodes.data_table, node).a};
 }
 
-static inline AstId new_ast(Ast *ast, AstTag tag, AstData data) {
+static inline AstId ast_new(Ast *ast, AstTag tag, AstData data) {
     AstId node = {ast->nodes.len};
     sum_vec_push(&ast->nodes, data, tag);
     return node;

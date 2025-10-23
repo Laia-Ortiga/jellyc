@@ -109,7 +109,7 @@ typedef struct {
 } GlobalScopeBuilder;
 
 static SourceLoc get_ast_location(GlobalScopeBuilder *b, AstRef def) {
-    SourceIndex token = get_ast_token(&nth(b->asts, def.file), def.node);
+    SourceIndex token = ast_get_token(&nth(b->asts, def.file), def.node);
     String name = id_token_to_string(nth(b->sources, def.file), token);
     return (SourceLoc) {
         .path = nth(b->paths, def.file),
@@ -138,13 +138,13 @@ static int add_global(GlobalScopeBuilder *b, AstRef def) {
     Ast *ast = &nth(b->asts, def.file);
     HashTable *scope = &nth(b->modules, module).scope;
     int32_t is_public = 0;
-    if (get_ast_tag(ast, def.node) == AST_PUBLIC) {
+    if (ast_get_tag(ast, def.node) == AST_PUBLIC) {
         is_public = -1;
         def.node = ast_get_public(ast, def.node).def;
     }
 
     bool is_extern = false;
-    switch (get_ast_tag(ast, def.node)) {
+    switch (ast_get_tag(ast, def.node)) {
         case AST_IMPORT: {
             scope = &nth(b->files, def.file).scope;
             break;
@@ -382,7 +382,7 @@ int main(int argc, char **argv) {
     HashTable module_table = htable_init();
     for (int32_t i = 0; i < file_count; i++) {
         FileId file = {i};
-        SourceIndex module_token = get_ast_token(&nth(asts, file), null_ast);
+        SourceIndex module_token = ast_get_token(&nth(asts, file), ast_null);
         String module_name = id_token_to_string(nth(sources, file), module_token);
         int32_t new_module = module_table.count;
         int64_t module = htable_try_insert(&module_table, module_name, new_module);
@@ -428,7 +428,7 @@ int main(int argc, char **argv) {
         b.function_body_count = &function_body_count;
         for (int32_t i = 0; i < file_count; i++) {
             FileId file = {i};
-            AstRoot root = ast_get_root(&nth(asts, file), null_ast);
+            AstRoot root = ast_get_root(&nth(asts, file), ast_null);
             for (int32_t j = 0; j < root.defs.len; j++) {
                 add_global(&b, (AstRef) {root.defs.ptr[j], file});
             }

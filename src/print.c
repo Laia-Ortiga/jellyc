@@ -26,7 +26,7 @@ void print_ast(char const *path, String source, Ast *ast) {
     printer.source = source;
     printer.ast = ast;
     printf("%s: ", path);
-    AstRoot t = ast_get_root(ast, null_ast);
+    AstRoot t = ast_get_root(ast, ast_null);
     printer.depth++;
     printf("Root(\n");
     print_indent(printer.depth);
@@ -76,10 +76,10 @@ void print_tir(
     printer.tir = c;
     printf("%s: Tir(\n", name);
     printer.depth++;
+    TirId *stmts = tir_get_block_stmts(c.thread, first);
     for (int32_t i = 0; i < length; i++) {
         print_indent(printer.depth);
-        TirId statement = {get_term_extra(c.thread, first + i)};
-        print_tir_node(&printer, statement);
+        print_tir_node(&printer, stmts[i]);
         printf(",\n");
     }
     printf(")\n");
@@ -93,7 +93,7 @@ void print_tir_term(TirContext c, TirId term) {
 }
 
 void print_type(FILE *file, TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_ERROR: {
             fprintf(file, "{error}");
             return;

@@ -1017,9 +1017,9 @@ def gen_source(path, variants, config):
                 add_line("extra += a.{}.len * (sizeof(a.{}.ptr[0]) / sizeof(int32_t));".format(field["name"], field["name"]))
 
         if "names" in v:
-            add_line("return new_" + module + "(c, tag, data);")
+            add_line("return " + module + "_new(c, tag, data);")
         else:
-            add_line("return new_" + module + "(c, {}_{}, data);".format(module.upper(), name.upper()))
+            add_line("return " + module + "_new(c, {}_{}, data);".format(module.upper(), name.upper()))
         add_line("}")
         add_line("")
 
@@ -1034,7 +1034,7 @@ def gen_source(path, variants, config):
             + config["context_type"].format("c")
             + ", "
             + to_pascal(module) + "Id a) {")
-        add_line("switch (get_" + module +"_tag(c, a)) {")
+        add_line("switch (" + module + "_get_tag(c, a)) {")
         for subname in (v.get("names") or [name]):
             add_line("case {}_{}:".format(module.upper(), subname.upper()))
         add_line("    break;")
@@ -1108,7 +1108,7 @@ def gen_ast_print():
     global output
     output = ''
     add_line("static void print_ast_node(AstPrinter *p, AstId a) {")
-    add_line("switch (get_ast_tag(p->ast, a)) {")
+    add_line("switch (ast_get_tag(p->ast, a)) {")
     for v in ast_nodes:
         name = v["name"]
         type_name = "Ast" + to_pascal(v["name"])
@@ -1165,7 +1165,7 @@ def gen_tir_print():
     global output
     output = ''
     add_line("static void print_tir_node(TirPrinter *p, TirId a) {")
-    add_line("switch (get_tir_tag(p->tir, a)) {")
+    add_line("switch (tir_get_tag(p->tir, a)) {")
     for v in terms:
         name = v["name"]
         type_name = "Tir" + to_pascal(v["name"])
@@ -1247,7 +1247,7 @@ tir_config = {
     "data_size": 4,
     "context_type": "TirContext {}",
     "writer": "tir_writer(c)->terms.",
-    "main_access": "get_term_data(c, a)->",
+    "main_access": "tir_get_data(c, a)->",
     "extra_access": "tir_get_storage(c, a).tir->terms.",
 }
 gen_header("src/tir-types.h", tir_barriers, terms, tir_config)

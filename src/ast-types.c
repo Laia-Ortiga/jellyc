@@ -12,20 +12,20 @@ AstId ast_push_root(Ast *c, AstRoot a) {
     int32_t *extra = vec_grow(&c->extra, n);
     memcpy(extra, a.defs.ptr, a.defs.len * sizeof(a.defs.ptr[0]));
     extra += a.defs.len * (sizeof(a.defs.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_ROOT, data);
+    return ast_new(c, AST_ROOT, data);
 }
 
 AstId ast_push_import(Ast *c, AstImport a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
-    return new_ast(c, AST_IMPORT, data);
+    return ast_new(c, AST_IMPORT, data);
 }
 
 AstId ast_push_public(Ast *c, AstPublic a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.def + 0, sizeof(int32_t));
-    return new_ast(c, AST_PUBLIC, data);
+    return ast_new(c, AST_PUBLIC, data);
 }
 
 AstId ast_push_function(Ast *c, AstFunction a) {
@@ -44,7 +44,7 @@ AstId ast_push_function(Ast *c, AstFunction a) {
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_FUNCTION, data);
+    return ast_new(c, AST_FUNCTION, data);
 }
 
 AstId ast_push_enum(Ast *c, AstEnum a) {
@@ -58,7 +58,7 @@ AstId ast_push_enum(Ast *c, AstEnum a) {
     memcpy(extra++, (int32_t *) &a.members.len + 0, sizeof(int32_t));
     memcpy(extra, a.members.ptr, a.members.len * sizeof(a.members.ptr[0]));
     extra += a.members.len * (sizeof(a.members.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_ENUM, data);
+    return ast_new(c, AST_ENUM, data);
 }
 
 AstId ast_push_struct(Ast *c, AstStruct a) {
@@ -76,7 +76,7 @@ AstId ast_push_struct(Ast *c, AstStruct a) {
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
     extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_STRUCT, data);
+    return ast_new(c, AST_STRUCT, data);
 }
 
 AstId ast_push_union(Ast *c, AstUnion a) {
@@ -94,7 +94,7 @@ AstId ast_push_union(Ast *c, AstUnion a) {
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
     memcpy(extra, a.fields.ptr, a.fields.len * sizeof(a.fields.ptr[0]));
     extra += a.fields.len * (sizeof(a.fields.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_UNION, data);
+    return ast_new(c, AST_UNION, data);
 }
 
 AstId ast_push_newtype(Ast *c, AstNewtype a) {
@@ -108,14 +108,14 @@ AstId ast_push_newtype(Ast *c, AstNewtype a) {
     memcpy(extra++, (int32_t *) &a.type + 0, sizeof(int32_t));
     memcpy(extra, a.type_params.ptr, a.type_params.len * sizeof(a.type_params.ptr[0]));
     extra += a.type_params.len * (sizeof(a.type_params.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_NEWTYPE, data);
+    return ast_new(c, AST_NEWTYPE, data);
 }
 
 AstId ast_push_const(Ast *c, AstConst a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.init + 0, sizeof(int32_t));
-    return new_ast(c, AST_CONST, data);
+    return ast_new(c, AST_CONST, data);
 }
 
 AstId ast_push_extern_function(Ast *c, AstExternFunction a) {
@@ -129,21 +129,21 @@ AstId ast_push_extern_function(Ast *c, AstExternFunction a) {
     memcpy(extra++, (int32_t *) &a.ret + 0, sizeof(int32_t));
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_EXTERN_FUNCTION, data);
+    return ast_new(c, AST_EXTERN_FUNCTION, data);
 }
 
 AstId ast_push_extern_var(Ast *c, AstExternVar a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
-    return new_ast(c, AST_EXTERN_VAR, data);
+    return ast_new(c, AST_EXTERN_VAR, data);
 }
 
 AstId ast_push_param(Ast *c, AstParam a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
-    return new_ast(c, AST_PARAM, data);
+    return ast_new(c, AST_PARAM, data);
 }
 
 AstId ast_push_let(Ast *c, AstTag tag, AstLet a) {
@@ -157,7 +157,7 @@ AstId ast_push_let(Ast *c, AstTag tag, AstLet a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.init + 0, sizeof(int32_t));
-    return new_ast(c, tag, data);
+    return ast_new(c, tag, data);
 }
 
 AstId ast_push_if(Ast *c, AstIf a) {
@@ -169,7 +169,7 @@ AstId ast_push_if(Ast *c, AstIf a) {
     int32_t *extra = vec_grow(&c->extra, n);
     memcpy(extra++, (int32_t *) &a.true_block + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.false_block + 0, sizeof(int32_t));
-    return new_ast(c, AST_IF, data);
+    return ast_new(c, AST_IF, data);
 }
 
 AstId ast_push_while(Ast *c, AstWhile a) {
@@ -177,7 +177,7 @@ AstId ast_push_while(Ast *c, AstWhile a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.condition + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.block + 0, sizeof(int32_t));
-    return new_ast(c, AST_WHILE, data);
+    return ast_new(c, AST_WHILE, data);
 }
 
 AstId ast_push_for(Ast *c, AstFor a) {
@@ -190,7 +190,7 @@ AstId ast_push_for(Ast *c, AstFor a) {
     memcpy(extra++, (int32_t *) &a.condition + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.next + 0, sizeof(int32_t));
     memcpy(extra++, (int32_t *) &a.block + 0, sizeof(int32_t));
-    return new_ast(c, AST_FOR, data);
+    return ast_new(c, AST_FOR, data);
 }
 
 AstId ast_push_switch(Ast *c, AstSwitch a) {
@@ -204,7 +204,7 @@ AstId ast_push_switch(Ast *c, AstSwitch a) {
     memcpy(extra++, (int32_t *) &a.branches.len + 0, sizeof(int32_t));
     memcpy(extra, a.branches.ptr, a.branches.len * sizeof(a.branches.ptr[0]));
     extra += a.branches.len * (sizeof(a.branches.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_SWITCH, data);
+    return ast_new(c, AST_SWITCH, data);
 }
 
 AstId ast_push_switch_case(Ast *c, AstSwitchCase a) {
@@ -212,26 +212,26 @@ AstId ast_push_switch_case(Ast *c, AstSwitchCase a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.pattern + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.value + 0, sizeof(int32_t));
-    return new_ast(c, AST_SWITCH_CASE, data);
+    return ast_new(c, AST_SWITCH_CASE, data);
 }
 
 AstId ast_push_break(Ast *c, AstBreak a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
-    return new_ast(c, AST_BREAK, data);
+    return ast_new(c, AST_BREAK, data);
 }
 
 AstId ast_push_continue(Ast *c, AstContinue a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
-    return new_ast(c, AST_CONTINUE, data);
+    return ast_new(c, AST_CONTINUE, data);
 }
 
 AstId ast_push_return(Ast *c, AstReturn a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.value + 0, sizeof(int32_t));
-    return new_ast(c, AST_RETURN, data);
+    return ast_new(c, AST_RETURN, data);
 }
 
 AstId ast_push_array_type(Ast *c, AstArrayType a) {
@@ -239,7 +239,7 @@ AstId ast_push_array_type(Ast *c, AstArrayType a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.index + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.elem + 0, sizeof(int32_t));
-    return new_ast(c, AST_ARRAY_TYPE, data);
+    return ast_new(c, AST_ARRAY_TYPE, data);
 }
 
 AstId ast_push_array_type_sugar(Ast *c, AstArrayTypeSugar a) {
@@ -247,7 +247,7 @@ AstId ast_push_array_type_sugar(Ast *c, AstArrayTypeSugar a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.length + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.elem + 0, sizeof(int32_t));
-    return new_ast(c, AST_ARRAY_TYPE_SUGAR, data);
+    return ast_new(c, AST_ARRAY_TYPE_SUGAR, data);
 }
 
 AstId ast_push_unary(Ast *c, AstTag tag, AstUnary a) {
@@ -268,7 +268,7 @@ AstId ast_push_unary(Ast *c, AstTag tag, AstUnary a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.a + 0, sizeof(int32_t));
-    return new_ast(c, tag, data);
+    return ast_new(c, tag, data);
 }
 
 AstId ast_push_binary(Ast *c, AstTag tag, AstBinary a) {
@@ -308,7 +308,7 @@ AstId ast_push_binary(Ast *c, AstTag tag, AstBinary a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.a + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.b + 0, sizeof(int32_t));
-    return new_ast(c, tag, data);
+    return ast_new(c, tag, data);
 }
 
 AstId ast_push_function_type(Ast *c, AstFunctionType a) {
@@ -322,7 +322,7 @@ AstId ast_push_function_type(Ast *c, AstFunctionType a) {
     memcpy(extra++, (int32_t *) &a.ret + 0, sizeof(int32_t));
     memcpy(extra, a.params.ptr, a.params.len * sizeof(a.params.ptr[0]));
     extra += a.params.len * (sizeof(a.params.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_FUNCTION_TYPE, data);
+    return ast_new(c, AST_FUNCTION_TYPE, data);
 }
 
 AstId ast_push_type_hint(Ast *c, AstTypeHint a) {
@@ -330,7 +330,7 @@ AstId ast_push_type_hint(Ast *c, AstTypeHint a) {
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.type + 0, sizeof(int32_t));
     memcpy(&data.c, (int32_t *) &a.value + 0, sizeof(int32_t));
-    return new_ast(c, AST_TYPE_HINT, data);
+    return ast_new(c, AST_TYPE_HINT, data);
 }
 
 AstId ast_push_call(Ast *c, AstTag tag, AstCall a) {
@@ -352,20 +352,20 @@ AstId ast_push_call(Ast *c, AstTag tag, AstCall a) {
     memcpy(extra++, (int32_t *) &a.args.len + 0, sizeof(int32_t));
     memcpy(extra, a.args.ptr, a.args.len * sizeof(a.args.ptr[0]));
     extra += a.args.len * (sizeof(a.args.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, tag, data);
+    return ast_new(c, tag, data);
 }
 
 AstId ast_push_access(Ast *c, AstAccess a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.s + 0, sizeof(int32_t));
-    return new_ast(c, AST_ACCESS, data);
+    return ast_new(c, AST_ACCESS, data);
 }
 
 AstId ast_push_inferred_access(Ast *c, AstInferredAccess a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
-    return new_ast(c, AST_INFERRED_ACCESS, data);
+    return ast_new(c, AST_INFERRED_ACCESS, data);
 }
 
 AstId ast_push_list(Ast *c, AstList a) {
@@ -378,14 +378,14 @@ AstId ast_push_list(Ast *c, AstList a) {
     int32_t *extra = vec_grow(&c->extra, n);
     memcpy(extra, a.elems.ptr, a.elems.len * sizeof(a.elems.ptr[0]));
     extra += a.elems.len * (sizeof(a.elems.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_LIST, data);
+    return ast_new(c, AST_LIST, data);
 }
 
 AstId ast_push_map_entry(Ast *c, AstMapEntry a) {
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
     memcpy(&data.b, (int32_t *) &a.value + 0, sizeof(int32_t));
-    return new_ast(c, AST_MAP_ENTRY, data);
+    return ast_new(c, AST_MAP_ENTRY, data);
 }
 
 AstId ast_push_map(Ast *c, AstMap a) {
@@ -398,7 +398,7 @@ AstId ast_push_map(Ast *c, AstMap a) {
     int32_t *extra = vec_grow(&c->extra, n);
     memcpy(extra, a.entries.ptr, a.entries.len * sizeof(a.entries.ptr[0]));
     extra += a.entries.len * (sizeof(a.entries.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_MAP, data);
+    return ast_new(c, AST_MAP, data);
 }
 
 AstId ast_push_block(Ast *c, AstBlock a) {
@@ -411,7 +411,7 @@ AstId ast_push_block(Ast *c, AstBlock a) {
     int32_t *extra = vec_grow(&c->extra, n);
     memcpy(extra, a.stmts.ptr, a.stmts.len * sizeof(a.stmts.ptr[0]));
     extra += a.stmts.len * (sizeof(a.stmts.ptr[0]) / sizeof(int32_t));
-    return new_ast(c, AST_BLOCK, data);
+    return ast_new(c, AST_BLOCK, data);
 }
 
 AstId ast_push_leaf(Ast *c, AstTag tag, AstLeaf a) {
@@ -430,11 +430,11 @@ AstId ast_push_leaf(Ast *c, AstTag tag, AstLeaf a) {
     }
     AstData data;
     memcpy(&data.a, (int32_t *) &a.token + 0, sizeof(int32_t));
-    return new_ast(c, tag, data);
+    return ast_new(c, tag, data);
 }
 
 AstRoot ast_get_root(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ROOT:
             break;
         default:
@@ -450,7 +450,7 @@ AstRoot ast_get_root(Ast *c, AstId a) {
 }
 
 AstImport ast_get_import(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_IMPORT:
             break;
         default:
@@ -462,7 +462,7 @@ AstImport ast_get_import(Ast *c, AstId a) {
 }
 
 AstPublic ast_get_public(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_PUBLIC:
             break;
         default:
@@ -475,7 +475,7 @@ AstPublic ast_get_public(Ast *c, AstId a) {
 }
 
 AstFunction ast_get_function(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_FUNCTION:
             break;
         default:
@@ -496,7 +496,7 @@ AstFunction ast_get_function(Ast *c, AstId a) {
 }
 
 AstEnum ast_get_enum(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ENUM:
             break;
         default:
@@ -513,7 +513,7 @@ AstEnum ast_get_enum(Ast *c, AstId a) {
 }
 
 AstStruct ast_get_struct(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_STRUCT:
             break;
         default:
@@ -533,7 +533,7 @@ AstStruct ast_get_struct(Ast *c, AstId a) {
 }
 
 AstUnion ast_get_union(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_UNION:
             break;
         default:
@@ -553,7 +553,7 @@ AstUnion ast_get_union(Ast *c, AstId a) {
 }
 
 AstNewtype ast_get_newtype(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_NEWTYPE:
             break;
         default:
@@ -570,7 +570,7 @@ AstNewtype ast_get_newtype(Ast *c, AstId a) {
 }
 
 AstConst ast_get_const(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_CONST:
             break;
         default:
@@ -583,7 +583,7 @@ AstConst ast_get_const(Ast *c, AstId a) {
 }
 
 AstExternFunction ast_get_extern_function(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_EXTERN_FUNCTION:
             break;
         default:
@@ -600,7 +600,7 @@ AstExternFunction ast_get_extern_function(Ast *c, AstId a) {
 }
 
 AstExternVar ast_get_extern_var(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_EXTERN_VAR:
             break;
         default:
@@ -613,7 +613,7 @@ AstExternVar ast_get_extern_var(Ast *c, AstId a) {
 }
 
 AstParam ast_get_param(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_PARAM:
             break;
         default:
@@ -626,7 +626,7 @@ AstParam ast_get_param(Ast *c, AstId a) {
 }
 
 AstLet ast_get_let(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_LET:
         case AST_MUT:
             break;
@@ -640,7 +640,7 @@ AstLet ast_get_let(Ast *c, AstId a) {
 }
 
 AstIf ast_get_if(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_IF:
             break;
         default:
@@ -656,7 +656,7 @@ AstIf ast_get_if(Ast *c, AstId a) {
 }
 
 AstWhile ast_get_while(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_WHILE:
             break;
         default:
@@ -670,7 +670,7 @@ AstWhile ast_get_while(Ast *c, AstId a) {
 }
 
 AstFor ast_get_for(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_FOR:
             break;
         default:
@@ -687,7 +687,7 @@ AstFor ast_get_for(Ast *c, AstId a) {
 }
 
 AstSwitch ast_get_switch(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_SWITCH:
             break;
         default:
@@ -704,7 +704,7 @@ AstSwitch ast_get_switch(Ast *c, AstId a) {
 }
 
 AstSwitchCase ast_get_switch_case(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_SWITCH_CASE:
             break;
         default:
@@ -718,7 +718,7 @@ AstSwitchCase ast_get_switch_case(Ast *c, AstId a) {
 }
 
 AstBreak ast_get_break(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_BREAK:
             break;
         default:
@@ -730,7 +730,7 @@ AstBreak ast_get_break(Ast *c, AstId a) {
 }
 
 AstContinue ast_get_continue(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_CONTINUE:
             break;
         default:
@@ -742,7 +742,7 @@ AstContinue ast_get_continue(Ast *c, AstId a) {
 }
 
 AstReturn ast_get_return(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_RETURN:
             break;
         default:
@@ -755,7 +755,7 @@ AstReturn ast_get_return(Ast *c, AstId a) {
 }
 
 AstArrayType ast_get_array_type(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ARRAY_TYPE:
             break;
         default:
@@ -769,7 +769,7 @@ AstArrayType ast_get_array_type(Ast *c, AstId a) {
 }
 
 AstArrayTypeSugar ast_get_array_type_sugar(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ARRAY_TYPE_SUGAR:
             break;
         default:
@@ -783,7 +783,7 @@ AstArrayTypeSugar ast_get_array_type_sugar(Ast *c, AstId a) {
 }
 
 AstUnary ast_get_unary(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_PTR_TYPE:
         case AST_MUT_PTR_TYPE:
         case AST_SLICE_TYPE:
@@ -804,7 +804,7 @@ AstUnary ast_get_unary(Ast *c, AstId a) {
 }
 
 AstBinary ast_get_binary(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ADD:
         case AST_SUB:
         case AST_MUL:
@@ -844,7 +844,7 @@ AstBinary ast_get_binary(Ast *c, AstId a) {
 }
 
 AstFunctionType ast_get_function_type(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_FUNCTION_TYPE:
             break;
         default:
@@ -861,7 +861,7 @@ AstFunctionType ast_get_function_type(Ast *c, AstId a) {
 }
 
 AstTypeHint ast_get_type_hint(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_TYPE_HINT:
             break;
         default:
@@ -875,7 +875,7 @@ AstTypeHint ast_get_type_hint(Ast *c, AstId a) {
 }
 
 AstCall ast_get_call(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_CALL:
         case AST_INDEX:
         case AST_SLICE:
@@ -894,7 +894,7 @@ AstCall ast_get_call(Ast *c, AstId a) {
 }
 
 AstAccess ast_get_access(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ACCESS:
             break;
         default:
@@ -907,7 +907,7 @@ AstAccess ast_get_access(Ast *c, AstId a) {
 }
 
 AstInferredAccess ast_get_inferred_access(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_INFERRED_ACCESS:
             break;
         default:
@@ -919,7 +919,7 @@ AstInferredAccess ast_get_inferred_access(Ast *c, AstId a) {
 }
 
 AstList ast_get_list(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_LIST:
             break;
         default:
@@ -935,7 +935,7 @@ AstList ast_get_list(Ast *c, AstId a) {
 }
 
 AstMapEntry ast_get_map_entry(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_MAP_ENTRY:
             break;
         default:
@@ -948,7 +948,7 @@ AstMapEntry ast_get_map_entry(Ast *c, AstId a) {
 }
 
 AstMap ast_get_map(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_MAP:
             break;
         default:
@@ -964,7 +964,7 @@ AstMap ast_get_map(Ast *c, AstId a) {
 }
 
 AstBlock ast_get_block(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_BLOCK:
             break;
         default:
@@ -980,7 +980,7 @@ AstBlock ast_get_block(Ast *c, AstId a) {
 }
 
 AstLeaf ast_get_leaf(Ast *c, AstId a) {
-    switch (get_ast_tag(c, a)) {
+    switch (ast_get_tag(c, a)) {
         case AST_ID:
         case AST_INT:
         case AST_FLOAT:

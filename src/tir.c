@@ -25,7 +25,7 @@ typedef struct {
 } StructuralType;
 
 static StructuralType get_type_from_id(TirContext c, TirId type) {
-    TirTag tag = get_tir_tag(c, type);
+    TirTag tag = tir_get_tag(c, type);
     switch (tag) {
         case TIR_ARRAY_TYPE: {
             return (StructuralType) {
@@ -296,7 +296,7 @@ static TirId new_structural_type(TirContext c, StructuralType descriptor) {
     return type;
 }
 
-TirId new_tir(TirContext c, TirTag tag, TirData data) {
+TirId tir_new(TirContext c, TirTag tag, TirData data) {
     if (c.thread == c.global) {
         TirId t = {c.global->terms.terms.len + 1};
         sum_vec_push(&c.global->terms.terms, data, tag);
@@ -397,7 +397,7 @@ TirId new_tagged_type(TirContext c, TirTaggedType t) {
 }
 
 TirId new_affine_type(TirContext c, TirId elem) {
-    if (get_tir_tag(c, elem) == TIR_AFFINE_TYPE) {
+    if (tir_get_tag(c, elem) == TIR_AFFINE_TYPE) {
         return elem;
     }
     return new_structural_type(c, (StructuralType) {
@@ -406,42 +406,42 @@ TirId new_affine_type(TirContext c, TirId elem) {
     });
 }
 
-TirTag get_tir_tag(TirContext c, TirId term) {
-    if (term.private_field_id <= RESERVED_ERROR) {
-        return term.private_field_id == RESERVED_ERROR ? TIR_ERROR : TIR_RESERVED;
+TirTag tir_get_tag(TirContext c, TirId t) {
+    if (t.private_field_id <= RESERVED_ERROR) {
+        return t.private_field_id == RESERVED_ERROR ? TIR_ERROR : TIR_RESERVED;
     }
-    TermIndex i = tir_get_storage(c, term);
+    TermIndex i = tir_get_storage(c, t);
     return i.tir->terms.terms.tags[i.index];
 }
 
-TirData const *get_term_data(TirContext c, TirId term) {
-    TermIndex i = tir_get_storage(c, term);
+TirData const *tir_get_data(TirContext c, TirId t) {
+    TermIndex i = tir_get_storage(c, t);
     return &i.tir->terms.terms.datas[i.index];
 }
 
-int32_t get_term_extra(Tir *c, int32_t index) {
-    return c->terms.extra.ptr[index];
+TirId *tir_get_block_stmts(Tir *c, int32_t block) {
+    return (TirId *) &c->terms.extra.ptr[block];
 }
 
-TirId tir_block_get_last(TirBlock const *block) {
+static TirId tir_block_get_last(TirBlock const *block) {
     assert(block->stmts.len > 0);
     return block->stmts.ptr[block->stmts.len - 1];
 }
 
-TirCategory get_term_category(TirContext c, TirId term) {
-    TirTag tag = get_tir_tag(c, term);
+TirCategory tir_get_category(TirContext c, TirId t) {
+    TirTag tag = tir_get_tag(c, t);
     switch (tag) {
         case TIR_RESERVED: {
-            if (term.private_field_id == RESERVED_ERROR) {
+            if (t.private_field_id == RESERVED_ERROR) {
                 return TIRCAT_ERROR;
             }
-            if (term.private_field_id >= RESERVED_TYPE_START
-                && term.private_field_id < RESERVED_TYPE_END
+            if (t.private_field_id >= RESERVED_TYPE_START
+                && t.private_field_id < RESERVED_TYPE_END
             ) {
                 return TIRCAT_TYPE;
             }
-            if (term.private_field_id >= RESERVED_MACRO_START
-                && term.private_field_id < RESERVED_MACRO_END
+            if (t.private_field_id >= RESERVED_MACRO_START
+                && t.private_field_id < RESERVED_MACRO_END
             ) {
                 return TIRCAT_MACRO;
             }
@@ -451,12 +451,12 @@ TirCategory get_term_category(TirContext c, TirId term) {
             return TIRCAT_OTHER;
         }
         case TIR_BLOCK: {
-            TirBlock block = tir_get_block(c, term);
+            TirBlock block = tir_get_block(c, t);
             if (block.stmts.len == 0) {
                 return TIRCAT_OTHER;
             }
             TirId last = tir_block_get_last(&block);
-            return get_term_category(c, last);
+            return tir_get_category(c, last);
         }
         default: {
             if (tag >= TIR_TYPE_START && tag < TIR_TYPE_END) {
@@ -471,7 +471,7 @@ TirCategory get_term_category(TirContext c, TirId term) {
 }
 
 TirId get_function_type_param(TirContext c, TirId type, int32_t index) {
-    if (get_tir_tag(c, type) != TIR_FUNCTION_TYPE) {
+    if (tir_get_tag(c, type) != TIR_FUNCTION_TYPE) {
         return error_term;
     }
 
@@ -484,7 +484,7 @@ TirId get_function_type_param(TirContext c, TirId type, int32_t index) {
 
 TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
     type = remove_tags(c, type);
-    TirTag tag = get_tir_tag(c, type);
+    TirTag tag = tir_get_tag(c, type);
 
     if (tag == TIR_SLICE_TYPE || tag == TIR_MUT_SLICE_TYPE) {
         switch (index) {
@@ -506,7 +506,7 @@ TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
 }
 
 TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index) {
-    if (get_tir_tag(c, type) != TIR_TAGGED_TYPE) {
+    if (tir_get_tag(c, type) != TIR_TAGGED_TYPE) {
         return error_term;
     }
 
@@ -518,7 +518,7 @@ TirId get_tagged_type_arg(TirContext c, TirId type, int32_t index) {
 }
 
 TirGeneric as_generic_term(TirContext c, TirId term) {
-    if (get_tir_tag(c, term) != TIR_GENERIC) {
+    if (tir_get_tag(c, term) != TIR_GENERIC) {
         return (TirGeneric) {
             .inner = term,
             .params = {0},
@@ -529,11 +529,11 @@ TirGeneric as_generic_term(TirContext c, TirId term) {
 }
 
 TirId get_value_type(TirContext c, TirId value) {
-    if (get_term_category(c, value) != TIRCAT_VALUE) {
+    if (tir_get_category(c, value) != TIRCAT_VALUE) {
         return error_term;
     }
 
-    if (get_tir_tag(c, value) == TIR_BLOCK) {
+    if (tir_get_tag(c, value) == TIR_BLOCK) {
         TirBlock block = tir_get_block(c, value);
         if (block.stmts.len == 0) {
             return error_term;
@@ -542,11 +542,11 @@ TirId get_value_type(TirContext c, TirId value) {
         return get_value_type(c, last);
     }
 
-    return (TirId) {get_term_data(c, value)->b};
+    return (TirId) {tir_get_data(c, value)->b};
 }
 
 ValueCategory get_value_category(TirContext c, TirId value) {
-    switch (get_tir_tag(c, value)) {
+    switch (tir_get_tag(c, value)) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
         case TIR_INT:
@@ -621,7 +621,7 @@ ValueCategory get_value_category(TirContext c, TirId value) {
 }
 
 bool is_value_mutable(TirContext c, TirId value) {
-    switch (get_tir_tag(c, value)) {
+    switch (tir_get_tag(c, value)) {
         case TIR_FUNCTION:
         case TIR_EXTERN_FUNCTION:
         case TIR_INT:
@@ -680,7 +680,7 @@ bool is_value_mutable(TirContext c, TirId value) {
 
         case TIR_DEREF: {
             TirId operand = tir_get_unary(c, value).a;
-            switch (get_tir_tag(c, get_value_type(c, operand))) {
+            switch (tir_get_tag(c, get_value_type(c, operand))) {
                 case TIR_PTR_TYPE: return false;
                 case TIR_MUT_PTR_TYPE: return true;
                 default: break;

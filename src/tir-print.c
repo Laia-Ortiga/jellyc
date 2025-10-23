@@ -1,5 +1,5 @@
 static void print_tir_node(TirPrinter *p, TirId a) {
-    switch (get_tir_tag(p->tir, a)) {
+    switch (tir_get_tag(p->tir, a)) {
         case TIR_ERROR: {
             printf("Error\n");
             break;

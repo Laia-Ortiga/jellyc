@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 TirId remove_any_pointer(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
         case TIR_SLICE_TYPE:
@@ -17,7 +17,7 @@ TirId remove_any_pointer(TirContext c, TirId type) {
 }
 
 TirId remove_pointer(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
 
@@ -26,7 +26,7 @@ TirId remove_pointer(TirContext c, TirId type) {
 }
 
 TirId remove_slice(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
 
@@ -35,7 +35,7 @@ TirId remove_slice(TirContext c, TirId type) {
 }
 
 TirId replace_slice_with_pointer(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_SLICE_TYPE: return new_ptr_type(c, tir_get_slice_type(c, type).elem);
         case TIR_MUT_SLICE_TYPE: return new_mut_ptr_type(c, tir_get_slice_type(c, type).elem);
         default: return error_term;
@@ -43,7 +43,7 @@ TirId replace_slice_with_pointer(TirContext c, TirId type) {
 }
 
 TirId replace_pointer_with_slice(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_PTR_TYPE: return new_slice_type(c, tir_get_ptr_type(c, type).elem);
         case TIR_MUT_PTR_TYPE: return new_mut_slice_type(c, tir_get_ptr_type(c, type).elem);
         default: return error_term;
@@ -51,7 +51,7 @@ TirId replace_pointer_with_slice(TirContext c, TirId type) {
 }
 
 TirId remove_c_pointer_like(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_ARRAY_TYPE: return tir_get_array_type(c, type).elem;
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE: return tir_get_ptr_type(c, type).elem;
@@ -63,7 +63,7 @@ TirId remove_c_pointer_like(TirContext c, TirId type) {
 }
 
 TirId remove_array_like(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_ARRAY_TYPE: return tir_get_array_type(c, type).elem;
         case TIR_SLICE_TYPE:
         case TIR_MUT_SLICE_TYPE: return tir_get_slice_type(c, type).elem;
@@ -73,7 +73,7 @@ TirId remove_array_like(TirContext c, TirId type) {
 }
 
 TirId remove_tags(TirContext c, TirId type) {
-    if (get_tir_tag(c, type) != TIR_TAGGED_TYPE) {
+    if (tir_get_tag(c, type) != TIR_TAGGED_TYPE) {
         return type;
     }
 
@@ -81,7 +81,7 @@ TirId remove_tags(TirContext c, TirId type) {
 }
 
 int64_t type_get_domain_size(TirContext c, TirId a) {
-    switch (get_tir_tag(c, a)) {
+    switch (tir_get_tag(c, a)) {
         case TIR_ARRAY_LENGTH_TYPE: {
             return tir_get_array_length_type(c, a).length;
         }
@@ -92,7 +92,7 @@ int64_t type_get_domain_size(TirContext c, TirId a) {
 }
 
 bool is_recursive_error_type(TirContext c, TirId a) {
-    switch (get_tir_tag(c, a)) {
+    switch (tir_get_tag(c, a)) {
         case TIR_RESERVED:
         case TIR_ARRAY_LENGTH_TYPE:
         case TIR_STRUCT_TYPE:
@@ -142,7 +142,7 @@ bool is_recursive_error_type(TirContext c, TirId a) {
 }
 
 bool is_aggregate_type(TirContext c, TirId type) {
-    switch (get_tir_tag(c, type)) {
+    switch (tir_get_tag(c, type)) {
         case TIR_RESERVED: {
             switch (tir_as_reserved(type)) {
                 case RESERVED_VOID:
@@ -190,7 +190,7 @@ bool is_aggregate_type(TirContext c, TirId type) {
 }
 
 bool type_is_affine(TirContext c, TirId type) {
-    TirTag tag = get_tir_tag(c, type);
+    TirTag tag = tir_get_tag(c, type);
     switch (tag) {
         case TIR_RESERVED: {
             switch (tir_as_reserved(type)) {
@@ -243,7 +243,7 @@ bool type_is_affine(TirContext c, TirId type) {
 }
 
 bool type_is_unknown_size(TirContext c, TirId type) {
-    TirTag tag = get_tir_tag(c, type);
+    TirTag tag = tir_get_tag(c, type);
     switch (tag) {
         case TIR_ERROR: {
             return false;
@@ -305,7 +305,7 @@ bool is_equality_type(TirContext c, TirId a) {
     if (tir_is_reserved(a, RESERVED_byte)) {
         return true;
     }
-    switch (get_tir_tag(c, a)) {
+    switch (tir_get_tag(c, a)) {
         case TIR_PTR_TYPE:
         case TIR_MUT_PTR_TYPE:
         case TIR_FUNCTION_TYPE:
@@ -322,7 +322,7 @@ bool is_relative_type(TirContext c, TirId a) {
     if (type_is_arithmetic(a)) {
         return true;
     }
-    switch (get_tir_tag(c, a)) {
+    switch (tir_get_tag(c, a)) {
         case TIR_ENUM_TYPE: {
             return true;
         }

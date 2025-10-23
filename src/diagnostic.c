@@ -21,7 +21,7 @@ static int find_line_num(String source, SourceIndex where) {
 }
 
 static void print_term(TirContext c, TirId term) {
-    switch (get_term_category(c, term)) {
+    switch (tir_get_category(c, term)) {
         case TIRCAT_ERROR:
         case TIRCAT_OTHER:
         case TIRCAT_MACRO: {
