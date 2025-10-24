@@ -104,10 +104,6 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             printf("elem: ");
             print_type(stdout, p->tir, t.elem);
             printf(",\n");
-            print_indent(p->depth);
-            printf("cached_ptr: ");
-            print_type(stdout, p->tir, t.cached_ptr);
-            printf(",\n");
             print_indent(--p->depth);
             printf(")");
             break;
@@ -119,10 +115,6 @@ static void print_tir_node(TirPrinter *p, TirId a) {
             print_indent(p->depth);
             printf("elem: ");
             print_type(stdout, p->tir, t.elem);
-            printf(",\n");
-            print_indent(p->depth);
-            printf("cached_ptr: ");
-            print_type(stdout, p->tir, t.cached_ptr);
             printf(",\n");
             print_indent(--p->depth);
             printf(")");

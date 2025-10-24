@@ -484,17 +484,8 @@ TirId get_function_type_param(TirContext c, TirId type, int32_t index) {
 
 TirId get_struct_type_field(TirContext c, TirId type, int32_t index) {
     type = remove_tags(c, type);
-    TirTag tag = tir_get_tag(c, type);
 
-    if (tag == TIR_SLICE_TYPE || tag == TIR_MUT_SLICE_TYPE) {
-        switch (index) {
-            case 0: return reserved_tir(isize);
-            case 1: return tir_get_slice_type(c, type).cached_ptr;
-            default: return error_term;
-        }
-    }
-
-    if (tag != TIR_STRUCT_TYPE) {
+    if (tir_get_tag(c, type) != TIR_STRUCT_TYPE) {
         return error_term;
     }
 

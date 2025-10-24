@@ -66,7 +66,6 @@ TirId tir_push_slice_type(TirContext c, TirTag tag, TirSliceType a) {
     }
     TirData data;
     memcpy(&data.a, (int32_t *) &a.elem + 0, sizeof(int32_t));
-    memcpy(&data.b, (int32_t *) &a.cached_ptr + 0, sizeof(int32_t));
     return tir_new(c, tag, data);
 }
 
@@ -558,7 +557,6 @@ TirSliceType tir_get_slice_type(TirContext c, TirId a) {
     }
     TirSliceType result;
     memcpy((int32_t *) &result.elem + 0, &tir_get_data(c, a)->a, sizeof(int32_t));
-    memcpy((int32_t *) &result.cached_ptr + 0, &tir_get_data(c, a)->b, sizeof(int32_t));
     return result;
 }
 

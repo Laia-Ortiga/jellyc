@@ -415,7 +415,6 @@ types = [
         ],
         "fields": [
             { "name": "elem", "ty": ty },
-            { "name": "cached_ptr", "ty": ty },
         ],
     },
     {

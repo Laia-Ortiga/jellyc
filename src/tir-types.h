@@ -115,7 +115,6 @@ typedef struct {
 
 typedef struct {
     TirId elem;
-    TirId cached_ptr;
 } TirSliceType;
 
 typedef struct {
